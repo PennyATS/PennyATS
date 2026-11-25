@@ -5,6 +5,9 @@ import {
   isOverdue,
   missingFeedback,
   parseScheduledAt,
+  parseZonedScheduledAt,
+  localInputInZone,
+  overlappingInterviews,
   parseTemplateForm,
   scorecardAttributes,
   type InterviewState,
@@ -101,4 +104,25 @@ test("parseScheduledAt turns a local time plus the browser's offset into an exac
   assert.deepEqual(parseScheduledAt("", 480), { ok: true, value: null });
   assert.equal(parseScheduledAt("tomorrow", 480).ok, false);
   assert.equal(parseScheduledAt("2026-11-24T14:30", 99999).ok, false);
+});
+
+test("explicit time zones handle normal, skipped, and repeated local times", () => {
+  const normal = parseZonedScheduledAt("2026-12-03T10:30", "America/Los_Angeles");
+  assert.deepEqual(normal, { ok: true, value: new Date("2026-12-03T18:30:00Z") });
+  if (normal.ok) assert.equal(localInputInZone(normal.value, "America/Los_Angeles"), "2026-12-03T10:30");
+  assert.equal(parseZonedScheduledAt("2026-03-08T02:30", "America/Los_Angeles").ok, false);
+  assert.equal(parseZonedScheduledAt("2026-11-01T01:30", "America/Los_Angeles").ok, false);
+  assert.equal(parseZonedScheduledAt("2026-02-30T10:00", "UTC").ok, false);
+  assert.equal(parseZonedScheduledAt("2026-12-03T10:30", "not/a-zone").ok, false);
+});
+
+test("manual conflicts overlap only shared interviewer time, excluding the interview itself", () => {
+  const at = new Date("2026-12-03T18:30:00Z");
+  const rows = [
+    { interviewId: "other", interviewerId: "alex", interviewerName: "Alex", scheduledAt: new Date("2026-12-03T18:00:00Z"), durationMinutes: 60 },
+    { interviewId: "current", interviewerId: "alex", interviewerName: "Alex", scheduledAt: at, durationMinutes: 30 },
+    { interviewId: "ends-at-start", interviewerId: "alex", interviewerName: "Alex", scheduledAt: new Date("2026-12-03T18:00:00Z"), durationMinutes: 30 },
+  ];
+  assert.deepEqual(overlappingInterviews(at, 30, "current", rows).map((row) => row.interviewId), ["other"]);
+  assert.deepEqual(overlappingInterviews(new Date("2026-12-03T19:00:00Z"), 30, "current", rows), []);
 });

@@ -62,6 +62,7 @@ export function SubmitButton({
 }
 
 export function Field({
+  id,
   label,
   name,
   type = "text",
@@ -70,6 +71,7 @@ export function Field({
   autoComplete,
   placeholder,
 }: {
+  id?: string;
   label: string;
   name: string;
   type?: string;
@@ -80,12 +82,12 @@ export function Field({
 }) {
   return (
     <div>
-      <label className="label" htmlFor={name}>
+      <label className="label" htmlFor={id ?? name}>
         {label}
         {required && " *"}
       </label>
       <input
-        id={name}
+        id={id ?? name}
         name={name}
         type={type}
         required={required}

@@ -64,6 +64,55 @@
       "when": 1795591315903,
       "tag": "0008_rich_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795637734807,
+      "tag": "0009_clever_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795638955318,
+      "tag": "0010_smart_betty_brant",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795639282224,
+      "tag": "0011_purple_justice",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795639699832,
+      "tag": "0012_outgoing_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795640281317,
+      "tag": "0013_wealthy_la_nuit",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795640583000,
+      "tag": "0014_plain_daredevil",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1795641235674,
+      "tag": "0015_brave_energizer",
+      "breakpoints": true
     }
   ]
 }

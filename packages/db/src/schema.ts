@@ -94,6 +94,19 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** An interviewer's Google Calendar OAuth grant. Refresh tokens are encrypted by the app. */
+export const googleCalendarConnections = pgTable("google_calendar_connections", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  lastError: text("last_error"),
+  workingTimeZone: text("working_time_zone").notNull().default("UTC"),
+  workingDays: integer("working_days").array().notNull().default([1, 2, 3, 4, 5]),
+  workStartMinute: integer("work_start_minute").notNull().default(540),
+  workEndMinute: integer("work_end_minute").notNull().default(1020),
+});
+
 /* ---------- Jobs and pipeline ---------- */
 
 export const jobs = pgTable(
@@ -134,6 +147,14 @@ export const stages = pgTable(
   },
   (t) => [index("stages_job_idx").on(t.jobId, t.position)],
 );
+
+/** Optional per-stage scheduling automation, off until a team opts in. */
+export const stageSchedulingSettings = pgTable("stage_scheduling_settings", {
+  stageId: uuid("stage_id").primaryKey().references(() => stages.id, { onDelete: "cascade" }),
+  autoLinkMode: text("auto_link_mode").notNull().default("none"),
+  reminderMinutes: integer("reminder_minutes"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const jobTeam = pgTable(
   "job_team",
@@ -258,6 +279,15 @@ export const interviews = pgTable(
     attributes: text("attributes").array().notNull().default([]),
     instructions: text("instructions"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledTimeZone: text("scheduled_time_zone"),
+    meetingLocation: text("meeting_location"),
+    googleEventId: text("google_event_id"),
+    googleEventOwnerId: uuid("google_event_owner_id").references(() => users.id, { onDelete: "set null" }),
+    googleSyncError: text("google_sync_error"),
+    googleSyncFingerprint: text("google_sync_fingerprint"),
+    googleEventEtag: text("google_event_etag"),
+    googleRsvps: jsonb("google_rsvps").$type<{ candidate: string | null; interviewers: { userId: string; status: string }[] }>(),
+    googleLastSyncedAt: timestamp("google_last_synced_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -282,6 +312,37 @@ export const interviewInterviewers = pgTable(
   },
   (t) => [primaryKey({ columns: [t.interviewId, t.userId] }), index("interview_interviewers_user_idx").on(t.userId)],
 );
+
+/** One revocable, candidate-scoped direct booking link per interview. Only its hash is stored. */
+export const interviewBookingLinks = pgTable("interview_booking_links", {
+  interviewId: uuid("interview_id").primaryKey().references(() => interviews.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One revocable availability request for the application's current stage. */
+export const candidateAvailabilityLinks = pgTable("candidate_availability_links", {
+  applicationId: uuid("application_id").primaryKey().references(() => applications.id, { onDelete: "cascade" }),
+  stageId: uuid("stage_id").notNull().references(() => stages.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Candidate-proposed windows are suggestions, not reserved interviewer time. */
+export const candidateAvailabilityWindows = pgTable("candidate_availability_windows", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  stageId: uuid("stage_id").notNull().references(() => stages.id, { onDelete: "cascade" }),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  timeZone: text("time_zone").notNull(),
+  source: text("source").notNull().default("availability_link"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("candidate_availability_windows_application_idx").on(t.applicationId, t.stageId)]);
 
 /* ---------- Feedback, notes, email ---------- */
 
@@ -355,6 +416,27 @@ export const emails = pgTable("emails", {
   sentBy: uuid("sent_by").references(() => users.id),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Durable, uniquely keyed scheduling mail. A sending claim is never retried automatically. */
+export const schedulingDeliveries = pgTable("scheduling_deliveries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  dedupeKey: text("dedupe_key").notNull().unique(),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  candidateId: uuid("candidate_id").notNull().references(() => candidates.id, { onDelete: "cascade" }),
+  interviewId: uuid("interview_id").references(() => interviews.id, { onDelete: "set null" }),
+  kind: text("kind").notNull(),
+  recipientEmail: text("recipient_email").notNull(),
+  subject: text("subject").notNull(),
+  bodyEncrypted: text("body_encrypted").notNull(),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+  status: text("status").notNull().default("queued"),
+  attempts: integer("attempts").notNull().default(0),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  messageId: text("message_id"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("scheduling_deliveries_due_idx").on(t.status, t.scheduledFor),
+  index("scheduling_deliveries_application_idx").on(t.applicationId)]);
 
 /** Audit trail of stage moves and status changes. */
 export const activity = pgTable(

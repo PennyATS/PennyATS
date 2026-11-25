@@ -1,13 +1,16 @@
 import Link from "next/link";
+import { BookingLinkControl } from "./booking-link-control";
+import { AvailabilityLinkControl } from "./availability-link-control";
 import { ActionForm, Field, SubmitButton } from "@/components/form";
-import { LocalTime, ScheduleInput } from "@/components/local-time";
+import { LocalTime } from "@/components/local-time";
 import { STATUS_LABELS, type InterviewStatus } from "@/lib/interviews";
 import {
   addInterviewAction,
   createPlannedInterviewsAction,
-  scheduleInterviewAction,
   setInterviewStateAction,
   setInterviewersAction,
+  retryCalendarSyncAction,
+  refreshGoogleEventAction,
 } from "../interview-actions";
 
 export type InterviewRow = {
@@ -16,6 +19,13 @@ export type InterviewRow = {
   stageName: string;
   durationMinutes: number;
   scheduledAt: Date | null;
+  scheduledTimeZone: string | null;
+  meetingLocation: string | null;
+  googleEventId: string | null;
+  googleSyncError: string | null;
+  googleRsvps: { candidate: string | null; interviewers: { userId: string; status: string }[] } | null;
+  googleLastSyncedAt: Date | null;
+  bookingLinkActive: boolean;
   cancelledAt: Date | null;
   status: InterviewStatus;
   overdue: boolean;
@@ -32,6 +42,7 @@ const STATUS_COLORS: Record<InterviewStatus, string> = {
 
 /** The interview loop for one application, shown on the candidate profile. */
 export function Interviews({
+  candidateId,
   applicationId,
   rows,
   userId,
@@ -39,7 +50,10 @@ export function Interviews({
   people,
   planAvailable,
   active,
+  availabilityLinkActive,
+  availability,
 }: {
+  candidateId: string;
   applicationId: string;
   rows: InterviewRow[];
   userId: string;
@@ -49,6 +63,8 @@ export function Interviews({
   /** The job's plan has interviews for this application's stage that it doesn't have yet. */
   planAvailable: boolean;
   active: boolean;
+  availabilityLinkActive: boolean;
+  availability: { id: string; startsAt: Date; endsAt: Date; timeZone: string }[];
 }) {
   if (rows.length === 0 && !manage) return null;
 
@@ -56,6 +72,19 @@ export function Interviews({
     <div className="border-t pt-3" style={{ borderColor: "var(--border)" }}>
       <h3 className="font-medium">Interviews ({rows.filter((r) => r.status !== "cancelled").length})</h3>
       {rows.length === 0 && <p className="muted mt-1">No interviews yet.</p>}
+      {manage && active && <AvailabilityLinkControl applicationId={applicationId} activeLink={availabilityLinkActive} />}
+      {availability.length > 0 && <div className="inset mt-3 text-sm">
+        <h4 className="font-semibold">Candidate availability</h4>
+        <p className="muted mt-1 text-xs">Suggested windows, not reserved times. Schedule each interview separately.</p>
+        <ul className="mt-2 space-y-1">
+          {availability.map((window) => <li key={window.id}>
+            {window.startsAt.toLocaleString("en-US", { timeZone: window.timeZone,
+              weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+            {" – "}{window.endsAt.toLocaleTimeString("en-US", { timeZone: window.timeZone,
+              hour: "numeric", minute: "2-digit" })} ({window.timeZone})
+          </li>)}
+        </ul>
+      </div>}
 
       {manage && active && planAvailable && (
         <form action={createPlannedInterviewsAction.bind(null, applicationId)} className="mt-2">
@@ -80,7 +109,12 @@ export function Interviews({
                 </span>
               </div>
               <p className="muted text-xs">
-                {r.scheduledAt ? <LocalTime iso={r.scheduledAt.toISOString()} /> : "Not scheduled"}
+                {r.scheduledAt ? (
+                  r.scheduledTimeZone ? r.scheduledAt.toLocaleString("en-US", {
+                    timeZone: r.scheduledTimeZone, weekday: "short", month: "short", day: "numeric", year: "numeric",
+                    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+                  }) : <LocalTime iso={r.scheduledAt.toISOString()} />
+                ) : "Not scheduled"}
                 {" · "}
                 {r.interviewers.length
                   ? r.interviewers.map((i, n) => (
@@ -92,6 +126,21 @@ export function Interviews({
                     ))
                   : "No interviewers assigned"}
               </p>
+              {r.scheduledAt && r.meetingLocation && <p className="text-xs">
+                {/^https?:\/\//i.test(r.meetingLocation)
+                  ? <a href={r.meetingLocation} className="link" target="_blank" rel="noopener noreferrer">Meeting link</a>
+                  : <span className="muted">Location: {r.meetingLocation}</span>}
+              </p>}
+              {r.googleSyncError && <p role="alert" className="error text-xs">{r.googleSyncError}</p>}
+              {r.scheduledAt && r.status !== "cancelled" && !r.googleSyncError && <p className="muted text-xs">
+                {r.googleEventId ? "Google Calendar invitations sent." : "Saved in PennyATS. Share details with the candidate manually; no invite was sent."}
+              </p>}
+              {r.googleEventId && r.googleRsvps && <p className="muted text-xs">
+                RSVP: candidate {r.googleRsvps.candidate ?? "unknown"}
+                {r.googleRsvps.interviewers.map((response) =>
+                  ` · ${r.interviewers.find((person) => person.id === response.userId)?.name ?? "Interviewer"} ${response.status}`)}
+                {r.googleLastSyncedAt && ` · checked ${r.googleLastSyncedAt.toLocaleString()}`}
+              </p>}
 
               {r.status !== "cancelled" && (mine || manage) && (
                 <div className="flex flex-wrap items-center gap-2">
@@ -99,6 +148,24 @@ export function Interviews({
                     <Link href={`/applications/${applicationId}/scorecard?interview=${r.id}`} className="btn btn-secondary">
                       {mine?.submitted ? "Edit your scorecard" : "Submit scorecard"}
                     </Link>
+                  )}
+                  {manage && (r.status === "to_schedule" || r.status === "scheduled") && (
+                    <Link href={`/candidates/${candidateId}/interviews/${r.id}/schedule`} className="btn">
+                      {r.scheduledAt ? "Reschedule" : "Schedule manually"}
+                    </Link>
+                  )}
+                  {manage && r.googleSyncError && (
+                    <form action={retryCalendarSyncAction.bind(null, r.id)}>
+                      <button type="submit" className="btn btn-secondary">Retry calendar sync</button>
+                    </form>
+                  )}
+                  {manage && r.googleEventId && <form action={refreshGoogleEventAction.bind(null, r.id)}>
+                    <button type="submit" className="btn btn-secondary">Refresh from Google</button>
+                  </form>}
+                  {manage && r.status === "to_schedule" && (
+                    <>
+                      <BookingLinkControl interviewId={r.id} activeLink={r.bookingLinkActive} />
+                    </>
                   )}
                   {manage && r.status !== "complete" && (
                     <form action={setInterviewStateAction.bind(null, r.id, "complete")}>
@@ -126,21 +193,8 @@ export function Interviews({
 
               {manage && r.status !== "cancelled" && (
                 <details className="text-sm">
-                  <summary className="link w-fit cursor-pointer text-xs">Schedule or change interviewers</summary>
+                  <summary className="link w-fit cursor-pointer text-xs">Change interviewers</summary>
                   <div className="inset mt-2 space-y-4">
-                    <ActionForm
-                      action={scheduleInterviewAction.bind(null, r.id)}
-                      resetKey={r.scheduledAt?.toISOString() ?? "none"}
-                      className="flex flex-wrap items-end gap-2"
-                    >
-                      <div>
-                        <label className="label" htmlFor={`when-${r.id}`}>
-                          Date and time
-                        </label>
-                        <ScheduleInput id={`when-${r.id}`} value={r.scheduledAt?.toISOString() ?? null} />
-                      </div>
-                      <SubmitButton variant="secondary">Save time</SubmitButton>
-                    </ActionForm>
                     <ActionForm
                       action={setInterviewersAction.bind(null, r.id)}
                       resetKey={r.interviewers.map((i) => i.id).join(",")}
@@ -180,12 +234,7 @@ export function Interviews({
               <Field label="Interview name" name="name" required placeholder="e.g. Founder chat" />
               <Field label="Minutes" name="durationMinutes" type="number" required defaultValue="45" />
             </div>
-            <div>
-              <label className="label" htmlFor={`new-when-${applicationId}`}>
-                Date and time (optional)
-              </label>
-              <ScheduleInput id={`new-when-${applicationId}`} value={null} />
-            </div>
+            <p className="muted text-xs">Add the interview, then schedule it from this candidate record.</p>
             <fieldset>
               <legend className="label">Interviewers</legend>
               <div className="grid gap-1 sm:grid-cols-2">

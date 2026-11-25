@@ -1,0 +1,1 @@
+ALTER TABLE "interviews" ADD COLUMN "google_sync_fingerprint" text;

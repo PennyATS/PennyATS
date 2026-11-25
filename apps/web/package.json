@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "test:integration": "playwright test",
-    "privacy:purge": "tsx scripts/privacy-purge.mts"
+    "privacy:purge": "tsx scripts/privacy-purge.mts",
+    "calendar:sync": "tsx scripts/calendar-sync.mts",
+    "scheduling:mail": "tsx scripts/scheduling-mail.mts",
+    "scheduling:integration": "tsx scripts/scheduling-integration.mts"
   },
   "dependencies": {
     "@pennyats/ai": "workspace:*",
@@ -17,6 +20,7 @@
     "@pennyats/redact": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "next": "^15.1.0",
+    "nodemailer": "^10.6.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -24,6 +28,7 @@
     "@playwright/test": "1.65.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",

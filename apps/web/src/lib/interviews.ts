@@ -132,3 +132,67 @@ export function parseScheduledAt(local: string, offsetMinutes: number): Parsed<D
   if (Number.isNaN(date.getTime())) return { ok: false, error: "Enter a valid date and time." };
   return { ok: true, value: date };
 }
+
+/** Resolve an explicit wall-clock time in an IANA zone. Reject DST gaps and ambiguous hours. */
+export function parseZonedScheduledAt(local: string, timeZone: string): Parsed<Date> {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+  if (!match) return { ok: false, error: "Enter a valid date and time." };
+  const [, year, month, day, hour, minute] = match.map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
+    return { ok: false, error: "Enter a valid date and time." };
+  }
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+      hourCycle: "h23",
+    });
+  } catch {
+    return { ok: false, error: "Choose a valid time zone." };
+  }
+  const wanted = Date.UTC(year, month - 1, day, hour, minute);
+  const normalized = new Date(wanted);
+  if (normalized.getUTCFullYear() !== year || normalized.getUTCMonth() + 1 !== month || normalized.getUTCDate() !== day) {
+    return { ok: false, error: "Enter a valid date and time." };
+  }
+  const partsAt = (instant: number) => {
+    const parts = Object.fromEntries(formatter.formatToParts(instant).map((part) => [part.type, part.value]));
+    return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+  };
+  const offsets = new Set([-86400000, 0, 86400000].map((delta) => partsAt(wanted + delta) - (wanted + delta)));
+  const matches = [...offsets].map((offset) => wanted - offset).filter((instant) => partsAt(instant) === wanted).sort();
+  if (matches.length !== 1) {
+    return { ok: false, error: "This local time is skipped or repeated by a daylight saving change. Choose another time." };
+  }
+  return { ok: true, value: new Date(matches[0]) };
+}
+
+export function localInputInZone(instant: Date, timeZone: string): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(instant).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+export type ScheduledConflict = {
+  interviewId: string;
+  interviewerId: string;
+  interviewerName: string;
+  scheduledAt: Date;
+  durationMinutes: number;
+};
+
+export function overlappingInterviews(
+  start: Date,
+  durationMinutes: number,
+  currentInterviewId: string,
+  rows: ScheduledConflict[],
+): ScheduledConflict[] {
+  const end = start.getTime() + durationMinutes * 60000;
+  return rows.filter((row) =>
+    row.interviewId !== currentInterviewId &&
+    row.scheduledAt.getTime() < end &&
+    row.scheduledAt.getTime() + row.durationMinutes * 60000 > start.getTime(),
+  );
+}

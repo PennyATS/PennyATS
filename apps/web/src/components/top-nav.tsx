@@ -59,10 +59,12 @@ export function TopNav({ user }: { user: Pick<SessionUser, "name" | "role"> }) {
     ...(canHire ? [{ href: "/reports", label: "Reports", icon: "reports" as const }] : []),
   ];
   const secondary: { href: string; label: string; icon: IconName }[] = [
+    { href: "/settings/calendar", label: "Google Calendar", icon: "settings" },
     ...(canAdmin ? [
       { href: "/settings/users", label: "Users", icon: "candidates" as const },
       { href: "/settings/privacy", label: "Privacy", icon: "settings" as const },
       { href: "/settings/ai", label: "AI", icon: "settings" as const },
+      { href: "/settings/email", label: "Email", icon: "settings" as const },
     ] : []),
     { href: "/careers", label: "Careers page", icon: "careers" },
   ];

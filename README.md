@@ -97,6 +97,18 @@ Deleted data still exists in any database or file backups you keep, so expire th
 | `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` | Optional. `anthropic` or `openai`. Leave blank to keep every AI feature hidden. |
 | `AI_BASE_URL` | Optional. Use an OpenAI-compatible server instead of the public API, for example a local model through Ollama (`http://localhost:11434/v1`). |
 | `AI_REDACT_PII` | Defaults to `true`. Strips emails, phone numbers, and links before text is sent to a model. It's pattern-based and doesn't catch names. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional Google OAuth web client for interviewer free/busy and calendar invites. Add `${APP_URL}/api/google-calendar/callback` as an authorized redirect URI. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Optional SMTP delivery for scheduling links and reminders. Port 465 uses TLS; other ports must support STARTTLS. |
+
+## Scheduling
+
+Recruiters can schedule an interview manually from the candidate profile without Google Calendar. The interview keeps its scorecard and history when rescheduled or canceled. A connected interviewer can expose free/busy and enable a candidate-specific direct booking link; candidates can submit multiple availability windows without an account.
+
+Stage scheduling settings live under each job. Automatic link delivery and reminders use SMTP and are opt-in. Run `pnpm scheduling:mail` regularly (for example every minute with cron) to dispatch due messages. The candidate profile shows queued, sent, failed, and suppressed messages. A failed SMTP attempt requires an explicit recruiter retry after checking the mail server; an uncertain sending claim is not replayed automatically.
+
+With SMTP configured, admins can email team invites and password reset links. They can manage candidate email templates under **Admin → Email delivery**; recruiters can send a template from a candidate profile. Sent messages appear in the candidate timeline. If SMTP is unavailable, admins still receive a copyable invite or reset link.
+
+Run `pnpm calendar:sync` regularly to pull Google Calendar edits, cancellations, and RSVP changes into PennyATS. Google API credentials and each interviewer's calendar connection are required for live calendar features. Recruiters can also refresh a linked interview from its candidate profile.
 
 ## Development
 

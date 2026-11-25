@@ -5,12 +5,18 @@ import {
   activity,
   applications,
   candidates,
+  candidateAvailabilityLinks,
+  candidateAvailabilityWindows,
+  emails,
+  emailTemplates,
+  interviewBookingLinks,
   interviewInterviewers,
   interviewTemplates,
   interviews,
   jobs,
   notes,
   scorecards,
+  schedulingDeliveries,
   stages,
   users,
 } from "@pennyats/db";
@@ -20,12 +26,15 @@ import { canSeeCandidate, visibleJobIds } from "@/lib/hiring";
 import { ActionForm, SubmitButton } from "@/components/form";
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
+import { smtpConfigured } from "@/lib/smtp";
 import type { Recommendation } from "@/lib/scorecards";
 import { isAiFeatureOn } from "@/lib/ai";
 import {
   addNoteAction,
   deleteCandidateAction,
   moveStageAction,
+  retrySchedulingDeliveryAction,
+  sendCandidateEmailAction,
   setStatusAction,
   summarizeFeedbackAction,
 } from "../actions";
@@ -110,6 +119,12 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           .orderBy(desc(scorecards.updatedAt))
       : [],
   ]);
+  const [templates, sentEmails] = await Promise.all([
+    manage ? db().select().from(emailTemplates).orderBy(asc(emailTemplates.name)) : [],
+    db().select({ id: emails.id, subject: emails.subject, body: emails.body,
+      sentAt: emails.sentAt, sender: users.name }).from(emails)
+      .leftJoin(users, eq(users.id, emails.sentBy)).where(eq(emails.candidateId, id)),
+  ]);
   // Interview loop: interviews, who runs them, and who has submitted feedback for each.
   const [loop, planned, people] = await Promise.all([
     appIds.length
@@ -132,6 +147,23 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
         .innerJoin(users, eq(users.id, interviewInterviewers.userId))
         .where(inArray(interviewInterviewers.interviewId, loop.map((i) => i.id)))
     : [];
+  const bookingLinks = loop.length ? await db().select({ interviewId: interviewBookingLinks.interviewId,
+    expiresAt: interviewBookingLinks.expiresAt, revokedAt: interviewBookingLinks.revokedAt })
+    .from(interviewBookingLinks).where(inArray(interviewBookingLinks.interviewId, loop.map((i) => i.id))) : [];
+  const [availabilityLinks, availabilityWindows] = await Promise.all([
+    appIds.length ? db().select().from(candidateAvailabilityLinks)
+      .where(inArray(candidateAvailabilityLinks.applicationId, appIds)) : [],
+    appIds.length ? db().select().from(candidateAvailabilityWindows)
+      .where(inArray(candidateAvailabilityWindows.applicationId, appIds))
+      .orderBy(asc(candidateAvailabilityWindows.startsAt)) : [],
+  ]);
+  const deliveries = manage && appIds.length ? await db().select({ id: schedulingDeliveries.id,
+    applicationId: schedulingDeliveries.applicationId, kind: schedulingDeliveries.kind,
+    recipientEmail: schedulingDeliveries.recipientEmail, status: schedulingDeliveries.status,
+    lastError: schedulingDeliveries.lastError, scheduledFor: schedulingDeliveries.scheduledFor,
+    sentAt: schedulingDeliveries.sentAt })
+    .from(schedulingDeliveries).where(inArray(schedulingDeliveries.applicationId, appIds))
+    .orderBy(desc(schedulingDeliveries.updatedAt)) : [];
   const submittedFor = (interviewId: string) =>
     cards.filter((c) => c.interviewId === interviewId).map((c) => c.authorId);
   const interviewsFor = (applicationId: string): InterviewRow[] =>
@@ -152,6 +184,13 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           stageName: i.stageName,
           durationMinutes: i.durationMinutes,
           scheduledAt: i.scheduledAt,
+          scheduledTimeZone: i.scheduledTimeZone,
+          meetingLocation: i.meetingLocation,
+          googleEventId: i.googleEventId,
+          googleSyncError: i.googleSyncError,
+          googleRsvps: i.googleRsvps,
+          googleLastSyncedAt: i.googleLastSyncedAt,
+          bookingLinkActive: bookingLinks.some((link) => link.interviewId === i.id && !link.revokedAt && link.expiresAt > new Date()),
           cancelledAt: i.cancelledAt,
           status: interviewStatus(state),
           overdue: isOverdue(state),
@@ -193,6 +232,9 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
       job: undefined,
       body: n.body,
     })),
+    ...sentEmails.map((message) => ({ key: `email-${message.id}`, at: message.sentAt,
+      who: message.sender, text: `emailed candidate: ${message.subject}`,
+      job: undefined, body: message.body })),
   ].sort((a, b) => b.at.getTime() - a.at.getTime());
 
   return (
@@ -311,7 +353,11 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                 </div>
               )}
               <Interviews
+                candidateId={candidate.id}
                 applicationId={app.id}
+                availabilityLinkActive={availabilityLinks.some((link) => link.applicationId === app.id &&
+                  link.stageId === app.stageId && !link.revokedAt && link.expiresAt > new Date())}
+                availability={availabilityWindows.filter((window) => window.applicationId === app.id && window.stageId === app.stageId)}
                 rows={interviewsFor(app.id)}
                 userId={user.id}
                 manage={manage}
@@ -319,6 +365,24 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                 planAvailable={planAvailableFor(app)}
                 active={app.status === "active"}
               />
+              {manage && deliveries.some((delivery) => delivery.applicationId === app.id) &&
+                <section className="inset text-xs" aria-label="Scheduling messages">
+                  <h3 className="font-medium">Scheduling messages</h3>
+                  <ul className="mt-2 space-y-1">
+                    {deliveries.filter((delivery) => delivery.applicationId === app.id).slice(0, 8).map((delivery) =>
+                      <li key={delivery.id}>
+                        {delivery.kind === "reminder" ? "Reminder" : delivery.kind === "stage_booking" ? "Booking link" : "Availability link"}
+                        {" · "}{delivery.recipientEmail}{" · "}{delivery.status}
+                        {delivery.status === "queued" && ` for ${delivery.scheduledFor.toLocaleString()}`}
+                        {delivery.sentAt && ` ${delivery.sentAt.toLocaleString()}`}
+                        {delivery.lastError && <span className="muted"> · {delivery.lastError}</span>}
+                        {delivery.status === "failed" && delivery.lastError?.startsWith("SMTP did not confirm") &&
+                          <form action={retrySchedulingDeliveryAction.bind(null, delivery.id)} className="ml-2 inline">
+                            <button type="submit" className="link">Retry after checking SMTP</button>
+                          </form>}
+                      </li>)}
+                  </ul>
+                </section>}
               <Scorecards
                 applicationId={app.id}
                 rows={cardsFor(app.id)}
@@ -331,6 +395,23 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           );
         })}
       </div>
+
+      {manage && candidate.email && <section className="card mt-8 text-sm" aria-labelledby="email-title">
+        <h2 id="email-title" className="card-title">Email candidate</h2>
+        {!smtpConfigured() ? <p className="muted mt-2">Configure SMTP under Admin → Email delivery to send messages.</p> :
+          templates.length === 0 ? <p className="muted mt-2">Create an email template under Admin → Email delivery first.</p> :
+          <ActionForm action={sendCandidateEmailAction.bind(null, candidate.id)} className="mt-4 space-y-3">
+            <div><label className="label" htmlFor="email-application">Job</label>
+              <select id="email-application" name="applicationId" className="input">
+                {apps.map((app) => <option key={app.id} value={app.id}>{app.jobTitle}</option>)}
+              </select></div>
+            <div><label className="label" htmlFor="email-template">Template</label>
+              <select id="email-template" name="templateId" className="input">
+                {templates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.subject}</option>)}
+              </select></div>
+            <SubmitButton variant="secondary">Send email</SubmitButton>
+          </ActionForm>}
+      </section>}
 
       <section className="card mt-8" aria-labelledby="notes-title">
       <div className="card-header">
@@ -425,7 +506,9 @@ function describe(type: string, data: Record<string, unknown>, stageName: Map<st
     case "interview_added":
       return `added an interview: ${String(data.interview)}`;
     case "interview_scheduled":
-      return data.at ? `scheduled ${String(data.interview)}` : `cleared the time for ${String(data.interview)}`;
+      return data.at
+        ? `${data.previousAt ? "rescheduled" : "scheduled"} ${String(data.interview)}${data.timeZone ? ` in ${String(data.timeZone)}` : ""}`
+        : `cleared the time for ${String(data.interview)}`;
     case "interview_completed":
       return `marked ${String(data.interview)} as held`;
     case "interview_cancelled":

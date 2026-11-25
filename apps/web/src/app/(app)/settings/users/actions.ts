@@ -7,12 +7,13 @@ import type { FormState } from "@/components/form";
 import { hashToken, newToken, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canManageUsers, isRole, removesLastAdmin } from "@/lib/permissions";
+import { sendSmtp, smtpConfigured } from "@/lib/smtp";
 import { field, isEmail, isUuid, normalizeEmail } from "@/lib/validation";
 
 const INVITE_DAYS = 7;
 const RESET_HOURS = 24;
 
-/** Creates an invite and returns the link for the admin to send. Email sending comes later. */
+/** Creates an invite, emailing it when SMTP is available and returning a manual fallback. */
 export async function createInviteAction(_: FormState, form: FormData): Promise<FormState> {
   const admin = await requireUser(canManageUsers);
   const email = normalizeEmail(field(form, "email", 254) ?? "");
@@ -34,8 +35,18 @@ export async function createInviteAction(_: FormState, form: FormData): Promise<
   revalidatePath("/settings/users");
 
   const base = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  const link = `${base}/invite/${token}`;
+  if (smtpConfigured()) {
+    try {
+      await sendSmtp({ to: email, subject: "You're invited to PennyATS",
+        text: `You've been invited to join PennyATS as a ${role}.\n\nAccept your invite within ${INVITE_DAYS} days:\n${link}` });
+      return { message: `Invite emailed to ${email}. It expires in ${INVITE_DAYS} days.` };
+    } catch {
+      return { message: `Email delivery failed. Send this one-time invite link manually: ${link}` };
+    }
+  }
   return {
-    message: `Invite created. Send this link to ${email}. It works once, expires in ${INVITE_DAYS} days, and is only shown now: ${base}/invite/${token}`,
+    message: `Invite created. Send this link to ${email}. It works once, expires in ${INVITE_DAYS} days, and is only shown now: ${link}`,
   };
 }
 
@@ -69,8 +80,18 @@ export async function createPasswordResetAction(userId: string, _: FormState, _f
   if (!target) return { error: "Active user not found." };
 
   const base = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  const link = `${base}/reset/${token}`;
+  if (smtpConfigured()) {
+    try {
+      await sendSmtp({ to: target.email, subject: "Reset your PennyATS password",
+        text: `Reset your PennyATS password within ${RESET_HOURS} hours:\n${link}\n\nIf you did not expect this, ask an administrator.` });
+      return { message: `Password reset emailed to ${target.email}.` };
+    } catch {
+      return { message: `Email delivery failed. Send this one-time reset link manually: ${link}` };
+    }
+  }
   return {
-    message: `Reset link for ${target.email}. Send it to them now. It works once, expires in ${RESET_HOURS} hours, and is only shown here: ${base}/reset/${token}`,
+    message: `Reset link for ${target.email}. Send it to them now. It works once, expires in ${RESET_HOURS} hours, and is only shown here: ${link}`,
   };
 }
 
