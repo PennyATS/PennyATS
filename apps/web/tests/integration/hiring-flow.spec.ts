@@ -56,7 +56,7 @@ test("a candidate moves from application to scorecard", async ({ page }) => {
   });
 
   await test.step("move the candidate on the pipeline board", async () => {
-    await page.goto(`/jobs/${job.id}`);
+    await page.goto(`/jobs/${job.id}?view=board`);
     const card = page.locator(`[data-card-id="${applicationId}"]`);
     await expect(card).toContainText(name);
     await card.getByRole("button", { name: `Move ${name} forward to ${pipeline[1].name}` }).click();
