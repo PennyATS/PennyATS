@@ -195,6 +195,91 @@ export const applications = pgTable(
   ],
 );
 
+/* ---------- Interview loop ---------- */
+
+/** The interview plan: interviews a job runs in each stage. */
+export const interviewTemplates = pgTable(
+  "interview_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    stageId: uuid("stage_id")
+      .notNull()
+      .references(() => stages.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    durationMinutes: integer("duration_minutes").notNull().default(45),
+    /** Scorecard attributes this interview covers. Empty means all of the job's attributes. */
+    attributes: text("attributes").array().notNull().default([]),
+    /** Shown to interviewers on the scorecard form. */
+    instructions: text("instructions"),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("interview_templates_stage_idx").on(t.stageId, t.position)],
+);
+
+/** Default interviewers for a planned interview. */
+export const interviewTemplateInterviewers = pgTable(
+  "interview_template_interviewers",
+  {
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => interviewTemplates.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.templateId, t.userId] })],
+);
+
+/**
+ * One interview for one candidate's application, created from the plan when they enter a
+ * stage, or added by hand. Name, stage and attributes are copied, so editing or deleting
+ * the plan later doesn't rewrite a candidate's history. Status is derived (see
+ * apps/web/src/lib/interviews.ts) from the timestamps and submitted scorecards.
+ */
+export const interviews = pgTable(
+  "interviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    templateId: uuid("template_id").references(() => interviewTemplates.id, { onDelete: "set null" }),
+    stageId: uuid("stage_id").references(() => stages.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    stageName: text("stage_name").notNull(),
+    durationMinutes: integer("duration_minutes").notNull().default(45),
+    attributes: text("attributes").array().notNull().default([]),
+    instructions: text("instructions"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("interviews_application_idx").on(t.applicationId),
+    // A planned interview is created once per application. Ad hoc ones (no template) can repeat.
+    uniqueIndex("interviews_application_template_idx").on(t.applicationId, t.templateId),
+  ],
+);
+
+/** Who runs an interview for a candidate. */
+export const interviewInterviewers = pgTable(
+  "interview_interviewers",
+  {
+    interviewId: uuid("interview_id")
+      .notNull()
+      .references(() => interviews.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.interviewId, t.userId] }), index("interview_interviewers_user_idx").on(t.userId)],
+);
+
 /* ---------- Feedback, notes, email ---------- */
 
 export const scorecards = pgTable(
@@ -209,6 +294,8 @@ export const scorecards = pgTable(
       .references(() => users.id),
     /** Stage name at the time of the interview, kept as text so renaming a stage doesn't rewrite history. */
     stageName: text("stage_name").notNull(),
+    /** The interview this feedback is for, when it came from the interview loop. */
+    interviewId: uuid("interview_id").references(() => interviews.id, { onDelete: "set null" }),
     /** Attribute ratings from 1 to 4, e.g. { "Problem solving": 4 } */
     ratings: jsonb("ratings").$type<Record<string, number>>().notNull().default({}),
     recommendation: recommendation("recommendation").notNull(),
@@ -217,7 +304,17 @@ export const scorecards = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   // One scorecard per interviewer per stage; submitting again edits it.
-  (t) => [uniqueIndex("scorecards_author_stage_idx").on(t.applicationId, t.authorId, t.stageName)],
+  (t) => [
+    // One scorecard per interviewer per interview; resubmitting edits it.
+    uniqueIndex("scorecards_author_interview_idx")
+      .on(t.interviewId, t.authorId)
+      .where(sql`${t.interviewId} is not null`),
+    // Scorecards not tied to an interview: one per interviewer per stage, as before.
+    uniqueIndex("scorecards_author_stage_idx")
+      .on(t.applicationId, t.authorId, t.stageName)
+      .where(sql`${t.interviewId} is null`),
+    index("scorecards_application_idx").on(t.applicationId),
+  ],
 );
 
 export const notes = pgTable(

@@ -37,11 +37,15 @@ export type HealthInput = {
   /** Scorecards on this job's applications: which application and which stage name they were filed under. */
   scorecards: { applicationId: string; stageName: string }[];
   teamSize: number;
+  /** Interviews whose feedback is overdue (see isOverdue in interviews.ts). */
+  overdueInterviews?: { candidateId: string; name: string; interview: string; missing: string[] }[];
+  /** Applications with a live interview in their current stage; the interview check covers their feedback. */
+  appsWithInterviews?: string[];
   now?: Date;
 };
 
 export type HealthCheck = {
-  id: "draft" | "team" | "quiet" | "stuck" | "bottleneck" | "feedback";
+  id: "draft" | "team" | "quiet" | "stuck" | "bottleneck" | "feedback" | "interviews";
   level: "warn" | "info";
   title: string;
   detail: string;
@@ -72,10 +76,27 @@ export function jobHealth(input: HealthInput): HealthCheck[] {
     });
   }
 
+  const overdue = input.overdueInterviews ?? [];
+  if (overdue.length) {
+    checks.push({
+      id: "interviews",
+      level: "warn",
+      title: `${plural(overdue.length, "interview")} with overdue feedback`,
+      detail: overdue
+        .slice(0, 6)
+        .map((o) => `${o.name}, ${o.interview}: waiting on ${o.missing.join(", ")}`)
+        .join(". ") + (overdue.length > 6 ? `, and ${overdue.length - 6} more.` : "."),
+      candidates: [...new Map(overdue.map((o) => [o.candidateId, { id: o.candidateId, name: o.name }])).values()],
+    });
+  }
+
   // Feedback: past the first stage, a candidate should have at least one scorecard for the
-  // stage they're in once they've been there a few days.
+  // stage they're in once they've been there a few days. Stages with interviews are covered
+  // by the interview check above, so they're skipped here.
   const scored = new Set(input.scorecards.map((s) => `${s.applicationId}|${s.stageName}`));
+  const withInterviews = new Set(input.appsWithInterviews ?? []);
   const missing = active.filter((a) => {
+    if (withInterviews.has(a.id)) return false;
     if (!a.stageId || a.stageId === firstStageId) return false;
     if (daysBetween(a.stageChangedAt, now) <= HEALTH_RULES.feedbackDays) return false;
     return !scored.has(`${a.id}|${stageName.get(a.stageId)}`);

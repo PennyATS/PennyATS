@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { asc, count, desc, eq } from "drizzle-orm";
-import { applications, candidates, jobTeam, scorecards } from "@pennyats/db";
+import { asc, count, desc, eq, inArray } from "drizzle-orm";
+import { applications, candidates, interviewInterviewers, interviews, jobTeam, scorecards, users } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
 import { daysSince, jobHealth, weeklyApplicants } from "@/lib/job-health";
+import { isOverdue, missingFeedback } from "@/lib/interviews";
 import { canManageHiring } from "@/lib/permissions";
 import { loadReportInput } from "@/lib/report-data";
 import { reportTables } from "@/lib/reports";
@@ -58,6 +59,8 @@ export default async function JobPage({
       applicationId: scorecards.applicationId,
       recommendation: scorecards.recommendation,
       stageName: scorecards.stageName,
+      interviewId: scorecards.interviewId,
+      authorId: scorecards.authorId,
     })
     .from(scorecards)
     .innerJoin(applications, eq(applications.id, scorecards.applicationId))
@@ -86,10 +89,39 @@ export default async function JobPage({
   const overview =
     view === "overview"
       ? await (async () => {
-          const [[team], reportInput] = await Promise.all([
+          const activeIds = active.map((r) => r.id);
+          const [[team], reportInput, loop] = await Promise.all([
             db().select({ n: count() }).from(jobTeam).where(eq(jobTeam.jobId, job.id)),
             loadReportInput(job.id, "all"),
+            activeIds.length
+              ? db().select().from(interviews).where(inArray(interviews.applicationId, activeIds))
+              : Promise.resolve([]),
           ]);
+          const assigned = loop.length
+            ? await db()
+                .select({ interviewId: interviewInterviewers.interviewId, id: users.id, name: users.name })
+                .from(interviewInterviewers)
+                .innerJoin(users, eq(users.id, interviewInterviewers.userId))
+                .where(inArray(interviewInterviewers.interviewId, loop.map((i) => i.id)))
+            : [];
+          // Interviews whose feedback is overdue, and who still owes it.
+          const overdueInterviews = loop.flatMap((i) => {
+            const people = assigned.filter((a) => a.interviewId === i.id);
+            const state = {
+              scheduledAt: i.scheduledAt,
+              completedAt: i.completedAt,
+              cancelledAt: i.cancelledAt,
+              interviewerIds: people.map((p) => p.id),
+              submittedBy: feedback.filter((f) => f.interviewId === i.id).map((f) => f.authorId),
+            };
+            if (!isOverdue(state)) return [];
+            const app = active.find((a) => a.id === i.applicationId)!;
+            const missing = missingFeedback(state).map((id) => people.find((p) => p.id === id)?.name ?? "someone");
+            return [{ candidateId: app.candidateId, name: app.name, interview: i.name, missing }];
+          });
+          const appsWithInterviews = active
+            .filter((a) => loop.some((i) => i.applicationId === a.id && !i.cancelledAt && i.stageId === a.stageId))
+            .map((a) => a.id);
           return {
             health: jobHealth({
               jobStatus: job.status,
@@ -97,6 +129,8 @@ export default async function JobPage({
               stages,
               scorecards: feedback,
               teamSize: team.n,
+              overdueInterviews,
+              appsWithInterviews,
             }),
             weeks: weeklyApplicants(rows),
             tables: reportTables(reportInput),
@@ -128,6 +162,9 @@ export default async function JobPage({
           <div className="flex gap-2">
             <Link href={`/jobs/${job.id}/add-candidate`} className="btn">
               Add candidate
+            </Link>
+            <Link href={`/jobs/${job.id}/interview-plan`} className="btn btn-secondary">
+              Interview plan
             </Link>
             <Link href={`/jobs/${job.id}/edit`} className="btn btn-secondary">
               Edit job

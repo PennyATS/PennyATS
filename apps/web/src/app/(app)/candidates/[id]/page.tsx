@@ -1,7 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { activity, applications, candidates, jobs, notes, scorecards, stages, users } from "@pennyats/db";
+import {
+  activity,
+  applications,
+  candidates,
+  interviewInterviewers,
+  interviewTemplates,
+  interviews,
+  jobs,
+  notes,
+  scorecards,
+  stages,
+  users,
+} from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canSeeCandidate, visibleJobIds } from "@/lib/hiring";
@@ -18,6 +30,8 @@ import {
   summarizeFeedbackAction,
 } from "../actions";
 import { Scorecards, type ScorecardRow } from "./scorecards";
+import { Interviews, type InterviewRow } from "./interviews";
+import { interviewStatus, isOverdue } from "@/lib/interviews";
 
 export default async function CandidatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -82,6 +96,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
             id: scorecards.id,
             applicationId: scorecards.applicationId,
             authorId: scorecards.authorId,
+            interviewId: scorecards.interviewId,
             author: users.name,
             stageName: scorecards.stageName,
             recommendation: scorecards.recommendation,
@@ -95,10 +110,68 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           .orderBy(desc(scorecards.updatedAt))
       : [],
   ]);
+  // Interview loop: interviews, who runs them, and who has submitted feedback for each.
+  const [loop, planned, people] = await Promise.all([
+    appIds.length
+      ? db().select().from(interviews).where(inArray(interviews.applicationId, appIds)).orderBy(asc(interviews.createdAt))
+      : [],
+    apps.some((a) => a.stageId)
+      ? db()
+          .select({ id: interviewTemplates.id, stageId: interviewTemplates.stageId })
+          .from(interviewTemplates)
+          .where(inArray(interviewTemplates.stageId, apps.flatMap((a) => (a.stageId ? [a.stageId] : []))))
+      : [],
+    manage
+      ? db().select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name))
+      : [],
+  ]);
+  const loopPeople = loop.length
+    ? await db()
+        .select({ interviewId: interviewInterviewers.interviewId, id: users.id, name: users.name })
+        .from(interviewInterviewers)
+        .innerJoin(users, eq(users.id, interviewInterviewers.userId))
+        .where(inArray(interviewInterviewers.interviewId, loop.map((i) => i.id)))
+    : [];
+  const submittedFor = (interviewId: string) =>
+    cards.filter((c) => c.interviewId === interviewId).map((c) => c.authorId);
+  const interviewsFor = (applicationId: string): InterviewRow[] =>
+    loop
+      .filter((i) => i.applicationId === applicationId)
+      .map((i) => {
+        const assigned = loopPeople.filter((p) => p.interviewId === i.id);
+        const state = {
+          scheduledAt: i.scheduledAt,
+          completedAt: i.completedAt,
+          cancelledAt: i.cancelledAt,
+          interviewerIds: assigned.map((p) => p.id),
+          submittedBy: submittedFor(i.id),
+        };
+        return {
+          id: i.id,
+          name: i.name,
+          stageName: i.stageName,
+          durationMinutes: i.durationMinutes,
+          scheduledAt: i.scheduledAt,
+          cancelledAt: i.cancelledAt,
+          status: interviewStatus(state),
+          overdue: isOverdue(state),
+          interviewers: assigned.map((p) => ({ id: p.id, name: p.name, submitted: state.submittedBy.includes(p.id) })),
+        };
+      });
+  // The plan has interviews for this application's current stage that it doesn't have yet.
+  const planAvailableFor = (app: { id: string; stageId: string | null }) => {
+    const have = new Set(loop.filter((i) => i.applicationId === app.id).map((i) => i.templateId));
+    return planned.some((t) => t.stageId === app.stageId && !have.has(t.id));
+  };
+
   const cardsFor = (applicationId: string): ScorecardRow[] =>
     cards
       .filter((c) => c.applicationId === applicationId)
-      .map((c) => ({ ...c, recommendation: c.recommendation as Recommendation }));
+      .map((c) => ({
+        ...c,
+        recommendation: c.recommendation as Recommendation,
+        interviewName: c.interviewId ? loop.find((i) => i.id === c.interviewId)?.name : null,
+      }));
 
   const stageName = new Map(jobStages.map((s) => [s.id, s.name]));
   const jobTitleByApp = new Map(apps.map((a) => [a.id, a.jobTitle]));
@@ -237,6 +310,15 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                   )}
                 </div>
               )}
+              <Interviews
+                applicationId={app.id}
+                rows={interviewsFor(app.id)}
+                userId={user.id}
+                manage={manage}
+                people={people}
+                planAvailable={planAvailableFor(app)}
+                active={app.status === "active"}
+              />
               <Scorecards
                 applicationId={app.id}
                 rows={cardsFor(app.id)}
@@ -337,7 +419,17 @@ function describe(type: string, data: Record<string, unknown>, stageName: Map<st
     case "hired":
       return "marked them as hired";
     case "scorecard_submitted":
-      return `submitted a scorecard${typeof data.stage === "string" ? ` for ${data.stage}` : ""}`;
+      return typeof data.interview === "string"
+        ? `submitted a scorecard for ${data.interview}`
+        : `submitted a scorecard${typeof data.stage === "string" ? ` for ${data.stage}` : ""}`;
+    case "interview_added":
+      return `added an interview: ${String(data.interview)}`;
+    case "interview_scheduled":
+      return data.at ? `scheduled ${String(data.interview)}` : `cleared the time for ${String(data.interview)}`;
+    case "interview_completed":
+      return `marked ${String(data.interview)} as held`;
+    case "interview_cancelled":
+      return `cancelled ${String(data.interview)}`;
     default:
       return type;
   }

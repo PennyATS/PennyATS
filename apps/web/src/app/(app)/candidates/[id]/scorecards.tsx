@@ -12,6 +12,8 @@ export type ScorecardRow = {
   authorId: string;
   author: string;
   stageName: string;
+  /** The interview this scorecard was for, if any. */
+  interviewName?: string | null;
   recommendation: Recommendation;
   ratings: Record<string, number>;
   summary: string | null;
@@ -63,7 +65,8 @@ export function Scorecards({
               <span className="font-medium">{RECOMMENDATION_LABELS[s.recommendation]}</span>
               <span className="muted">
                 {" "}
-                · {s.author} · {s.stageName} · {s.updatedAt.toLocaleDateString()}
+                · {s.author} · {s.interviewName ? `${s.interviewName} (${s.stageName})` : s.stageName} ·{" "}
+                {s.updatedAt.toLocaleDateString()}
               </span>
             </div>
             {Object.keys(s.ratings).length > 0 && (

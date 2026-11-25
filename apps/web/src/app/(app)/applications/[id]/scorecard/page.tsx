@@ -1,36 +1,33 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, eq } from "drizzle-orm";
-import { candidates, jobs, scorecards } from "@pennyats/db";
+import { eq } from "drizzle-orm";
+import { candidates } from "@pennyats/db";
 import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { currentStageName, getApplicationFor } from "@/lib/hiring";
+import { loadScorecardContext } from "@/lib/scorecard-context";
 import { RATING_LABELS, RECOMMENDATIONS, RECOMMENDATION_LABELS } from "@/lib/scorecards";
-import { isUuid } from "@/lib/validation";
 import { submitScorecardAction } from "./actions";
 
-export default async function ScorecardPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ScorecardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ interview?: string }>;
+}) {
   const { id } = await params;
+  const interviewId = (await searchParams).interview ?? null;
   const user = await requireUser();
-  const app = isUuid(id) ? await getApplicationFor(user, id) : null;
-  if (!app) notFound();
-
-  const stageName = await currentStageName(app.stageId);
-  const [[candidate], [job], [existing]] = await Promise.all([
-    db().select({ name: candidates.fullName }).from(candidates).where(eq(candidates.id, app.candidateId)),
-    db().select({ title: jobs.title, attributes: jobs.scorecardAttributes }).from(jobs).where(eq(jobs.id, app.jobId)),
-    db()
-      .select()
-      .from(scorecards)
-      .where(
-        and(
-          eq(scorecards.applicationId, app.id),
-          eq(scorecards.authorId, user.id),
-          eq(scorecards.stageName, stageName),
-        ),
-      ),
-  ]);
+  const ctx = await loadScorecardContext(user, id, interviewId);
+  if (!ctx) notFound();
+  const { app, job, interview, stageName, existing } = ctx;
+  // The form's field names follow this list's order; the action uses the same list.
+  const attributes = ctx.attributes;
+  const [candidate] = await db()
+    .select({ name: candidates.fullName })
+    .from(candidates)
+    .where(eq(candidates.id, app.candidateId));
 
   return (
     <>
@@ -44,18 +41,27 @@ export default async function ScorecardPage({ params }: { params: Promise<{ id: 
       </h1>
       <p className="muted mb-6 mt-1 text-sm">
         {job.title} · {stageName}
+        {interview && ` · ${interview.name}`}
       </p>
 
-      {/* Keyed so the form shows saved values after React resets it post-submit. */}
+      {interview?.instructions && (
+        <section className="card mb-6 max-w-2xl" aria-labelledby="instructions-title">
+          <h2 id="instructions-title" className="card-title">
+            Interviewer instructions
+          </h2>
+          <p className="mt-2 whitespace-pre-wrap text-sm">{interview.instructions}</p>
+        </section>
+      )}
+
       <ActionForm
-        key={existing?.updatedAt.toISOString() ?? "new"}
-        action={submitScorecardAction.bind(null, app.id)}
+        resetKey={existing?.updatedAt.toISOString() ?? "new"}
+        action={submitScorecardAction.bind(null, app.id, interview?.id ?? null)}
         className="card max-w-2xl space-y-6"
       >
-        {job.attributes.length > 0 && (
+        {attributes.length > 0 && (
           <div className="space-y-4">
             <p className="muted text-sm">Rate what you assessed. Leave the rest as not assessed.</p>
-            {job.attributes.map((name, i) => (
+            {attributes.map((name, i) => (
               <fieldset key={name}>
                 <legend className="label">{name}</legend>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">

@@ -94,7 +94,14 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
       <section className="card mt-6 max-w-2xl" aria-labelledby="stages-title">
         <div className="card-header">
           <h2 id="stages-title" className="card-title">Pipeline stages</h2>
-          <p className="card-note">The order candidates move through. A stage can be deleted once it&apos;s empty.</p>
+          <p className="card-note">
+            The order candidates move through. A stage can be deleted once it&apos;s empty. Plan the interviews for each
+            stage in the{" "}
+            <Link href={`/jobs/${job.id}/interview-plan`} className="link">
+              interview plan
+            </Link>
+            .
+          </p>
         </div>
         <ol className="card-rows">
           {stages.map((stage, i) => {

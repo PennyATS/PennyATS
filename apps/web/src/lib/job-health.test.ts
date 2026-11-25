@@ -101,3 +101,19 @@ test("daysSince never goes negative", () => {
   assert.equal(daysSince(daysAgo(3.5), NOW), 3);
   assert.equal(daysSince(new Date(NOW.getTime() + 1000), NOW), 0);
 });
+
+test("overdue interview feedback names who it's waiting on, and replaces the stage-level guess", () => {
+  const waiting = app("a", { stageId: "screen", stageChangedAt: daysAgo(5) });
+  const checks = jobHealth(
+    base({
+      apps: [waiting],
+      overdueInterviews: [{ candidateId: "c-a", name: "Person a", interview: "Screen call", missing: ["Ana"] }],
+      appsWithInterviews: ["a"],
+    }),
+  );
+  const interviews = checks.find((c) => c.id === "interviews");
+  assert.equal(interviews?.title, "1 interview with overdue feedback");
+  assert.equal(interviews?.detail, "Person a, Screen call: waiting on Ana.");
+  // The candidate's stage has an interview, so the generic feedback check stays quiet.
+  assert.ok(!checks.some((c) => c.id === "feedback"));
+});

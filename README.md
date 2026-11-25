@@ -31,6 +31,7 @@ These images use fictional candidates from the demo seed.
 - **Careers page.** Open jobs are listed at `/careers` with an apply form and resume upload. Includes basic spam protection.
 - **Applications.** Candidates are matched by email, so someone applying to a second role keeps one profile. Recruiters can add candidates by hand, move them between stages, reject with a reason, or mark them withdrawn.
 - **Pipeline board.** A kanban view per job. Drag candidates between stages, or use the arrow buttons from the keyboard. Cards show days in stage and scorecard results.
+- **Interview loop.** Plan the interviews for each stage of a job (who runs them, what they cover, and instructions). Candidates get those interviews automatically when they enter the stage, with a status from "to schedule" to "complete", and the job overview flags interviewers whose feedback is overdue.
 - **Scorecards.** Each job has its own list of attributes, rated 1 to 4, plus an overall recommendation from Strong no to Strong yes. Interviewers can't see anyone else's scorecard until they've submitted their own, so earlier feedback doesn't sway them.
 - **Candidate profiles.** Contact details, resume download, every application, scorecards, notes, and an activity timeline. Mark candidates hired, rejected, or withdrawn.
 - **Reports.** Filter by job and period to see the hiring funnel, time in each stage, time to hire, which sources produce hires, rejection reasons, and how many scorecards each interviewer has submitted.
