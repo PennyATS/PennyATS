@@ -1,5 +1,6 @@
 import { eq, isNull } from "drizzle-orm";
 import { loadRootEnv } from "./env";
+import { seedSynthetic } from "./seed-synthetic";
 import {
   createDb,
   jobs,
@@ -81,6 +82,18 @@ const job = await db.transaction(async (tx) => {
   return job;
 });
 
-console.log(job ? "Seed complete." : "Demo job already exists; skipped demo data.");
+console.log(job ? "Demo job created." : "Demo job already exists; skipped it.");
+
+// A larger, realistic funnel of synthetic people so the board, reports and health checks have data.
+const synthetic = await seedSynthetic(db, { adminId: admin.id, passwordHash });
+console.log(
+  synthetic
+    ? `Synthetic data: ${synthetic.jobs} jobs, ${synthetic.candidates} candidates, ${synthetic.applications} applications, ` +
+        `${synthetic.interviews} interviews, ${synthetic.scorecards} scorecards.`
+    : "Synthetic data already exists; skipped it.",
+);
+
+console.log("Seed complete.");
 console.log(`Demo login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+console.log(`Also: recruiter@example.com and dana.interviewer@example.com (same password).`);
 process.exit(0);

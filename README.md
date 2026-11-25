@@ -74,7 +74,7 @@ Open http://localhost:3000 and you'll be asked to create the first admin account
 
 ### Demo data
 
-To try it with sample data instead, run `pnpm db:seed` after migrating. It adds one job, three made-up candidates, and a demo login: `admin@example.com` / `pennyats-demo`. Only use the seed on a throwaway database.
+To try it with sample data instead, run `pnpm db:seed` after migrating. It creates a small starter job (three made-up candidates) plus a larger reproducible software-engineering funnel from [`synthetic-recruiting`](https://github.com/Allen55/synthetic-recruiting): about nine jobs, ~1,400 synthetic candidates (`@example.com`, 555 numbers), stage history, interviews, and scorecards so the pipeline board, reports, and health checks have something to show. Demo login: `admin@example.com` / `pennyats-demo`. The same password works for `recruiter@example.com` and `dana.interviewer@example.com`. Only use the seed on a throwaway database.
 
 ## Privacy
 

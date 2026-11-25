@@ -88,6 +88,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.0
         version: 0.31.11
+      synthetic-recruiting:
+        specifier: ^0.2.1
+        version: 0.2.1
       tsx:
         specifier: ^4.19.0
         version: 4.23.15
@@ -1213,6 +1216,11 @@ packages:
       babel-plugin-macros:
         optional: true
 
+  synthetic-recruiting@0.2.1:
+    resolution: {integrity: sha512-WJ+IVRxZt9BUM5XxQSoHKONeJrxyR8j5bmMhcKn+848+uJ81SfKCNGzgJDFj/TufjpZ2P6djYzfpfmjglmo+2g==}
+    engines: {node: '>=22.6'}
+    hasBin: true
+
   tailwindcss@4.3.5:
     resolution: {integrity: sha512-FcQk9BuffmEHJP2G0XmB2SplU1aLTI7j07Kunk+U74Ny+XiWOtzXz9aujFZ/avntw1e2cOv/3PkgzflQ7gX2vQ==}
 
@@ -2003,6 +2011,8 @@ snapshots:
     dependencies:
       client-only: 0.0.1
       react: 19.3.1
+
+  synthetic-recruiting@0.2.1: {}
 
   tailwindcss@4.3.5: {}
 
