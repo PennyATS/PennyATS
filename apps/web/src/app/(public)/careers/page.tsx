@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { jobs } from "@pennyats/db";
 import { db } from "@/lib/db";
 
@@ -12,7 +12,7 @@ export default async function CareersPage() {
   const open = await db()
     .select({ slug: jobs.slug, title: jobs.title, department: jobs.department, location: jobs.location })
     .from(jobs)
-    .where(eq(jobs.status, "open"))
+    .where(and(eq(jobs.status, "open"), eq(jobs.confidential, false)))
     .orderBy(asc(jobs.department), asc(jobs.title));
 
   return (

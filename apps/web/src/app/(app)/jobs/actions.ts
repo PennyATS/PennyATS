@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, count, eq, like, max, or } from "drizzle-orm";
+import { and, asc, count, eq, inArray, like, max, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { DEFAULT_STAGES, applications, jobTeam, jobs, stages, users } from "@pennyats/db";
@@ -15,6 +15,7 @@ import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/schedulin
 import { MAX_ATTRIBUTES, parseAttributes } from "@/lib/scorecards";
 import { canManageHiring } from "@/lib/permissions";
 import { field, isUuid, slugify } from "@/lib/validation";
+import { parseJobDetails } from "@/lib/job-fields";
 
 const STATUSES = ["draft", "open", "closed"] as const;
 type JobStatus = (typeof STATUSES)[number];
@@ -29,8 +30,11 @@ function parseJob(form: FormData) {
   if (!STATUSES.includes(status as JobStatus)) return { error: "Pick a status." } as const;
   if (headcountText && (!/^(0|[1-9]\d{0,4})$/.test(headcountText) || headcount === null || headcount > 10000))
     return { error: "Headcount must be a whole number from 0 to 10,000." } as const;
+  const details = parseJobDetails((name, max) => field(form, name, max), (name) => form.get(name) === "on");
+  if ("error" in details) return { error: details.error } as const;
   return {
     value: {
+      ...details.value,
       title,
       status: status as JobStatus,
       department: field(form, "department", 200),
@@ -57,10 +61,25 @@ async function uniqueSlug(title: string): Promise<string> {
   return `${base}-${n}`;
 }
 
+/** The hiring manager and recruiter must be active users; they join the hiring team so they can see the job. */
+async function checkPeople(value: { hiringManagerId: string | null; recruiterId: string | null }): Promise<string | null> {
+  const ids = [value.hiringManagerId, value.recruiterId].filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return null;
+  const found = await db().select({ id: users.id }).from(users).where(and(inArray(users.id, ids), eq(users.active, true)));
+  return found.length === new Set(ids).size ? null : "Pick an active user for the hiring manager and recruiter.";
+}
+
+async function addPeopleToTeam(ex: Pick<ReturnType<typeof db>, "insert">, jobId: string, value: { hiringManagerId: string | null; recruiterId: string | null }) {
+  const ids = [...new Set([value.hiringManagerId, value.recruiterId].filter((id): id is string => Boolean(id)))];
+  if (ids.length) await ex.insert(jobTeam).values(ids.map((userId) => ({ jobId, userId }))).onConflictDoNothing();
+}
+
 export async function createJobAction(_: FormState, form: FormData): Promise<FormState> {
   const user = await requireUser(canManageHiring);
   const parsed = parseJob(form);
   if ("error" in parsed) return { error: parsed.error };
+  const peopleError = await checkPeople(parsed.value);
+  if (peopleError) return { error: peopleError };
 
   const slug = await uniqueSlug(parsed.value.title);
   const jobId = await db().transaction(async (tx) => {
@@ -71,6 +90,7 @@ export async function createJobAction(_: FormState, form: FormData): Promise<For
     await tx
       .insert(stages)
       .values(DEFAULT_STAGES.map((name, position) => ({ jobId: job.id, name, position })));
+    await addPeopleToTeam(tx, job.id, parsed.value);
     return job.id;
   });
   redirect(`/jobs/${jobId}`);
@@ -78,13 +98,17 @@ export async function createJobAction(_: FormState, form: FormData): Promise<For
 
 export async function updateJobAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
   await requireUser(canManageHiring);
+  if (!isUuid(jobId)) return { error: "Job not found." };
   const parsed = parseJob(form);
   if ("error" in parsed) return { error: parsed.error };
+  const peopleError = await checkPeople(parsed.value);
+  if (peopleError) return { error: peopleError };
   // The slug stays the same on edit so careers page links keep working.
   await db()
     .update(jobs)
     .set({ ...parsed.value, updatedAt: new Date() })
     .where(eq(jobs.id, jobId));
+  await addPeopleToTeam(db(), jobId, parsed.value);
   revalidatePath(`/jobs/${jobId}`);
   return { message: "Saved." };
 }

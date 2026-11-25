@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { jobs } from "@pennyats/db";
 import { db } from "@/lib/db";
 import { getPrivacySettings } from "@/lib/privacy";
+import { EMPLOYMENT_TYPES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
 import { applyAction } from "../actions";
 import { ApplyForm } from "./apply-form";
 
@@ -13,7 +14,7 @@ async function getOpenJob(slug: string) {
   const [job] = await db()
     .select()
     .from(jobs)
-    .where(and(eq(jobs.slug, slug), eq(jobs.status, "open")));
+    .where(and(eq(jobs.slug, slug), eq(jobs.status, "open"), eq(jobs.confidential, false)));
   return job;
 }
 
@@ -35,7 +36,19 @@ export default async function CareerJobPage({ params }: { params: Promise<{ slug
         </Link>
       </p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight">{job.title}</h1>
-      <p className="muted mt-1 text-sm">{[job.department, job.location].filter(Boolean).join(" · ")}</p>
+      <p className="muted mt-1 text-sm">
+        {[
+          job.department,
+          job.location,
+          job.workplaceType ? WORKPLACE_TYPES[job.workplaceType as keyof typeof WORKPLACE_TYPES] : null,
+          job.employmentType ? EMPLOYMENT_TYPES[job.employmentType as keyof typeof EMPLOYMENT_TYPES] : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {job.compPublic && formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) && (
+        <p className="mt-2 text-sm font-medium">{formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null })}</p>
+      )}
       {job.description && <div className="mt-6 whitespace-pre-wrap text-sm leading-6">{job.description}</div>}
 
       <h2 className="mb-3 mt-10 text-lg font-semibold">Apply</h2>

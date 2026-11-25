@@ -43,7 +43,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
       .innerJoin(users, eq(users.id, jobTeam.userId))
       .where(eq(jobTeam.jobId, job.id))
       .orderBy(asc(users.name)),
-    db().select({ id: users.id, name: users.name }).from(users).orderBy(asc(users.name)),
+    db().select({ id: users.id, name: users.name, role: users.role, active: users.active }).from(users).orderBy(asc(users.name)),
   ]);
   const inStage = new Map(stageCounts.map((r) => [r.stageId, r.n]));
   const teamIds = new Set(team.map((t) => t.id));
@@ -61,6 +61,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         version={job.updatedAt.toISOString()}
         action={updateJobAction.bind(null, job.id)}
         job={job}
+        people={everyone.filter((u) => u.active || u.id === job.hiringManagerId || u.id === job.recruiterId)}
         submitLabel="Save"
       />
 
