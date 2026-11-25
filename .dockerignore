@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+**/node_modules
+**/.next
+**/.data
+**/*.tsbuildinfo
+.env
+.env.*
+*.log
+package-lock.json
+public/references

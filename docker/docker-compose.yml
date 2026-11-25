@@ -4,10 +4,10 @@ services:
     image: postgres:18
     environment:
       POSTGRES_USER: pennyats
-      POSTGRES_PASSWORD: pennyats
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pennyats}
       POSTGRES_DB: pennyats
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Postgres 18 images keep data in a versioned folder under /var/lib/postgresql,
       # so the volume mounts there (not /var/lib/postgresql/data as in older images).
@@ -18,5 +18,43 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://pennyats:${POSTGRES_PASSWORD:-pennyats}@db:5432/pennyats}
+      STORAGE_DIR: /app/apps/web/.data/uploads
+    volumes:
+      - pennyats_uploads:/app/apps/web/.data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: app
+    environment:
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://pennyats:${POSTGRES_PASSWORD:-pennyats}@db:5432/pennyats}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_REDACT_PII: ${AI_REDACT_PII:-true}
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    volumes:
+      - pennyats_uploads:/app/apps/web/.data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
 volumes:
   pennyats_pgdata:
+  pennyats_uploads:
