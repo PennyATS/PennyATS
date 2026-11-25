@@ -12,6 +12,18 @@ and off by default.
 
 [Quick start](#quick-start) · [Roadmap](#roadmap) · [Contributing](CONTRIBUTING.md)
 
+## Preview
+
+These images use fictional candidates from the demo seed.
+
+![Moving a candidate from Technical interview to Onsite on the pipeline board](docs/media/pipeline-move.gif)
+
+| Pipeline board | Candidate profile |
+| --- | --- |
+| [![Pipeline board with candidates in different interview stages](docs/media/pipeline-board.png)](docs/media/pipeline-board.png) | [![Candidate profile with an application, scorecard, notes, and activity](docs/media/candidate-profile.png)](docs/media/candidate-profile.png) |
+| **Scorecard** | **Reports** |
+| [![Interview scorecard with ratings and a recommendation](docs/media/scorecard.png)](docs/media/scorecard.png) | [![Hiring reports with summary statistics and a funnel](docs/media/reports.png)](docs/media/reports.png) |
+
 ## What works today
 
 - **Sign in and roles.** First-run setup creates the admin. Admins invite teammates, change roles, deactivate accounts, and issue one-time password reset links to copy and send. Interviewers only see jobs they're on the hiring team for.
