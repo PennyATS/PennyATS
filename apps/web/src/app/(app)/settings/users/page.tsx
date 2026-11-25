@@ -68,7 +68,7 @@ export default async function UsersPage() {
                   )}
                   {u.active && (
                     <ActionForm action={createPasswordResetAction.bind(null, u.id)} className="space-y-1 break-all">
-                      <SubmitButton variant="secondary">Create reset link</SubmitButton>
+                      <SubmitButton variant="secondary">Send or create reset link</SubmitButton>
                     </ActionForm>
                   )}
                 </div>
@@ -98,7 +98,7 @@ export default async function UsersPage() {
             ))}
           </select>
         </div>
-        <SubmitButton>Create invite link</SubmitButton>
+        <SubmitButton>Send or create invite</SubmitButton>
       </ActionForm>
 
       {pending.length > 0 && (

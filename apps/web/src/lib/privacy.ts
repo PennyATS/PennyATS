@@ -4,11 +4,13 @@ import {
   applications,
   auditLog,
   candidates,
+  candidateAvailabilityWindows,
   emails,
   interviewInterviewers,
   interviews,
   jobs,
   notes,
+  schedulingDeliveries,
   scorecards,
   settings,
   stages,
@@ -16,6 +18,7 @@ import {
 } from "@pennyats/db";
 import { db } from "./db";
 import { readPrivacySettings, retentionCutoff, type PrivacySettings } from "./privacy-rules";
+import { openSchedulingBody } from "./scheduling-secrets";
 import { storage } from "./storage";
 
 // No Next.js imports in this file: the scheduled purge script (scripts/privacy-purge.mts) uses it too.
@@ -129,6 +132,12 @@ export async function exportCandidate(candidateId: string) {
           stage: interviews.stageName,
           durationMinutes: interviews.durationMinutes,
           scheduledAt: interviews.scheduledAt,
+          scheduledTimeZone: interviews.scheduledTimeZone,
+          meetingLocation: interviews.meetingLocation,
+          googleEventId: interviews.googleEventId,
+          googleSyncError: interviews.googleSyncError,
+          googleRsvps: interviews.googleRsvps,
+          googleLastSyncedAt: interviews.googleLastSyncedAt,
           completedAt: interviews.completedAt,
           cancelledAt: interviews.cancelledAt,
         })
@@ -144,7 +153,7 @@ export async function exportCandidate(candidateId: string) {
         .where(inArray(interviewInterviewers.interviewId, loop.map((i) => i.id)))
     : [];
 
-  const [candidateNotes, cards, history, sent] = await Promise.all([
+  const [candidateNotes, cards, history, sent, availability, schedulingMail] = await Promise.all([
     db()
       .select({ author: users.name, body: notes.body, createdAt: notes.createdAt })
       .from(notes)
@@ -174,6 +183,17 @@ export async function exportCandidate(candidateId: string) {
           .orderBy(asc(activity.createdAt))
       : [],
     db().select().from(emails).where(eq(emails.candidateId, candidateId)),
+    appIds.length ? db().select({ applicationId: candidateAvailabilityWindows.applicationId,
+      startsAt: candidateAvailabilityWindows.startsAt, endsAt: candidateAvailabilityWindows.endsAt,
+      timeZone: candidateAvailabilityWindows.timeZone, source: candidateAvailabilityWindows.source })
+      .from(candidateAvailabilityWindows)
+      .where(inArray(candidateAvailabilityWindows.applicationId, appIds)) : [],
+    appIds.length ? db().select({ applicationId: schedulingDeliveries.applicationId,
+      kind: schedulingDeliveries.kind, recipientEmail: schedulingDeliveries.recipientEmail,
+      subject: schedulingDeliveries.subject, bodyEncrypted: schedulingDeliveries.bodyEncrypted,
+      status: schedulingDeliveries.status, scheduledFor: schedulingDeliveries.scheduledFor,
+      sentAt: schedulingDeliveries.sentAt })
+      .from(schedulingDeliveries).where(inArray(schedulingDeliveries.applicationId, appIds)) : [],
   ]);
 
   const { resumeKey, ...profile } = candidate;
@@ -184,6 +204,11 @@ export async function exportCandidate(candidateId: string) {
       ...a,
       scorecards: cards.filter((c) => c.applicationId === id).map(({ applicationId, ...c }) => c),
       history: history.filter((h) => h.applicationId === id).map(({ applicationId, ...h }) => h),
+      availability: availability.filter((window) => window.applicationId === id)
+        .map(({ applicationId, ...window }) => window),
+      schedulingMail: schedulingMail.filter((message) => message.applicationId === id)
+        .map(({ applicationId, bodyEncrypted, ...message }) => ({ ...message,
+          body: openSchedulingBody(bodyEncrypted) })),
       interviews: loop
         .filter((i) => i.applicationId === id)
         .map(({ id: interviewId, applicationId, ...i }) => ({

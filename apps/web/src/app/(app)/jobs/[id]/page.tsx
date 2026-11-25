@@ -166,6 +166,9 @@ export default async function JobPage({
             <Link href={`/jobs/${job.id}/interview-plan`} className="btn btn-secondary">
               Interview plan
             </Link>
+            <Link href={`/jobs/${job.id}/scheduling`} className="btn btn-secondary">
+              Scheduling
+            </Link>
             <Link href={`/jobs/${job.id}/edit`} className="btn btn-secondary">
               Edit job
             </Link>

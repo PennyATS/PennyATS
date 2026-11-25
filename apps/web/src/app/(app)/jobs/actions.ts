@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { jobDescriptionPrompt } from "@/lib/ai-rules";
 import { moveApplication } from "@/lib/hiring";
+import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
 import { MAX_ATTRIBUTES, parseAttributes } from "@/lib/scorecards";
 import { canManageHiring } from "@/lib/permissions";
 import { field, isUuid, slugify } from "@/lib/validation";
@@ -179,6 +180,8 @@ export async function moveCardAction(applicationId: string, stageId: string): Pr
   const user = await requireUser(canManageHiring);
   const moved = await moveApplication(user, applicationId, stageId);
   if (!moved) return { ok: false };
+  if (moved.stageId) await suppressQueuedStageLinks(applicationId, moved.stageId);
+  await queueStageLinkOnEntry(applicationId, stageId);
   revalidatePath(`/jobs/${moved.jobId}`);
   revalidatePath(`/candidates/${moved.candidateId}`);
   return { ok: true };

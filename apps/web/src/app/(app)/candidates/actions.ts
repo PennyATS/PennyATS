@@ -3,12 +3,13 @@
 import { asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { applications, jobs, notes, scorecards } from "@pennyats/db";
+import { applications, candidates, emails, emailTemplates, jobs, notes, schedulingDeliveries, scorecards } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { feedbackPrompt } from "@/lib/ai-rules";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { renderEmailTemplate } from "@/lib/email-templates";
 import {
   addApplication,
   canSeeCandidate,
@@ -18,6 +19,8 @@ import {
 } from "@/lib/hiring";
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
 import { deleteCandidates } from "@/lib/privacy";
+import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
+import { sendSmtp, smtpConfigured } from "@/lib/smtp";
 import { extensionOf, storage } from "@/lib/storage";
 import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
 
@@ -61,7 +64,49 @@ function refresh(candidateId: string, jobId: string) {
 export async function moveStageAction(applicationId: string, form: FormData): Promise<void> {
   const user = await requireUser(canManageHiring);
   const moved = await moveApplication(user, applicationId, field(form, "stageId", 64) ?? "");
-  if (moved) refresh(moved.candidateId, moved.jobId);
+  if (moved) {
+    if (moved.stageId) await suppressQueuedStageLinks(applicationId, moved.stageId);
+    await queueStageLinkOnEntry(applicationId, field(form, "stageId", 64) ?? "");
+    refresh(moved.candidateId, moved.jobId);
+  }
+}
+
+/** Explicit retry only after SMTP reports failure; never replay an uncertain sending claim. */
+export async function retrySchedulingDeliveryAction(deliveryId: string): Promise<void> {
+  const user = await requireUser(canManageHiring);
+  if (!isUuid(deliveryId)) return;
+  const [delivery] = await db().select().from(schedulingDeliveries)
+    .where(eq(schedulingDeliveries.id, deliveryId));
+  if (!delivery || delivery.status !== "failed" ||
+    delivery.lastError !== "SMTP did not confirm delivery. Check the mail server before retrying.") return;
+  const app = await getApplicationFor(user, delivery.applicationId);
+  if (!app) return;
+  await db().update(schedulingDeliveries).set({ status: "queued", lastError: null, updatedAt: new Date() })
+    .where(eq(schedulingDeliveries.id, deliveryId));
+  refresh(app.candidateId, app.jobId);
+}
+
+export async function sendCandidateEmailAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
+  const user = await requireUser(canManageHiring);
+  const applicationId = String(form.get("applicationId") ?? "");
+  const templateId = String(form.get("templateId") ?? "");
+  if (!isUuid(candidateId) || !isUuid(applicationId) || !isUuid(templateId)) return { error: "Choose a job and template." };
+  const app = await getApplicationFor(user, applicationId);
+  if (!app || app.candidateId !== candidateId) return { error: "Application not found." };
+  if (!smtpConfigured()) return { error: "Configure SMTP before sending candidate email." };
+  const [[candidate], [template], [job]] = await Promise.all([
+    db().select({ name: candidates.fullName, email: candidates.email }).from(candidates).where(eq(candidates.id, candidateId)),
+    db().select().from(emailTemplates).where(eq(emailTemplates.id, templateId)),
+    db().select({ title: jobs.title }).from(jobs).where(eq(jobs.id, app.jobId)),
+  ]);
+  if (!candidate?.email || !template || !job) return { error: "Candidate email or template is missing." };
+  const subject = renderEmailTemplate(template.subject, candidate.name, job.title);
+  const body = renderEmailTemplate(template.body, candidate.name, job.title);
+  try { await sendSmtp({ to: candidate.email, subject, text: body }); }
+  catch { return { error: "SMTP did not confirm delivery. No email was added to the candidate timeline." }; }
+  await db().insert(emails).values({ candidateId, subject, body, sentBy: user.id });
+  revalidatePath(`/candidates/${candidateId}`);
+  return { message: "Email sent and recorded on the candidate timeline." };
 }
 
 /** Hire, reject, withdraw, or reopen an application. */
