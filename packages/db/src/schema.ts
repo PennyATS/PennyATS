@@ -103,7 +103,10 @@ export const jobs = pgTable(
     slug: text("slug").notNull(),
     title: text("title").notNull(),
     department: text("department"),
+    team: text("team"),
     location: text("location"),
+    region: text("region"),
+    headcount: integer("headcount"),
     description: text("description"),
     status: jobStatus("status").notNull().default("draft"),
     /** What interviewers rate on this job's scorecards, 1 to 4 each. */

@@ -20,14 +20,22 @@ type JobStatus = (typeof STATUSES)[number];
 function parseJob(form: FormData) {
   const title = field(form, "title", 200);
   const status = form.get("status");
+  const headcountInput = form.get("headcount");
+  const headcountText = typeof headcountInput === "string" ? headcountInput.trim() : "";
+  const headcount = headcountText ? Number(headcountText) : null;
   if (!title) return { error: "Title is required." } as const;
   if (!STATUSES.includes(status as JobStatus)) return { error: "Pick a status." } as const;
+  if (headcountText && (!/^(0|[1-9]\d{0,4})$/.test(headcountText) || headcount === null || headcount > 10000))
+    return { error: "Headcount must be a whole number from 0 to 10,000." } as const;
   return {
     value: {
       title,
       status: status as JobStatus,
       department: field(form, "department", 200),
+      team: field(form, "team", 200),
       location: field(form, "location", 200),
+      region: field(form, "region", 200),
+      headcount,
       description: field(form, "description", 20_000),
     },
   } as const;
