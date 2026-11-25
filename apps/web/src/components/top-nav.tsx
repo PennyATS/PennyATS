@@ -38,7 +38,7 @@ function NavLink({ href, label, icon, compact = false }: { href: string; label: 
       href={href}
       aria-current={active ? "page" : undefined}
       className={`flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
-        active ? "bg-white/15 text-white" : "text-[#c7c5d7] hover:bg-white/10 hover:text-white"
+        active ? "bg-white/15 text-white" : "text-[#c8ddd2] hover:bg-white/10 hover:text-white"
       } ${compact ? "w-full" : "whitespace-nowrap"}`}
     >
       <Icon name={icon} className="size-[15px] shrink-0" />
@@ -69,24 +69,60 @@ export function TopNav({ user }: { user: Pick<SessionUser, "name" | "role"> }) {
   const manageActive = pathname.startsWith("/settings") || pathname.startsWith("/careers");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#343052] bg-[#1d1a35] text-white shadow-[0_2px_12px_#17142b20]">
+    <header className="sticky top-0 z-40 border-b border-[#275343] bg-[#0d2e24] text-white shadow-[0_2px_12px_#08221920]">
       <div className="flex h-14 items-stretch px-3 sm:px-5">
-        <Link href="/" aria-label={`${BRAND.name} home`} className="flex shrink-0 items-center gap-3 pr-4">
-          <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-sm bg-[#5747aa] text-[29px] font-bold leading-none tracking-[-0.08em] text-white shadow-[inset_0_1px_0_#ffffff30]">P</span>
-          <span className="hidden text-sm font-bold tracking-tight text-white 2xl:inline">{BRAND.name}</span>
-        </Link>
+        <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          <details key={`user-${pathname}`} className="group relative">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/10 [&::-webkit-details-marker]:hidden">
+              <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#d9eee2] text-[10px] font-bold text-[#14533b]">{initials}</span>
+              <span className="max-w-32 text-left leading-tight">
+                <span className="block truncate text-xs font-semibold">{user.name}</span>
+                <span className="block text-[10px] capitalize text-[#b8d1c1]">{user.role}</span>
+              </span>
+              <Icon name="chevron" className="size-3 text-[#b8d1c1] transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="absolute left-0 top-[calc(100%+8px)] min-w-40 rounded-lg border border-[#dce6df] bg-white p-1.5 text-[#1d2c24] shadow-xl">
+              <form action={logoutAction}>
+                <button type="submit" className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#e7f4eb]">Sign out</button>
+              </form>
+            </div>
+          </details>
+          {canHire && (
+            <Link href="/jobs/new" className="flex h-8 items-center gap-1.5 rounded-md border border-[#48715c] px-3 text-xs font-medium text-white transition-colors hover:bg-white/10">
+              <Icon name="plus" className="size-3.5" /> Add job
+            </Link>
+          )}
+        </div>
 
-        <nav aria-label="Main navigation" className="hidden min-w-0 items-center gap-0.5 lg:flex">
+        <details key={`mobile-${pathname}`} className="group lg:hidden">
+          <summary aria-label="Open navigation menu" className="flex h-full cursor-pointer list-none items-center gap-2 rounded-md px-2 [&::-webkit-details-marker]:hidden">
+            <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-[#d9eee2] text-[10px] font-bold text-[#14533b]">{initials}</span>
+            <Icon name="menu" className="size-5" />
+          </summary>
+          <nav aria-label="Mobile navigation" className="absolute left-0 right-0 top-full max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-[#275343] bg-[#123a2e] p-3 shadow-xl">
+            <div className="grid gap-1 sm:grid-cols-2">
+              {primary.map((item) => <NavLink key={item.href} {...item} compact />)}
+              {secondary.map((item) => <NavLink key={item.href} {...item} compact />)}
+              {canHire && <NavLink href="/jobs/new" label="Add job" icon="plus" compact />}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-[#36614b] px-3 pt-3 text-xs">
+              <span className="truncate text-[#c8ddd2]">{user.name} · <span className="capitalize">{user.role}</span></span>
+              <form action={logoutAction}><button type="submit" className="ml-3 whitespace-nowrap font-medium text-white hover:underline">Sign out</button></form>
+            </div>
+          </nav>
+        </details>
+
+        <nav aria-label="Main navigation" className="ml-auto hidden min-w-0 items-center gap-0.5 lg:flex">
           {primary.map((item) => <NavLink key={item.href} {...item} />)}
           <details key={`manage-${pathname}`} className="group relative">
-            <summary className={`flex cursor-pointer list-none items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium transition-colors [&::-webkit-details-marker]:hidden ${manageActive ? "bg-white/15 text-white" : "text-[#c7c5d7] hover:bg-white/10 hover:text-white"}`}>
+            <summary className={`flex cursor-pointer list-none items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium transition-colors [&::-webkit-details-marker]:hidden ${manageActive ? "bg-white/15 text-white" : "text-[#c8ddd2] hover:bg-white/10 hover:text-white"}`}>
               <Icon name="settings" className="size-[15px]" />
               {canAdmin ? "Admin" : "More"}
               <Icon name="chevron" className="size-3 transition-transform group-open:rotate-180" />
             </summary>
-            <div className="absolute left-0 top-[calc(100%+8px)] min-w-48 rounded-lg border border-[#e2e0ed] bg-white p-1.5 text-[#28243d] shadow-xl">
+            <div className="absolute right-0 top-[calc(100%+8px)] min-w-48 rounded-lg border border-[#dce6df] bg-white p-1.5 text-[#1d2c24] shadow-xl">
               {secondary.map((item) => (
-                <Link key={item.href} href={item.href} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#f1effa] hover:text-[#4d3f9d]">
+                <Link key={item.href} href={item.href} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#e7f4eb] hover:text-[#14533b]">
                   <Icon name={item.icon} className="size-4" />{item.label}
                 </Link>
               ))}
@@ -94,46 +130,10 @@ export function TopNav({ user }: { user: Pick<SessionUser, "name" | "role"> }) {
           </details>
         </nav>
 
-        <div className="ml-auto hidden items-center gap-3 lg:flex">
-          {canHire && (
-            <Link href="/jobs/new" className="flex h-8 items-center gap-1.5 rounded-md border border-[#514b70] px-3 text-xs font-medium text-white transition-colors hover:bg-white/10">
-              <Icon name="plus" className="size-3.5" /> Add job
-            </Link>
-          )}
-          <details key={`user-${pathname}`} className="group relative">
-            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/10 [&::-webkit-details-marker]:hidden">
-              <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#ded9fa] text-[10px] font-bold text-[#4d3f9d]">{initials}</span>
-              <span className="max-w-32 text-left leading-tight">
-                <span className="block truncate text-xs font-semibold">{user.name}</span>
-                <span className="block text-[10px] capitalize text-[#b7b3cc]">{user.role}</span>
-              </span>
-              <Icon name="chevron" className="size-3 text-[#b7b3cc] transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="absolute right-0 top-[calc(100%+8px)] min-w-40 rounded-lg border border-[#e2e0ed] bg-white p-1.5 text-[#28243d] shadow-xl">
-              <form action={logoutAction}>
-                <button type="submit" className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#f1effa]">Sign out</button>
-              </form>
-            </div>
-          </details>
-        </div>
-
-        <details key={`mobile-${pathname}`} className="group ml-auto lg:hidden">
-          <summary aria-label="Open navigation menu" className="flex h-full cursor-pointer list-none items-center gap-2 rounded-md px-2 [&::-webkit-details-marker]:hidden">
-            <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-[#ded9fa] text-[10px] font-bold text-[#4d3f9d]">{initials}</span>
-            <Icon name="menu" className="size-5" />
-          </summary>
-          <nav aria-label="Mobile navigation" className="absolute left-0 right-0 top-full max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-[#343052] bg-[#211e3b] p-3 shadow-xl">
-            <div className="grid gap-1 sm:grid-cols-2">
-              {primary.map((item) => <NavLink key={item.href} {...item} compact />)}
-              {secondary.map((item) => <NavLink key={item.href} {...item} compact />)}
-              {canHire && <NavLink href="/jobs/new" label="Add job" icon="plus" compact />}
-            </div>
-            <div className="mt-3 flex items-center justify-between border-t border-[#46415f] px-3 pt-3 text-xs">
-              <span className="truncate text-[#c7c5d7]">{user.name} · <span className="capitalize">{user.role}</span></span>
-              <form action={logoutAction}><button type="submit" className="ml-3 whitespace-nowrap font-medium text-white hover:underline">Sign out</button></form>
-            </div>
-          </nav>
-        </details>
+        <Link href="/" aria-label={`${BRAND.name} home`} className="ml-auto flex shrink-0 items-center gap-3 pl-4 lg:ml-0">
+          <span className="text-sm font-bold tracking-tight text-white">{BRAND.name}</span>
+          <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-sm bg-[#176b4d] text-[29px] font-bold leading-none tracking-[-0.08em] text-white shadow-[inset_0_1px_0_#ffffff30]">P</span>
+        </Link>
       </div>
     </header>
   );
