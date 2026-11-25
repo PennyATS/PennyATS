@@ -219,3 +219,100 @@ export function formatDays(value: number | null): string {
   const rounded = Math.round(value * 10) / 10;
   return `${rounded} day${rounded === 1 ? "" : "s"}`;
 }
+
+/* ---------- Tables shared by the reports page and CSV downloads ---------- */
+
+export type ReportJob = { id: string; title: string; location: string | null; status: string };
+export type ReportCard = { author: string; recommendation: string };
+
+export type Cell = string | number | null;
+export type ReportTable = { head: string[]; rows: Cell[][] };
+
+export type ReportInput = {
+  jobs: ReportJob[];
+  jobId: string | null;
+  apps: ReportApp[];
+  events: ReportEvent[];
+  stages: ReportStage[];
+  cards: ReportCard[];
+};
+
+export const REPORT_TABLES = ["funnel", "jobs", "stages", "sources", "reasons", "interviewers"] as const;
+export type ReportTableId = (typeof REPORT_TABLES)[number];
+
+/** Teams often post one title in several places, so include the location. */
+export function jobLabel(job: { title: string; location: string | null }): string {
+  return job.location ? `${job.title} · ${job.location}` : job.title;
+}
+
+/** Days rounded to one decimal, or null when there's nothing to measure. */
+const dayCell = (v: number | null): number | null => (v === null ? null : Math.round(v * 10) / 10);
+
+const RECS = ["strong_no", "no", "yes", "strong_yes"] as const;
+const REC_HEAD = ["Strong no", "No", "Yes", "Strong yes"];
+
+/**
+ * Every report table as plain rows. The page renders these and the CSV download
+ * exports them, so the two can never disagree. `funnel` is only present for a
+ * single job and `jobs` only for all jobs.
+ */
+export function reportTables(input: ReportInput): Partial<Record<ReportTableId, ReportTable>> & {
+  jobIds: string[];
+} {
+  const { apps, events, stages } = input;
+  const tables: Partial<Record<ReportTableId, ReportTable>> = {};
+  let jobIds: string[] = [];
+
+  if (input.jobId) {
+    tables.funnel = {
+      head: ["Stage", "Candidates", "Percent of applicants"],
+      rows: funnel(stages, apps, events).map((r) => [r.label, r.count, r.percent]),
+    };
+  } else {
+    const perJob = input.jobs
+      .map((job) => ({ job, ...summarizeJob(apps.filter((a) => a.jobId === job.id), events) }))
+      .filter((r) => r.applicants > 0);
+    jobIds = perJob.map((r) => r.job.id);
+    tables.jobs = {
+      head: ["Job", "Applicants", "Active", "Hired", "Rejected", "Withdrawn", "Median days to hire"],
+      rows: perJob.map((r) => [
+        jobLabel(r.job),
+        r.applicants,
+        r.active,
+        r.hired,
+        r.rejected,
+        r.withdrawn,
+        dayCell(r.medianDaysToHire),
+      ]),
+    };
+  }
+
+  tables.stages = {
+    head: ["Stage", "Candidates", "Average days", "Median days"],
+    rows: timeInStage(stages, apps, events).map((r) => [r.stage, r.samples, dayCell(r.averageDays), dayCell(r.medianDays)]),
+  };
+  tables.sources = {
+    head: ["Source", "Applicants", "Advanced", "Hired"],
+    rows: sources(apps, events).map((r) => [r.source, r.applicants, r.advanced, r.hired]),
+  };
+  tables.reasons = {
+    head: ["Reason", "Count"],
+    rows: rejectionReasons(apps).map((r) => [r.reason, r.count]),
+  };
+
+  const byAuthor = new Map<string, number[]>();
+  for (const card of input.cards) {
+    const counts = byAuthor.get(card.author) ?? RECS.map(() => 0);
+    const i = RECS.indexOf(card.recommendation as (typeof RECS)[number]);
+    if (i >= 0) counts[i] += 1;
+    byAuthor.set(card.author, counts);
+  }
+  tables.interviewers = {
+    head: ["Interviewer", "Scorecards", ...REC_HEAD],
+    rows: [...byAuthor.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, counts]) => [name, counts.reduce((a, b) => a + b, 0), ...counts]),
+  };
+
+  return { ...tables, jobIds };
+}

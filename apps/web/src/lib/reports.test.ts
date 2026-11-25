@@ -8,6 +8,7 @@ import {
   periodStart,
   readPeriod,
   rejectionReasons,
+  reportTables,
   sources,
   stageTimeline,
   summarizeJob,
@@ -150,4 +151,18 @@ test("periods default to 90 days and 'all' means no start date", () => {
   assert.equal(readPeriod("bogus"), "90");
   assert.equal(periodStart("all"), null);
   assert.equal(periodStart("30", day(30))?.toISOString(), day(0).toISOString());
+});
+
+test("reportTables builds the funnel for one job and the per-job table for all", () => {
+  const base = { jobs: [{ id: "j", title: "Engineer", location: "Remote", status: "open" }], apps: APPS, events: EVENTS, stages: STAGES };
+  const one = reportTables({ ...base, jobId: "j", cards: [] });
+  assert.deepEqual(one.funnel?.rows, [["Applied", 3, 100], ["Screen", 2, 67], ["Onsite", 1, 33], ["Hired", 1, 33]]);
+  assert.equal(one.jobs, undefined);
+
+  const all = reportTables({ ...base, jobId: null, cards: [{ author: "Sam", recommendation: "yes" }, { author: "Sam", recommendation: "no" }] });
+  assert.equal(all.funnel, undefined);
+  assert.deepEqual(all.jobs?.rows, [["Engineer · Remote", 3, 1, 1, 1, 0, 9]]);
+  assert.deepEqual(all.jobIds, ["j"]);
+  assert.deepEqual(all.interviewers?.rows, [["Sam", 2, 0, 1, 1, 0]]);
+  assert.deepEqual(all.stages?.rows[0], ["Applied", 2, 3, 3]);
 });

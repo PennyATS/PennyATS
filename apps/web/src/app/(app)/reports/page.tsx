@@ -1,24 +1,19 @@
 import Link from "next/link";
-import { and, asc, eq, gte, inArray, type SQL } from "drizzle-orm";
-import { activity, applications, candidates, jobs, scorecards, stages, users } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { canManageHiring } from "@/lib/permissions";
+import { loadReportInput } from "@/lib/report-data";
 import {
   PERIODS,
   daysToHire,
   formatDays,
-  funnel,
+  jobLabel,
   median,
-  periodStart,
   readPeriod,
-  rejectionReasons,
-  sources,
-  summarizeJob,
-  timeInStage,
-  type ReportApp,
+  reportTables,
+  type Cell,
+  type ReportTable,
+  type ReportTableId,
 } from "@/lib/reports";
-import { RECOMMENDATIONS, RECOMMENDATION_LABELS, type Recommendation } from "@/lib/scorecards";
 import { isUuid } from "@/lib/validation";
 
 const PERIOD_LABELS: Record<keyof typeof PERIODS, string> = {
@@ -37,77 +32,13 @@ export default async function ReportsPage({
   const sp = await searchParams;
   const period = readPeriod(sp.period);
   const jobId = sp.job && isUuid(sp.job) ? sp.job : null;
-  const start = periodStart(period);
 
-  // Every query below is limited to applications in the selected job and period.
-  const appFilter: SQL | undefined = and(
-    jobId ? eq(applications.jobId, jobId) : undefined,
-    start ? gte(applications.appliedAt, start) : undefined,
-  );
-
-  const [allJobs, appRows, eventRows, stageRows, cardRows] = await Promise.all([
-    db()
-      .select({ id: jobs.id, title: jobs.title, location: jobs.location, status: jobs.status })
-      .from(jobs)
-      .orderBy(asc(jobs.title)),
-    db()
-      .select({
-        id: applications.id,
-        jobId: applications.jobId,
-        status: applications.status,
-        source: candidates.source,
-        appliedAt: applications.appliedAt,
-        stageId: applications.stageId,
-        rejectionReason: applications.rejectionReason,
-      })
-      .from(applications)
-      .innerJoin(candidates, eq(candidates.id, applications.candidateId))
-      .where(appFilter),
-    db()
-      .select({
-        applicationId: applications.id,
-        type: activity.type,
-        data: activity.data,
-        createdAt: activity.createdAt,
-      })
-      .from(activity)
-      .innerJoin(applications, eq(applications.id, activity.applicationId))
-      .where(and(appFilter, inArray(activity.type, ["stage_changed", "hired", "rejected", "withdrawn"]))),
-    db()
-      .select({ id: stages.id, jobId: stages.jobId, name: stages.name, position: stages.position })
-      .from(stages)
-      .where(jobId ? eq(stages.jobId, jobId) : undefined),
-    db()
-      .select({ author: users.name, recommendation: scorecards.recommendation })
-      .from(scorecards)
-      .innerJoin(applications, eq(applications.id, scorecards.applicationId))
-      .innerJoin(users, eq(users.id, scorecards.authorId))
-      .where(appFilter),
-  ]);
-
-  const apps = appRows as ReportApp[];
-  const selectedJob = jobId ? allJobs.find((j) => j.id === jobId) : undefined;
-  const hireDays = daysToHire(apps, eventRows);
-
-  const perJob = jobId
-    ? []
-    : allJobs
-        .map((job) => ({
-          job,
-          ...summarizeJob(
-            apps.filter((a) => a.jobId === job.id),
-            eventRows,
-          ),
-        }))
-        .filter((row) => row.applicants > 0);
-
-  const interviewers = new Map<string, Record<Recommendation, number>>();
-  for (const card of cardRows) {
-    const counts =
-      interviewers.get(card.author) ?? (Object.fromEntries(RECOMMENDATIONS.map((r) => [r, 0])) as Record<Recommendation, number>);
-    counts[card.recommendation as Recommendation] += 1;
-    interviewers.set(card.author, counts);
-  }
+  const input = await loadReportInput(jobId, period);
+  const tables = reportTables(input);
+  const selectedJob = jobId ? input.jobs.find((j) => j.id === jobId) : undefined;
+  const hireDays = daysToHire(input.apps, input.events);
+  const query = `${jobId ? `job=${jobId}&` : ""}period=${period}`;
+  const csv = (id: ReportTableId) => `/api/reports/${id}?${query}`;
 
   return (
     <>
@@ -121,7 +52,7 @@ export default async function ReportsPage({
           </label>
           <select id="job" name="job" defaultValue={jobId ?? ""} className="input">
             <option value="">All jobs</option>
-            {allJobs.map((j) => (
+            {input.jobs.map((j) => (
               <option key={j.id} value={j.id}>
                 {jobLabel(j)}
                 {j.status !== "open" ? ` (${j.status})` : ""}
@@ -146,12 +77,12 @@ export default async function ReportsPage({
         </button>
       </form>
       <p className="muted mt-2 text-xs">
-        Based on {apps.length} application{apps.length === 1 ? "" : "s"} received in this period.
+        Based on {input.apps.length} application{input.apps.length === 1 ? "" : "s"} received in this period.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-4">
         {[
-          { label: "Applicants", value: String(apps.length) },
+          { label: "Applicants", value: String(input.apps.length) },
           { label: "Hired", value: String(hireDays.length) },
           { label: "Median time to hire", value: formatDays(median(hireDays)) },
           {
@@ -166,16 +97,20 @@ export default async function ReportsPage({
         ))}
       </div>
 
-      {selectedJob ? (
-        <Section title={`Funnel: ${jobLabel(selectedJob)}`} note="Applicants who reached each stage or a later one.">
+      {tables.funnel && selectedJob ? (
+        <Section
+          title={`Funnel: ${jobLabel(selectedJob)}`}
+          note="Applicants who reached each stage or a later one."
+          csvHref={csv("funnel")}
+        >
           <table className="table">
             <tbody>
-              {funnel(stageRows, apps, eventRows).map((row) => (
-                <tr key={row.label}>
-                  <td className="w-48">{row.label}</td>
-                  <td className="w-16 text-right">{row.count}</td>
+              {tables.funnel.rows.map(([label, count, percent]) => (
+                <tr key={String(label)}>
+                  <td className="w-48">{label}</td>
+                  <td className="w-16 text-right">{count}</td>
                   <td>
-                    <Bar percent={row.percent} />
+                    <Bar percent={Number(percent)} />
                   </td>
                 </tr>
               ))}
@@ -183,94 +118,90 @@ export default async function ReportsPage({
           </table>
         </Section>
       ) : (
-        <Section title="By job" note="Pick a job above to see its stage-by-stage funnel.">
-          <Table
-            head={["Job", "Applicants", "Active", "Hired", "Rejected", "Withdrawn", "Median time to hire"]}
-            rows={perJob.map((r) => [
-              <Link key="j" href={`/reports?job=${r.job.id}&period=${period}`} className="link">
-                {jobLabel(r.job)}
-              </Link>,
-              r.applicants,
-              r.active,
-              r.hired,
-              r.rejected,
-              r.withdrawn,
-              formatDays(r.medianDaysToHire),
-            ])}
-          />
-        </Section>
+        tables.jobs && (
+          <Section title="By job" note="Pick a job above to see its stage-by-stage funnel." csvHref={csv("jobs")}>
+            <Table
+              table={tables.jobs}
+              firstCell={(value, i) => (
+                <Link href={`/reports?job=${tables.jobIds[i]}&period=${period}`} className="link">
+                  {value}
+                </Link>
+              )}
+            />
+          </Section>
+        )
       )}
 
-      <Section title="Time in stage" note="How long candidates stayed in each stage before moving on or being closed out.">
-        <Table
-          head={["Stage", "Candidates", "Average", "Median"]}
-          rows={timeInStage(stageRows, apps, eventRows).map((r) => [
-            r.stage,
-            r.samples,
-            formatDays(r.averageDays),
-            formatDays(r.medianDays),
-          ])}
-        />
+      <Section
+        title="Time in stage"
+        note="Days candidates stayed in each stage before moving on or being closed out."
+        csvHref={csv("stages")}
+      >
+        {tables.stages && <Table table={tables.stages} />}
       </Section>
 
-      <Section title="Sources" note="Advanced means they moved past their first stage.">
-        <Table
-          head={["Source", "Applicants", "Advanced", "Hired"]}
-          rows={sources(apps, eventRows).map((r) => [r.source, r.applicants, r.advanced, r.hired])}
-        />
+      <Section title="Sources" note="Advanced means they moved past their first stage." csvHref={csv("sources")}>
+        {tables.sources && <Table table={tables.sources} />}
       </Section>
 
-      <Section title="Rejection reasons">
-        <Table head={["Reason", "Count"]} rows={rejectionReasons(apps).map((r) => [r.reason, r.count])} />
+      <Section title="Rejection reasons" csvHref={csv("reasons")}>
+        {tables.reasons && <Table table={tables.reasons} />}
       </Section>
 
-      <Section title="Interviewers" note="Scorecards submitted on applications in this period.">
-        <Table
-          head={["Interviewer", "Scorecards", ...RECOMMENDATIONS.map((r) => RECOMMENDATION_LABELS[r])]}
-          rows={[...interviewers.entries()]
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([name, counts]) => [
-              name,
-              RECOMMENDATIONS.reduce((sum, r) => sum + counts[r], 0),
-              ...RECOMMENDATIONS.map((r) => counts[r]),
-            ])}
-        />
+      <Section title="Interviewers" note="Scorecards submitted on applications in this period." csvHref={csv("interviewers")}>
+        {tables.interviewers && <Table table={tables.interviewers} />}
       </Section>
     </>
   );
 }
 
-/** Teams often post one title in several places, so include the location. */
-function jobLabel(job: { title: string; location: string | null }) {
-  return job.location ? `${job.title} · ${job.location}` : job.title;
-}
-
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+function Section({
+  title,
+  note,
+  csvHref,
+  children,
+}: {
+  title: string;
+  note?: string;
+  csvHref: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-semibold">{title}</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <a href={csvHref} className="link text-xs" download>
+          Download CSV
+        </a>
+      </div>
       {note && <p className="muted mt-1 text-sm">{note}</p>}
       <div className="mt-3">{children}</div>
     </section>
   );
 }
 
-function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
-  if (rows.length === 0) return <p className="muted text-sm">No data for this period.</p>;
+function Table({
+  table,
+  firstCell,
+}: {
+  table: ReportTable;
+  firstCell?: (value: Cell, rowIndex: number) => React.ReactNode;
+}) {
+  if (table.rows.length === 0) return <p className="muted text-sm">No data for this period.</p>;
   return (
     <table className="table">
       <thead>
         <tr>
-          {head.map((h) => (
+          {table.head.map((h) => (
             <th key={h}>{h}</th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {rows.map((cells, i) => (
+        {table.rows.map((cells, i) => (
           <tr key={i}>
-            {cells.map((cell, j) => (
-              <td key={j}>{cell}</td>
+            {cells.map((value, j) => (
+              <td key={j}>{j === 0 && firstCell ? firstCell(value, i) : (value ?? "-")}</td>
             ))}
           </tr>
         ))}

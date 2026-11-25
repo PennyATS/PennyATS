@@ -63,7 +63,7 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Privacy: any new table holding candidate data must cascade on candidate delete (`onDelete: "cascade"`) and be added to `exportCandidate` in `lib/privacy.ts`. Never write a deleted person's details to `audit_log`.
 - `lib/privacy.ts` has no Next.js imports so `scripts/privacy-purge.mts` can use it. Keep it that way.
 - Raw `sql` templates don't serialize `Date` params with postgres-js; pass `date.toISOString()` and cast to `::timestamptz`.
-- Reports: the page loads raw rows for the selected job and period, and every number comes from pure functions in `lib/reports.ts` (unit tested). Stage history is rebuilt from `stage_changed` activity, so anything that moves an application must log it through `logActivity`.
+- Reports: `lib/report-data.ts` loads raw rows for the selected job and period; `reportTables()` in `lib/reports.ts` turns them into the tables that both the page and the CSV download (`/api/reports/[table]`) use, so they can't disagree. CSV goes through `toCsv` in `lib/csv.ts`, which neutralizes spreadsheet formulas. Stage history is rebuilt from `stage_changed` activity, so anything that moves an application must log it through `logActivity`.
 - Exports from a `"use server"` file are callable by anyone as endpoints. Put helpers in `lib/`, not in actions files.
 - Forms: React 19 resets a form after its action runs, snapping inputs back to stale defaults. For `ActionForm`, pass `resetKey` (the saved value) rather than keying the whole form, which would also wipe the "Saved." message. Plain forms: key the inputs.
 
@@ -87,11 +87,9 @@ Work to do lives in GitHub issues (https://github.com/PennyATS/PennyATS/issues) 
 - Retention only runs when someone clicks "Delete now" or schedules `pnpm privacy:purge`; there is no built-in scheduler.
 - Deleting a candidate doesn't remove them from database or file backups; self-hosters handle backup expiry.
 - Reports compute in memory over the selected period. Fine for small teams; a very large instance would want SQL aggregation.
-- No CSV download for reports yet.
 - AI features were tested against a local fake of the Anthropic API, not a real provider. Check with a real key before announcing them. The OpenAI default model (`gpt-4o-mini`) may be dated; it can be overridden with `AI_MODEL`.
 - AI results aren't saved; a feedback summary is regenerated each time.
 - Applications created before activity logging existed (the original seed) have no stage history, so their starting stage is assumed to be their current one.
-- After a keyboard move on the board, focus isn't moved to the card in its new column.
 - Kanban drag and drop uses native HTML5 drag events, which don't fire on touch screens; the arrow buttons cover touch and keyboard.
 - License is not chosen yet (MIT or AGPL). Do not add a license file without asking.
 
