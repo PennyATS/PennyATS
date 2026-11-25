@@ -1,13 +1,13 @@
 "use server";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { invites, users } from "@pennyats/db";
+import { invites, sessions, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { hashToken, newToken, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageUsers, isRole } from "@/lib/permissions";
-import { field, isEmail, normalizeEmail } from "@/lib/validation";
+import { canManageUsers, isRole, removesLastAdmin } from "@/lib/permissions";
+import { field, isEmail, isUuid, normalizeEmail } from "@/lib/validation";
 
 const INVITE_DAYS = 7;
 
@@ -44,4 +44,54 @@ export async function revokeInviteAction(inviteId: string): Promise<void> {
     .delete(invites)
     .where(and(eq(invites.id, inviteId), isNull(invites.acceptedAt)));
   revalidatePath("/settings/users");
+}
+
+/** Change a role or deactivate/reactivate an account without deleting its attribution. */
+export async function updateUserAction(userId: string, _: FormState, form: FormData): Promise<FormState> {
+  await requireUser(canManageUsers);
+  if (!isUuid(userId)) return { error: "User not found." };
+
+  const intent = form.get("intent");
+  if (intent !== "role" && intent !== "deactivate" && intent !== "reactivate") {
+    return { error: "Invalid change." };
+  }
+  const role = form.get("role");
+  if (intent === "role" && !isRole(role)) return { error: "Pick a role." };
+  const requestedRole = intent === "role" && isRole(role) ? role : null;
+  if (intent === "deactivate" && form.get("confirm") !== "on") {
+    return { error: "Confirm that you want to deactivate this user." };
+  }
+
+  const result = await db().transaction(async (tx) => {
+    // Serialize role and status changes so two admins cannot each remove the other last admin.
+    await tx.execute(sql`select pg_advisory_xact_lock(21472, 1)`);
+    const [target] = await tx.select().from(users).where(eq(users.id, userId));
+    if (!target) return { error: "User not found." } as const;
+
+    const nextRole = requestedRole ?? target.role;
+    const nextActive = intent === "deactivate" ? false : intent === "reactivate" ? true : target.active;
+    const [{ n }] = await tx.select({ n: count() }).from(users)
+      .where(and(eq(users.role, "admin"), eq(users.active, true)));
+    if (removesLastAdmin({
+      currentRole: target.role,
+      currentActive: target.active,
+      nextRole,
+      nextActive,
+      activeAdminCount: n,
+    })) {
+      return { error: "The last active admin cannot be demoted or deactivated." } as const;
+    }
+
+    if (nextRole === target.role && nextActive === target.active) {
+      return { message: "No change needed." } as const;
+    }
+    await tx.update(users).set({ role: nextRole, active: nextActive }).where(eq(users.id, userId));
+    if (target.active && !nextActive) {
+      await tx.delete(sessions).where(eq(sessions.userId, userId));
+    }
+    return { message: intent === "role" ? "Role saved." : nextActive ? "User reactivated." : "User deactivated." } as const;
+  });
+
+  revalidatePath("/settings/users");
+  return result;
 }

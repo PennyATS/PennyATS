@@ -77,7 +77,7 @@ export async function loginAction(_: FormState, form: FormData): Promise<FormSta
   const [user] = await db().select().from(users).where(eq(users.email, email));
   // Verify even when the user doesn't exist, so response time doesn't reveal which emails have accounts.
   const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
-  if (!user || !ok) return { error: "Email or password is incorrect." };
+  if (!user || !user.active || !ok) return { error: "Email or password is incorrect." };
 
   await startSession(user.id);
   redirect("/");
