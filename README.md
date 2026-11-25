@@ -26,7 +26,7 @@ pnpm install
 cp .env.example .env
 ```
 
-Point `DATABASE_URL` in `.env` at any Postgres: a free [Neon](https://neon.tech) or Supabase database, RDS, or local Docker:
+Point `DATABASE_URL` in `.env` at any Postgres: a free [Neon](https://neon.tech) or Supabase database, RDS, or local Docker. PennyATS is developed and tested on Postgres 18; versions 14 and newer should work but aren't tested.
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d

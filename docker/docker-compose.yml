@@ -1,6 +1,7 @@
 services:
   db:
-    image: postgres:16
+    # Matches the version PennyATS is developed and tested on.
+    image: postgres:18
     environment:
       POSTGRES_USER: pennyats
       POSTGRES_PASSWORD: pennyats
@@ -8,7 +9,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pennyats_pgdata:/var/lib/postgresql/data
+      # Postgres 18 images keep data in a versioned folder under /var/lib/postgresql,
+      # so the volume mounts there (not /var/lib/postgresql/data as in older images).
+      - pennyats_pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pennyats"]
       interval: 5s
