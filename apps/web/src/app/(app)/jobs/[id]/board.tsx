@@ -19,11 +19,13 @@ export type BoardCard = {
  * if the server refuses them.
  */
 export function Board({
+  jobId,
   stages,
   cards,
   canMove,
   moveAction,
 }: {
+  jobId: string;
   stages: BoardStage[];
   cards: BoardCard[];
   canMove: boolean;
@@ -138,7 +140,11 @@ export function Board({
                       style={{ borderColor: "var(--border)", background: "var(--bg)", cursor: canMove ? "grab" : undefined, opacity: touchDrag?.id === card.id ? 0.5 : undefined }}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <Link href={`/candidates/${card.candidateId}`} className="font-medium hover:underline">
+                        <Link
+                          // Opened from a stage, the profile's next / previous arrows step through this stage.
+                          href={`/candidates/${card.candidateId}?${new URLSearchParams({ job: jobId, ...(column.id ? { stage: column.name } : {}), status: "active" })}`}
+                          className="font-medium hover:underline"
+                        >
                           {card.name}
                         </Link>
                         {canMove && stages.length > 1 && (

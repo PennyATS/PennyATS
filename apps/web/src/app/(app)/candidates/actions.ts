@@ -22,6 +22,7 @@ import { deleteCandidates } from "@/lib/privacy";
 import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
 import { smtpConfigured } from "@/lib/smtp";
 import { extensionOf, storage } from "@/lib/storage";
+import { mergeTags, normalizeTag, parseTags, rejectionReasonText } from "@/lib/candidate-review";
 import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
 
 /** Recruiter adds someone by hand (sourced, referral, etc.). Email is optional here. */
@@ -127,7 +128,14 @@ export async function setStatusAction(
   const user = await requireUser(canManageHiring);
   const app = await getApplicationFor(user, applicationId);
   if (!app || app.status === status) return;
-  const reason = status === "active" ? null : field(form, "reason", 500);
+  // Rejections use the standard list, with an optional note; withdrawals keep a free-text note.
+  const reason =
+    status === "rejected"
+      ? rejectionReasonText(field(form, "reason", 100), field(form, "note", 400))
+      : status === "active"
+        ? null
+        : field(form, "reason", 500);
+  if (status === "rejected" && !reason) return;
 
   await db().transaction(async (tx) => {
     await tx
@@ -142,6 +150,54 @@ export async function setStatusAction(
     });
   });
   refresh(app.candidateId, app.jobId);
+}
+
+/** Add tags ("#swe, #bayarea"). Recruiters and admins only. */
+export async function addTagsAction(candidateId: string, form: FormData): Promise<void> {
+  await requireUser(canManageHiring);
+  if (!isUuid(candidateId)) return;
+  const added = parseTags(field(form, "tags", 500) ?? "");
+  if (added.length === 0) return;
+  const [row] = await db().select({ tags: candidates.tags }).from(candidates).where(eq(candidates.id, candidateId));
+  if (!row) return;
+  await db().update(candidates).set({ tags: mergeTags(row.tags, added) }).where(eq(candidates.id, candidateId));
+  revalidatePath(`/candidates/${candidateId}`);
+  revalidatePath("/candidates");
+}
+
+export async function removeTagAction(candidateId: string, tag: string): Promise<void> {
+  await requireUser(canManageHiring);
+  const normalized = normalizeTag(tag);
+  if (!isUuid(candidateId) || !normalized) return;
+  const [row] = await db().select({ tags: candidates.tags }).from(candidates).where(eq(candidates.id, candidateId));
+  if (!row) return;
+  await db().update(candidates).set({ tags: row.tags.filter((t) => normalizeTag(t) !== normalized) }).where(eq(candidates.id, candidateId));
+  revalidatePath(`/candidates/${candidateId}`);
+  revalidatePath("/candidates");
+}
+
+/** Upload or replace a resume from the profile. Plain-text files also fill the searchable resume text. */
+export async function uploadResumeAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
+  await requireUser(canManageHiring);
+  if (!isUuid(candidateId)) return { error: "Candidate not found." };
+  const file = form.get("resume");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a file to upload." };
+  const problem = checkResume(file.name, file.size);
+  if (problem) return { error: problem };
+  const [row] = await db().select({ key: candidates.resumeKey }).from(candidates).where(eq(candidates.id, candidateId));
+  if (!row) return { error: "Candidate not found." };
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const ext = extensionOf(file.name);
+  const key = await storage.put(bytes, ext);
+  const text = ext === ".txt" ? new TextDecoder().decode(bytes).slice(0, 100_000) : undefined;
+  await db()
+    .update(candidates)
+    .set({ resumeKey: key, resumeName: file.name.slice(0, 200), ...(text !== undefined ? { resumeText: text } : {}) })
+    .where(eq(candidates.id, candidateId));
+  if (row.key) await storage.delete(row.key).catch(() => {});
+  revalidatePath(`/candidates/${candidateId}`);
+  return { message: "Resume saved." };
 }
 
 /** Anyone who can see the candidate can add a note, interviewers included. */

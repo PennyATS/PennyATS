@@ -62,13 +62,14 @@ const SOURCES: Record<string, string> = {
   university: "University",
 };
 
+// Matches the standard list in apps/web/src/lib/candidate-review.ts.
 const REJECTION_REASONS: Record<Stage, string[]> = {
-  applied: ["Not enough relevant experience", "Missing required skills", "Location or work authorization"],
-  recruiter_screen: ["Compensation expectations", "Not enough relevant experience", "Not the right level"],
-  hiring_manager_screen: ["Not the right level", "Missing required skills"],
-  technical_interview: ["Technical skills below the bar"],
-  onsite: ["Technical skills below the bar", "Another candidate was stronger"],
-  offer: ["Another candidate was stronger"],
+  applied: ["Does not meet minimum qualifications", "Not enough relevant experience", "Work authorization or eligibility", "Location or relocation mismatch", "Potentially fraudulent application"],
+  recruiter_screen: ["Compensation mismatch", "Not enough relevant experience", "Communication", "Unresponsive"],
+  hiring_manager_screen: ["Not enough relevant experience", "Technical skills gap", "Overqualified"],
+  technical_interview: ["Did not pass assessment", "Technical skills gap"],
+  onsite: ["Technical skills gap", "Values or team alignment", "Hired another candidate"],
+  offer: ["Accepted another offer", "Compensation mismatch"],
 };
 
 /** Synthetic hiring team. Names are invented; emails use example.com. */
@@ -214,7 +215,7 @@ export async function seedSynthetic(db: Db, input: { adminId: string; passwordHa
       phone: c.phone,
       location: c.location,
       source: SOURCES[c.source] ?? titleCase(c.source),
-      tags: [titleCase(c.seniority)],
+      tags: [c.seniority.toLowerCase()],
       resumeText: [
         `${titleCase(c.seniority)} ${c.role_family}, ${c.years_experience} years of experience.`,
         `Currently at ${c.current_employer}${c.prior_employer ? `; previously at ${c.prior_employer}` : ""}.`,

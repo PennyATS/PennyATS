@@ -30,8 +30,15 @@ import { isUuid } from "@/lib/validation";
 import { smtpConfigured } from "@/lib/smtp";
 import type { Recommendation } from "@/lib/scorecards";
 import { isAiFeatureOn } from "@/lib/ai";
+import { REJECTION_REASON_GROUPS } from "@/lib/candidate-review";
+import { filtersQuery, readFilters, reviewNeighbors } from "@/lib/candidate-search";
+import { ReviewNav } from "./review-nav";
+import { RESUME_EXTENSIONS } from "@/lib/validation";
 import {
   addNoteAction,
+  addTagsAction,
+  removeTagAction,
+  uploadResumeAction,
   deleteCandidateAction,
   moveStageAction,
   retrySchedulingDeliveryAction,
@@ -44,7 +51,13 @@ import { Scorecards, type ScorecardRow } from "./scorecards";
 import { Interviews, type InterviewRow } from "./interviews";
 import { interviewStatus, isOverdue } from "@/lib/interviews";
 
-export default async function CandidatePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CandidatePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
   const user = await requireUser();
   if (!isUuid(id) || !(await canSeeCandidate(user, id))) notFound();
@@ -54,6 +67,12 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
 
   const [candidate] = await db().select().from(candidates).where(eq(candidates.id, id));
   if (!candidate) notFound();
+
+  // The list this profile was opened from, for previous / next while reviewing.
+  const listFilters = readFilters(await searchParams);
+  const listQuery = filtersQuery(listFilters);
+  const neighbors = await reviewNeighbors(user, listFilters, candidate);
+  const withList = (candidateId: string) => `/candidates/${candidateId}${listQuery ? `?${listQuery}` : ""}`;
 
   // Interviewers only see this candidate's applications on their own jobs.
   const ids = await visibleJobIds(user);
@@ -254,7 +273,37 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">{candidate.fullName}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">{candidate.fullName}</h1>
+        <ReviewNav
+          prevHref={neighbors.prev ? withList(neighbors.prev) : null}
+          nextHref={neighbors.next ? withList(neighbors.next) : null}
+          position={neighbors.position}
+          total={neighbors.total}
+          listHref={`/candidates${listQuery ? `?${listQuery}` : ""}`}
+          listLabel={listQuery ? "Back to list" : "All candidates"}
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Tags">
+        {candidate.tags.map((tag) => (
+          <span key={tag} className="tag">
+            <Link href={`/candidates?tag=${encodeURIComponent(tag)}`} className="hover:underline">#{tag}</Link>
+            {manage && (
+              <form action={removeTagAction.bind(null, candidate.id, tag)} className="contents">
+                <button type="submit" className="tag-remove" aria-label={`Remove tag ${tag}`}>×</button>
+              </form>
+            )}
+          </span>
+        ))}
+        {manage && (
+          <form action={addTagsAction.bind(null, candidate.id)} className="flex items-center gap-1">
+            <label htmlFor="add-tags" className="sr-only">Add tags</label>
+            <input id="add-tags" name="tags" placeholder="#swe #bayarea" className="input h-7 w-40 !py-0 text-xs" />
+            <button type="submit" className="btn btn-secondary h-7 !min-h-0 px-2 text-xs">Add tag</button>
+          </form>
+        )}
+        {!manage && candidate.tags.length === 0 && <span className="muted text-xs">No tags</span>}
+      </div>
       <dl className="card mt-4 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[max-content_1fr]">
         {(
           [
@@ -270,14 +319,6 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
               ),
             ],
             ["Source", candidate.source],
-            [
-              "Resume",
-              candidate.resumeKey && (
-                <a href={`/api/resumes/${candidate.id}`} className="link">
-                  {candidate.resumeName ?? "Download"}
-                </a>
-              ),
-            ],
           ] as const
         )
           .filter(([, value]) => value)
@@ -288,6 +329,39 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
             </div>
           ))}
       </dl>
+
+      <section className="card mt-4 text-sm" aria-labelledby="resume-title">
+        <div className="card-header flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="resume-title" className="card-title">Resume</h2>
+            {candidate.resumeKey ? (
+              <p className="card-note">
+                <a href={`/api/resumes/${candidate.id}`} className="link">
+                  Download {candidate.resumeName ?? "resume"}
+                </a>
+              </p>
+            ) : (
+              <p className="card-note">No resume file on record.</p>
+            )}
+          </div>
+          {manage && (
+            <ActionForm action={uploadResumeAction.bind(null, candidate.id)} className="flex flex-wrap items-center gap-2">
+              <label htmlFor="resume-file" className="sr-only">Resume file</label>
+              <input id="resume-file" name="resume" type="file" accept={RESUME_EXTENSIONS.join(",")} className="text-xs" required />
+              <SubmitButton variant="secondary">{candidate.resumeKey ? "Replace resume" : "Upload resume"}</SubmitButton>
+            </ActionForm>
+          )}
+        </div>
+        {candidate.resumeText ? (
+          <details open>
+            <summary className="link cursor-pointer text-xs">Resume text</summary>
+            {/* Plain text, never HTML. */}
+            <pre className="inset mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap font-sans text-sm leading-relaxed">{candidate.resumeText}</pre>
+          </details>
+        ) : (
+          !candidate.resumeKey && <p className="muted">Upload a resume to keep it with this candidate. Plain-text files also become searchable.</p>
+        )}
+      </section>
 
       <h2 className="mt-8 text-lg font-semibold">Applications</h2>
       <div className="mt-3 space-y-3">
@@ -338,7 +412,22 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                       <label className="label" htmlFor={`reason-${app.id}`}>
                         Rejection reason
                       </label>
-                      <input id={`reason-${app.id}`} name="reason" className="input" placeholder="Optional" />
+                      <select id={`reason-${app.id}`} name="reason" required className="input" defaultValue="">
+                        <option value="" disabled>Choose a reason</option>
+                        {REJECTION_REASON_GROUPS.map((group) => (
+                          <optgroup key={group.label} label={group.label}>
+                            {group.reasons.map((reason) => (
+                              <option key={reason} value={reason}>{reason}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label" htmlFor={`reason-note-${app.id}`}>
+                        Note
+                      </label>
+                      <input id={`reason-note-${app.id}`} name="note" className="input" placeholder="Optional" maxLength={400} />
                     </div>
                     <button type="submit" className="btn btn-secondary">
                       Reject
