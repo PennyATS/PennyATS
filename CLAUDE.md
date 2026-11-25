@@ -73,6 +73,10 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - For database work, the migration was actually applied and the seed was run against a live Postgres.
 - State what you ran and what passed or failed. Do not claim a check you did not run.
 
+## Tracking
+
+Work to do lives in GitHub issues (https://github.com/PennyATS/PennyATS/issues) on the public project board (https://github.com/orgs/PennyATS/projects/1), grouped by the milestones "Before launch", "Polish and launch", and "Later". Check there before starting work, file new gaps as issues, and reference the issue in commits. The list below is context, not the to-do list.
+
 ## Known gaps
 
 - Unit tests cover pure logic only (passwords, validation, roles, rate limiting). No database or browser tests yet.

@@ -86,6 +86,8 @@ docker           Local Postgres via Docker Compose
 
 ## Roadmap
 
+Planned work is tracked as [GitHub issues](https://github.com/PennyATS/PennyATS/issues) on the [PennyATS roadmap board](https://github.com/orgs/PennyATS/projects/1), grouped into "Before launch", "Polish and launch", and "Later".
+
 1. Foundation ✓
 2. Auth, jobs, careers page, applications, candidate profiles ✓
 3. Pipeline kanban and scorecards ✓
