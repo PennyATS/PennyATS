@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import {
   activity,
+  applicationNotes,
   applications,
   candidates,
   candidateAvailabilityLinks,
@@ -38,6 +39,7 @@ import {
   addNoteAction,
   addTagsAction,
   removeTagAction,
+  savePhoneScreenAction,
   uploadResumeAction,
   deleteCandidateAction,
   moveStageAction,
@@ -140,6 +142,18 @@ export default async function CandidatePage({
           .orderBy(desc(scorecards.updatedAt))
       : [],
   ]);
+  const phoneScreens = appIds.length
+    ? await db()
+        .select({
+          applicationId: applicationNotes.applicationId,
+          body: applicationNotes.body,
+          updatedAt: applicationNotes.updatedAt,
+          author: users.name,
+        })
+        .from(applicationNotes)
+        .leftJoin(users, eq(users.id, applicationNotes.authorId))
+        .where(and(inArray(applicationNotes.applicationId, appIds), eq(applicationNotes.kind, "phone_screen")))
+    : [];
   const [templates, sentEmails] = await Promise.all([
     manage ? db().select({ id: emailTemplates.id, name: emailTemplates.name, folder: emailTemplateFolders.name })
       .from(emailTemplates).leftJoin(emailTemplateFolders, eq(emailTemplateFolders.id, emailTemplates.folderId))
@@ -456,6 +470,44 @@ export default async function CandidatePage({
                   )}
                 </div>
               )}
+              {(() => {
+                const screen = phoneScreens.find((n) => n.applicationId === app.id);
+                const meta = screen && (
+                  <span className="muted text-xs">
+                    {screen.author ?? "Someone"} · updated {screen.updatedAt.toLocaleString()}
+                  </span>
+                );
+                return (
+                  <section className="inset" aria-labelledby={`screen-${app.id}`}>
+                    <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 id={`screen-${app.id}`} className="font-medium">Phone screen notes</h3>
+                      {meta}
+                    </div>
+                    {manage ? (
+                      <ActionForm
+                        action={savePhoneScreenAction.bind(null, app.id)}
+                        resetKey={screen?.updatedAt.toISOString() ?? "none"}
+                        className="space-y-2"
+                      >
+                        <label htmlFor={`screen-body-${app.id}`} className="sr-only">Phone screen notes for {app.jobTitle}</label>
+                        <textarea
+                          id={`screen-body-${app.id}`}
+                          name="body"
+                          rows={screen ? 6 : 3}
+                          defaultValue={screen?.body ?? ""}
+                          placeholder="Motivation, location and work authorization, compensation, notice period, recommendation…"
+                          className="input"
+                        />
+                        <SubmitButton variant="secondary">Save phone screen</SubmitButton>
+                      </ActionForm>
+                    ) : screen ? (
+                      <p className="whitespace-pre-wrap">{screen.body}</p>
+                    ) : (
+                      <p className="muted">No phone screen notes yet.</p>
+                    )}
+                  </section>
+                );
+              })()}
               <Interviews
                 candidateId={candidate.id}
                 applicationId={app.id}

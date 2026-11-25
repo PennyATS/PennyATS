@@ -399,6 +399,27 @@ export const notes = pgTable(
   (t) => [index("notes_candidate_idx").on(t.candidateId)],
 );
 
+/**
+ * Notes tied to one application (candidate + job), such as the recruiter's phone screen.
+ * One per application and kind; saving again edits it. Kept when the application is
+ * rejected or withdrawn, deleted with the candidate.
+ */
+export const applicationNotes = pgTable(
+  "application_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().default("phone_screen"),
+    body: text("body").notNull(),
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("application_notes_application_kind_idx").on(t.applicationId, t.kind)],
+);
+
 /** Folders for organizing email templates. Deleting a folder leaves its templates unfiled. */
 export const emailTemplateFolders = pgTable(
   "email_template_folders",

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { asc, count, desc, eq, inArray } from "drizzle-orm";
-import { applications, candidates, interviewInterviewers, interviews, jobTeam, scorecards, users } from "@pennyats/db";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { activity, applicationNotes, applications, candidates, interviewInterviewers, interviews, jobTeam, scorecards, users } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
@@ -24,7 +24,7 @@ export default async function JobPage({
 }) {
   const { id } = await params;
   const requested = (await searchParams).view;
-  const view = requested === "board" || requested === "list" ? requested : "overview";
+  const view = requested === "board" || requested === "list" || requested === "archived" ? requested : "overview";
   const user = await requireUser();
   const manage = canManageHiring(user.role);
   const { job, stages } = await loadJob(user, id);
@@ -37,6 +37,7 @@ export default async function JobPage({
       stageId: applications.stageId,
       appliedAt: applications.appliedAt,
       stageChangedAt: applications.stageChangedAt,
+      rejectionReason: applications.rejectionReason,
       candidateId: candidates.id,
       name: candidates.fullName,
       email: candidates.email,
@@ -49,6 +50,22 @@ export default async function JobPage({
     .orderBy(asc(applications.status), desc(applications.appliedAt));
 
   const active = rows.filter((r) => r.status === "active");
+  const archived = rows.filter((r) => r.status === "rejected" || r.status === "withdrawn");
+  // Archived view: when each was archived, and whether phone screen notes were kept.
+  const archiveDetails =
+    view === "archived" && archived.length
+      ? await Promise.all([
+          db()
+            .select({ applicationId: activity.applicationId, at: activity.createdAt })
+            .from(activity)
+            .where(and(inArray(activity.applicationId, archived.map((r) => r.id)), inArray(activity.type, ["rejected", "withdrawn"])))
+            .orderBy(desc(activity.createdAt)),
+          db()
+            .select({ applicationId: applicationNotes.applicationId })
+            .from(applicationNotes)
+            .where(inArray(applicationNotes.applicationId, archived.map((r) => r.id))),
+        ])
+      : null;
   const closedCounts = (["hired", "rejected", "withdrawn"] as const)
     .map((status) => ({ status, n: rows.filter((r) => r.status === status).length }))
     .filter((x) => x.n > 0);
@@ -185,6 +202,9 @@ export default async function JobPage({
         </Link>
         <Link href={`/jobs/${job.id}?view=list`} aria-current={view === "list" ? "page" : undefined} className={view === "list" ? "font-semibold" : "link"}>
           List ({rows.length})
+        </Link>
+        <Link href={`/jobs/${job.id}?view=archived`} aria-current={view === "archived" ? "page" : undefined} className={view === "archived" ? "font-semibold" : "link"}>
+          Archived ({archived.length})
         </Link>
         {view === "board" && closedCounts.length > 0 && (
           <span className="muted">
@@ -348,6 +368,53 @@ export default async function JobPage({
             />
           )}
         </div>
+      ) : view === "archived" ? (
+        <section className="card mt-4 !p-0" aria-labelledby="archived-title">
+          <div className="card-header px-5 pt-5">
+            <h2 id="archived-title" className="card-title">Archived</h2>
+            <p className="card-note">
+              Rejected and withdrawn candidates. Their phone screen notes, scorecards, and history stay on their profile.
+            </p>
+          </div>
+          {archived.length === 0 ? (
+            <p className="muted px-5 pb-5 text-sm">Nobody archived on this job yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table !rounded-none !border-x-0 !border-b-0">
+                <thead>
+                  <tr>
+                    <th>Candidate</th>
+                    <th>Archived from</th>
+                    <th>Outcome</th>
+                    <th>Reason</th>
+                    <th>Phone screen</th>
+                    <th>Archived</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archived.map((r) => {
+                    const at = archiveDetails?.[0].find((a) => a.applicationId === r.id)?.at ?? r.stageChangedAt;
+                    return (
+                      <tr key={r.id}>
+                        <td>
+                          <Link href={`/candidates/${r.candidateId}?job=${job.id}&status=${r.status}`} className="link">
+                            {r.name}
+                          </Link>
+                          {r.email && <div className="muted text-xs">{r.email}</div>}
+                        </td>
+                        <td>{r.stageId ? stageName.get(r.stageId) : "-"}</td>
+                        <td className="capitalize">{r.status}</td>
+                        <td>{r.rejectionReason ?? <span className="muted">-</span>}</td>
+                        <td>{archiveDetails?.[1].some((n) => n.applicationId === r.id) ? "Notes kept" : <span className="muted">-</span>}</td>
+                        <td className="whitespace-nowrap">{at.toLocaleDateString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       ) : rows.length === 0 ? (
         <p className="muted mt-4 text-sm">No applications yet.</p>
       ) : (

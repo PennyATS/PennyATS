@@ -1,9 +1,9 @@
 "use server";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { applications, candidates, emails, emailTemplates, jobs, notes, schedulingDeliveries, scorecards } from "@pennyats/db";
+import { applicationNotes, applications, candidates, emails, emailTemplates, jobs, notes, schedulingDeliveries, scorecards } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { feedbackPrompt } from "@/lib/ai-rules";
@@ -198,6 +198,28 @@ export async function uploadResumeAction(candidateId: string, _: FormState, form
   if (row.key) await storage.delete(row.key).catch(() => {});
   revalidatePath(`/candidates/${candidateId}`);
   return { message: "Resume saved." };
+}
+
+/** Save the recruiter's phone screen notes on one application. Saving again edits them. */
+export async function savePhoneScreenAction(applicationId: string, _: FormState, form: FormData): Promise<FormState> {
+  const user = await requireUser(canManageHiring);
+  const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;
+  if (!app) return { error: "Application not found." };
+  const body = field(form, "body", 20_000) ?? "";
+  if (!body) {
+    await db().delete(applicationNotes).where(and(eq(applicationNotes.applicationId, app.id), eq(applicationNotes.kind, "phone_screen")));
+  } else {
+    const now = new Date();
+    await db()
+      .insert(applicationNotes)
+      .values({ applicationId: app.id, kind: "phone_screen", body, authorId: user.id })
+      .onConflictDoUpdate({
+        target: [applicationNotes.applicationId, applicationNotes.kind],
+        set: { body, authorId: user.id, updatedAt: now },
+      });
+  }
+  refresh(app.candidateId, app.jobId);
+  return { message: body ? "Phone screen notes saved." : "Phone screen notes cleared." };
 }
 
 /** Anyone who can see the candidate can add a note, interviewers included. */
