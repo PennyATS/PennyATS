@@ -27,7 +27,7 @@ export async function applyAction(jobId: string, _: FormState, form: FormData): 
   const [job] = await db()
     .select({ id: jobs.id })
     .from(jobs)
-    .where(and(eq(jobs.id, jobId), eq(jobs.status, "open")));
+    .where(and(eq(jobs.id, jobId), eq(jobs.status, "open"), eq(jobs.confidential, false)));
   if (!job) return { error: "This role is no longer accepting applications." };
 
   const parsed = parseCandidate(form, { requireEmail: true });

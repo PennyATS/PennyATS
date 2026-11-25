@@ -11,6 +11,7 @@ import { loadReportInput } from "@/lib/report-data";
 import { reportTables } from "@/lib/reports";
 import { RECOMMENDATION_LABELS, summarize, type Recommendation } from "@/lib/scorecards";
 import { moveCardAction } from "../actions";
+import { EMPLOYMENT_TYPES, PRIORITIES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
 import { Board, type BoardCard } from "./board";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -154,6 +155,23 @@ export default async function JobPage({
           };
         })()
       : null;
+  const peopleIds = [job.hiringManagerId, job.recruiterId].filter((x): x is string => Boolean(x));
+  const people = peopleIds.length
+    ? await db().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, peopleIds))
+    : [];
+  const personName = (id: string | null) => (id ? people.find((p) => p.id === id)?.name : undefined);
+  const pay = manage ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
+  const facts = [
+    job.employmentType && EMPLOYMENT_TYPES[job.employmentType as keyof typeof EMPLOYMENT_TYPES],
+    job.workplaceType && WORKPLACE_TYPES[job.workplaceType as keyof typeof WORKPLACE_TYPES],
+    job.requisitionId && `Req ${job.requisitionId}`,
+    personName(job.hiringManagerId) && `Hiring manager: ${personName(job.hiringManagerId)}`,
+    personName(job.recruiterId) && `Recruiter: ${personName(job.recruiterId)}`,
+    pay,
+    job.targetStartDate && `Start by ${job.targetStartDate}`,
+    job.priority && job.priority !== "normal" && `${PRIORITIES[job.priority as keyof typeof PRIORITIES]} priority`,
+    job.confidential && "Confidential",
+  ].filter((x): x is string => Boolean(x));
   const advanced = rows.filter((r) => r.status === "hired" || (r.stageId && r.stageId !== stages[0]?.id)).length;
 
   return (
@@ -165,7 +183,7 @@ export default async function JobPage({
             {[job.department, job.location].filter(Boolean).join(" · ")}
             {" · "}
             <span className="capitalize">{job.status}</span>
-            {job.status === "open" && (
+            {job.status === "open" && !job.confidential && (
               <>
                 {" · "}
                 <Link href={`/careers/${job.slug}`} className="link">
@@ -174,6 +192,13 @@ export default async function JobPage({
               </>
             )}
           </p>
+          {facts.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-1.5 text-xs" aria-label="Job details">
+              {facts.map((f) => (
+                <li key={f} className="rounded-full border px-2 py-0.5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>{f}</li>
+              ))}
+            </ul>
+          )}
         </div>
         {manage && (
           <div className="flex gap-2">

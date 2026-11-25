@@ -11,6 +11,7 @@ import {
   index,
   primaryKey,
   check,
+  date,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -122,6 +123,26 @@ export const jobs = pgTable(
     headcount: integer("headcount"),
     description: text("description"),
     status: jobStatus("status").notNull().default("draft"),
+    /* Optional details; nothing here is required. See apps/web/src/lib/job-fields.ts. */
+    employmentType: text("employment_type"),
+    workplaceType: text("workplace_type"),
+    requisitionId: text("requisition_id"),
+    compCurrency: text("comp_currency"),
+    /** "year" or "hour". */
+    compPeriod: text("comp_period"),
+    compMin: integer("comp_min"),
+    compMid: integer("comp_mid"),
+    compMax: integer("comp_max"),
+    /** Show the range on the careers page. */
+    compPublic: boolean("comp_public").notNull().default(false),
+    equityNote: text("equity_note"),
+    hiringManagerId: uuid("hiring_manager_id").references(() => users.id, { onDelete: "set null" }),
+    recruiterId: uuid("recruiter_id").references(() => users.id, { onDelete: "set null" }),
+    targetStartDate: date("target_start_date", { mode: "string" }),
+    priority: text("priority"),
+    /** Hidden from the public careers page even while open. */
+    confidential: boolean("confidential").notNull().default(false),
+    internalNotes: text("internal_notes"),
     /** What interviewers rate on this job's scorecards, 1 to 4 each. */
     scorecardAttributes: text("scorecard_attributes")
       .array()
