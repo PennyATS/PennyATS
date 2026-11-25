@@ -3,6 +3,8 @@
  * so every number on the reports page can be unit tested.
  */
 
+import { rejectionReasonKey } from "./candidate-review";
+
 export type ReportApp = {
   id: string;
   jobId: string;
@@ -169,7 +171,8 @@ export function rejectionReasons(apps: ReportApp[]): { reason: string; count: nu
   const rows = new Map<string, { reason: string; count: number }>();
   for (const app of apps) {
     if (app.status !== "rejected") continue;
-    const text = app.rejectionReason?.trim();
+    // A note after the standard reason ("Reason — note") doesn't split the group.
+    const text = app.rejectionReason?.trim() ? rejectionReasonKey(app.rejectionReason.trim()) : "";
     const key = text ? text.toLowerCase() : "";
     const row = rows.get(key) ?? { reason: text || "No reason given", count: 0 };
     row.count += 1;

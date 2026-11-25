@@ -340,6 +340,7 @@ export default async function JobPage({
             <p className="muted text-sm">This job has no stages. Add some on the edit page.</p>
           ) : (
             <Board
+              jobId={job.id}
               stages={stages.map((s) => ({ id: s.id, name: s.name }))}
               cards={boardCards}
               canMove={manage}
@@ -364,7 +365,7 @@ export default async function JobPage({
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>
-                  <Link href={`/candidates/${r.candidateId}`} className="link">
+                  <Link href={`/candidates/${r.candidateId}?job=${job.id}`} className="link">
                     {r.name}
                   </Link>
                   {r.email && <div className="muted text-xs">{r.email}</div>}

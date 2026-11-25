@@ -6,8 +6,9 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleJobIds } from "@/lib/hiring";
 import { canManageHiring } from "@/lib/permissions";
+import { pipelineSnapshot } from "@/lib/candidate-review";
 
-const stageColors = ["#176B4D", "#2D8361", "#55A27E", "#8BC6A4", "#A4D2B4"];
+const stageColors = ["#176B4D", "#2D8361", "#55A27E", "#8BC6A4", "#A4D2B4", "#0F4A35"];
 
 export default async function Dashboard() {
   const user = await requireUser();
@@ -31,7 +32,7 @@ export default async function Dashboard() {
       db().select({ name: stages.name, total: count() }).from(applications)
         .leftJoin(stages, eq(applications.stageId, stages.id))
         .where(and(eq(applications.status, "active"), ids ? inArray(applications.jobId, ids) : undefined))
-        .groupBy(stages.name).orderBy(desc(count())),
+        .groupBy(stages.name),
     ]);
     openJobs = open.total;
     activeApplications = active.total;
@@ -39,16 +40,8 @@ export default async function Dashboard() {
     stageCounts = pipeline;
   }
 
-  const pipeline = stageCounts.slice(0, 4).map((stage) => ({
-    label: stage.name ?? "Unassigned",
-    total: stage.total,
-  }));
-  if (stageCounts.length > 4) {
-    pipeline.push({
-      label: "Other stages",
-      total: stageCounts.slice(4).reduce((sum, stage) => sum + stage.total, 0),
-    });
-  }
+  // Fixed order (Applied → Offer) so the snapshot reads like a funnel; see pipelineSnapshot.
+  const pipeline = stageCounts.length ? pipelineSnapshot(stageCounts) : [];
   const largestStage = Math.max(1, ...pipeline.map((stage) => stage.total));
   const ai = aiEnabled();
 
