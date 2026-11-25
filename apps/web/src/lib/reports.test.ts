@@ -5,6 +5,7 @@ import {
   formatDays,
   funnel,
   median,
+  monthlyTrend,
   periodStart,
   readPeriod,
   rejectionReasons,
@@ -165,4 +166,19 @@ test("reportTables builds the funnel for one job and the per-job table for all",
   assert.deepEqual(all.jobIds, ["j"]);
   assert.deepEqual(all.interviewers?.rows, [["Sam", 2, 0, 1, 1, 0]]);
   assert.deepEqual(all.stages?.rows[0], ["Applied", 2, 3, 3]);
+});
+
+test("monthlyTrend counts applications and hires per month without gaps", () => {
+  const apps = [
+    app("a", { appliedAt: new Date(Date.UTC(2026, 0, 5)) }),
+    app("b", { appliedAt: new Date(Date.UTC(2026, 2, 9)), status: "hired" }),
+  ];
+  const events = [{ applicationId: "b", type: "hired", data: {}, createdAt: new Date(Date.UTC(2026, 3, 1)) }];
+  assert.deepEqual(monthlyTrend(apps, events), [
+    { month: "2026-01", applications: 1, hires: 0 },
+    { month: "2026-02", applications: 0, hires: 0 },
+    { month: "2026-03", applications: 1, hires: 0 },
+    { month: "2026-04", applications: 0, hires: 1 },
+  ]);
+  assert.deepEqual(monthlyTrend([], []), []);
 });

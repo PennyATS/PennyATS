@@ -15,6 +15,8 @@ import {
   type ReportTableId,
 } from "@/lib/reports";
 import { isUuid } from "@/lib/validation";
+import { BarChart, ChartToggle, DonutChart, LineChart, StackedBarChart } from "@/components/charts";
+import { foldOther, monthLabel } from "@/lib/charts";
 
 const PERIOD_LABELS: Record<keyof typeof PERIODS, string> = {
   "30": "Last 30 days",
@@ -103,6 +105,10 @@ export default async function ReportsPage({
           note="Applicants who reached each stage or a later one."
           csvHref={csv("funnel")}
         >
+          <ChartToggle
+            id="funnel"
+            graph={<BarChart rows={tables.funnel.rows.map(([label, count]) => ({ label: String(label), value: Number(count) }))} />}
+            table={
           <table className="table">
             <tbody>
               {tables.funnel.rows.map(([label, count, percent]) => (
@@ -116,40 +122,113 @@ export default async function ReportsPage({
               ))}
             </tbody>
           </table>
+            }
+          />
         </Section>
       ) : (
         tables.jobs && (
           <Section title="By job" note="Pick a job above to see its stage-by-stage funnel." csvHref={csv("jobs")}>
-            <Table
-              table={tables.jobs}
-              firstCell={(value, i) => (
-                <Link href={`/reports?job=${tables.jobIds[i]}&period=${period}`} className="link">
-                  {value}
-                </Link>
-              )}
+            <ChartToggle
+              id="jobs"
+              graph={
+                <StackedBarChart
+                  series={["Active", "Hired", "Rejected", "Withdrawn"]}
+                  rows={tables.jobs.rows.map((r) => ({ label: String(r[0]), values: [2, 3, 4, 5].map((i) => Number(r[i])) }))}
+                />
+              }
+              table={
+                <Table
+                  table={tables.jobs}
+                  firstCell={(value, i) => (
+                    <Link href={`/reports?job=${tables.jobIds[i]}&period=${period}`} className="link">
+                      {value}
+                    </Link>
+                  )}
+                />
+              }
             />
           </Section>
         )
       )}
 
+      {tables.trend && (
+        <Section title="Applications and hires over time" note="Per month. Hires are counted in the month they were marked hired." csvHref={csv("trend")}>
+          <ChartToggle
+            id="trend"
+            graph={
+              // Two charts rather than one with two scales: hires are a much smaller number.
+              <div className="grid gap-6 lg:grid-cols-2">
+                {([["Applications", 1, "#2a78d6"], ["Hires", 2, "#eb6834"]] as const).map(([name, col, color]) => (
+                  <div key={name}>
+                    <h3 className="mb-1 text-sm font-medium">{name} per month</h3>
+                    <LineChart
+                      height={190}
+                      width={380}
+                      color={color}
+                      labels={tables.trend!.rows.map((r) => monthLabel(String(r[0])))}
+                      series={[{ name, values: tables.trend!.rows.map((r) => Number(r[col])) }]}
+                    />
+                  </div>
+                ))}
+              </div>
+            }
+            table={<Table table={tables.trend} />}
+          />
+        </Section>
+      )}
+
       <Section
         title="Time in stage"
-        note="Days candidates stayed in each stage before moving on or being closed out."
+        note="Days candidates stayed in each stage before moving on or being closed out. The graph shows the median."
         csvHref={csv("stages")}
       >
-        {tables.stages && <Table table={tables.stages} />}
+        {tables.stages && (
+          <ChartToggle
+            id="stages"
+            graph={
+              <BarChart
+                unit=" d"
+                rows={tables.stages.rows.filter((r) => r[3] !== null && r[3] !== "-").map((r) => ({ label: String(r[0]), value: Number(r[3]) }))}
+              />
+            }
+            table={<Table table={tables.stages} />}
+          />
+        )}
       </Section>
 
       <Section title="Sources" note="Advanced means they moved past their first stage." csvHref={csv("sources")}>
-        {tables.sources && <Table table={tables.sources} />}
+        {tables.sources && (
+          <ChartToggle
+            id="sources"
+            graph={<DonutChart centerLabel="applicants" rows={foldOther(tables.sources.rows.map((r) => ({ label: String(r[0]), value: Number(r[1]) })))} />}
+            table={<Table table={tables.sources} />}
+          />
+        )}
       </Section>
 
       <Section title="Rejection reasons" csvHref={csv("reasons")}>
-        {tables.reasons && <Table table={tables.reasons} />}
+        {tables.reasons && (
+          <ChartToggle
+            id="reasons"
+            graph={<DonutChart centerLabel="rejected" rows={foldOther(tables.reasons.rows.map((r) => ({ label: String(r[0]), value: Number(r[1]) })))} />}
+            table={<Table table={tables.reasons} />}
+          />
+        )}
       </Section>
 
       <Section title="Interviewers" note="Scorecards submitted on applications in this period." csvHref={csv("interviewers")}>
-        {tables.interviewers && <Table table={tables.interviewers} />}
+        {tables.interviewers && (
+          <ChartToggle
+            id="interviewers"
+            graph={
+              <StackedBarChart
+                series={["Strong no", "No", "Yes", "Strong yes"]}
+                rows={tables.interviewers.rows.map((r) => ({ label: String(r[0]), values: [2, 3, 4, 5].map((i) => Number(r[i])) }))}
+              />
+            }
+            table={<Table table={tables.interviewers} />}
+          />
+        )}
       </Section>
     </>
   );
@@ -167,8 +246,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="report-section mt-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+    <section className="report-section relative mt-8">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pr-24">
         <h2 className="text-lg font-semibold">{title}</h2>
         <a href={csvHref} className="link text-xs" download>
           Download CSV
