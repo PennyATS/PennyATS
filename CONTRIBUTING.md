@@ -36,6 +36,12 @@ pnpm build
 
 If you change something users can see, also try it in the browser and say what you tested in the pull request.
 
+### Browser and database integration tests
+
+Use a disposable local Postgres database whose name ends in `_test`. For example, start a temporary container with `docker run --rm -e POSTGRES_USER=pennyats -e POSTGRES_PASSWORD=pennyats -e POSTGRES_DB=pennyats_test -p 127.0.0.1:5432:5432 postgres:18`, then set `TEST_DATABASE_URL` to `postgres://pennyats:pennyats@127.0.0.1:5432/pennyats_test`.
+
+Run `pnpm --filter @pennyats/web exec playwright install chromium` once, then `pnpm test:integration`. The test command applies migrations, adds synthetic seed data, starts the app, and checks the sign-in, application, pipeline, and scorecard flow in Chromium. CI uses a temporary Postgres service for the same command. Never point it at a real instance.
+
 ## How the project works
 
 - **Postgres only**, through Drizzle. Change `packages/db/src/schema.ts`, run `pnpm db:generate`, and commit the generated migration.

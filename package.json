@@ -11,6 +11,7 @@
     "db:migrate": "pnpm --filter @pennyats/db migrate",
     "db:seed": "pnpm --filter @pennyats/db seed",
     "test": "pnpm -r test",
+    "test:integration": "node scripts/run-integration.mjs",
     "privacy:purge": "pnpm --filter @pennyats/web privacy:purge"
   },
   "engines": {
