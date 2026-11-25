@@ -120,19 +120,35 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions. To report a se
 
 ## Roadmap
 
-Planned work is tracked as [GitHub issues](https://github.com/PennyATS/PennyATS/issues) on the [PennyATS roadmap board](https://github.com/orgs/PennyATS/projects/1), grouped into "Before launch", "Polish and launch", and "Later".
+PennyATS is an early preview. The foundation and initial applicant-tracking flow are built: accounts and roles, jobs, a careers page, applications, candidate profiles, pipeline stages, scorecards, privacy tools, reports, and opt-in AI. There is still launch work and a larger product backlog. The [GitHub project board](https://github.com/orgs/PennyATS/projects/1) is the source of truth for live status; the groups below explain the direction without promising a release date.
 
-1. Foundation ✓
-2. Auth, jobs, careers page, applications, candidate profiles ✓
-3. Pipeline kanban and scorecards ✓
-4. Privacy and data protection ✓
-5. Reporting ✓
-6. AI features and settings page ✓
-7. Polish, docs, demo site, launch
+### Shipped from the project board
 
-Later: email, and CSV import from Greenhouse and other applicant tracking systems.
+- **Access and setup:** [role changes and deactivation](https://github.com/PennyATS/PennyATS/issues/1), [admin-issued password resets](https://github.com/PennyATS/PennyATS/issues/2), and [first-run setup verification](https://github.com/PennyATS/PennyATS/issues/5).
+- **Self-hosting and project basics:** [Docker deployment](https://github.com/PennyATS/PennyATS/issues/3), [CI](https://github.com/PennyATS/PennyATS/issues/4), [MIT license](https://github.com/PennyATS/PennyATS/issues/7), [README demo media](https://github.com/PennyATS/PennyATS/issues/9), [deployment and operations docs](https://github.com/PennyATS/PennyATS/issues/11), [security and contributor docs](https://github.com/PennyATS/PennyATS/issues/12), and [Postgres version guidance](https://github.com/PennyATS/PennyATS/issues/17).
+- **Product fixes:** [keyboard focus after moving a card](https://github.com/PennyATS/PennyATS/issues/13), [touch dragging](https://github.com/PennyATS/PennyATS/issues/14), [scorecard save confirmation](https://github.com/PennyATS/PennyATS/issues/15), and [report CSV downloads](https://github.com/PennyATS/PennyATS/issues/16).
 
-Not planned for now: interview scheduling with calendar sync, offers and e-sign, job board distribution, a Chrome extension, resume parsing, and hosted multi-tenant.
+### Before launch and public demo
+
+- [Verify AI features with real Anthropic and OpenAI keys and a local compatible server](https://github.com/PennyATS/PennyATS/issues/6). The AI features exist, but this end-to-end provider check is still open.
+- [Finish the visual design across light, dark, and mobile layouts](https://github.com/PennyATS/PennyATS/issues/8), including [consistent surfaces for tables, cards, and buttons](https://github.com/PennyATS/PennyATS/issues/35) and [a clearer edit-job page](https://github.com/PennyATS/PennyATS/issues/34).
+- [Run the main browser flows against a disposable Postgres database in CI](https://github.com/PennyATS/PennyATS/issues/18).
+- [Host a public demo with fictional data that resets automatically](https://github.com/PennyATS/PennyATS/issues/10).
+
+### Deeper hiring workflow
+
+- [Give each job an overview of pipeline health, bottlenecks, and trends](https://github.com/PennyATS/PennyATS/issues/33).
+- [Add interview plans per job and track each candidate's interviews and feedback](https://github.com/PennyATS/PennyATS/issues/32). Calendar sync and invitations are outside this first interview-loop step.
+
+### Later on the roadmap
+
+- [Configurable email for candidates, invitations, and password resets](https://github.com/PennyATS/PennyATS/issues/19).
+- [CSV import from Greenhouse and other applicant tracking systems](https://github.com/PennyATS/PennyATS/issues/20).
+
+### Proposals still to scope
+
+- [Hiring-manager field when creating a job](https://github.com/PennyATS/PennyATS/issues/22), [agency portal](https://github.com/PennyATS/PennyATS/issues/24), [custom branding](https://github.com/PennyATS/PennyATS/issues/25), [sourcing extension](https://github.com/PennyATS/PennyATS/issues/26), [expanded analytics](https://github.com/PennyATS/PennyATS/issues/28), and [a light/dark theme toggle](https://github.com/PennyATS/PennyATS/issues/30) have tickets but no milestone yet.
+- [Deferred ideas](https://github.com/PennyATS/PennyATS/issues/21) include calendar sync, offers and e-signatures, job-board posting, resume parsing, and multi-tenant hosting. The sourcing extension now also has its own ticket above.
 
 ## License
 
