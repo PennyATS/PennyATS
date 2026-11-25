@@ -1,10 +1,12 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { applications, jobs, notes } from "@pennyats/db";
+import { applications, jobs, notes, scorecards } from "@pennyats/db";
 import type { FormState } from "@/components/form";
+import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
+import { feedbackPrompt } from "@/lib/ai-rules";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -111,4 +113,37 @@ export async function deleteCandidateAction(candidateId: string, _: FormState, f
   if (count === 0) return { error: "Candidate not found. They may already have been deleted." };
   revalidatePath("/candidates");
   redirect("/candidates?deleted=1");
+}
+
+/** AI summary of the scorecards on one application. Recruiters and admins only; not saved. */
+export async function summarizeFeedbackAction(applicationId: string): Promise<{ text: string } | { error: string }> {
+  const user = await requireUser(canManageHiring);
+  const ai = await getAiFor("feedbackSummaries");
+  if (!ai) return { error: "AI feedback summaries are turned off." };
+  const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;
+  if (!app) return { error: "Application not found." };
+
+  const [cards, [job]] = await Promise.all([
+    db()
+      .select({
+        stageName: scorecards.stageName,
+        recommendation: scorecards.recommendation,
+        ratings: scorecards.ratings,
+        summary: scorecards.summary,
+      })
+      .from(scorecards)
+      .where(eq(scorecards.applicationId, app.id))
+      .orderBy(asc(scorecards.createdAt)),
+    db().select({ title: jobs.title }).from(jobs).where(eq(jobs.id, app.jobId)),
+  ]);
+  if (cards.length < 2) return { error: "Summaries need at least two scorecards." };
+  if (!allowAiCall(user.id)) return { error: "Too many AI requests. Try again in an hour." };
+
+  try {
+    // Interviewers are labeled by number and the candidate isn't named; see feedbackPrompt.
+    const text = await ai.complete(feedbackPrompt(job?.title ?? "this role", cards));
+    return { text: text.trim() };
+  } catch (err) {
+    return { error: aiErrorMessage(err) };
+  }
 }

@@ -7,6 +7,8 @@ import { DEFAULT_STAGES, applications, jobTeam, jobs, stages, users } from "@pen
 import type { FormState } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
+import { jobDescriptionPrompt } from "@/lib/ai-rules";
 import { moveApplication } from "@/lib/hiring";
 import { MAX_ATTRIBUTES, parseAttributes } from "@/lib/scorecards";
 import { canManageHiring } from "@/lib/permissions";
@@ -184,4 +186,35 @@ export async function updateAttributesAction(jobId: string, _: FormState, form: 
   await db().update(jobs).set({ scorecardAttributes: attributes, updatedAt: new Date() }).where(eq(jobs.id, jobId));
   revalidatePath(`/jobs/${jobId}/edit`);
   return { message: attributes.length ? "Saved." : "Saved. Scorecards will only ask for a recommendation." };
+}
+
+/* ---------- AI: draft a job description ---------- */
+
+export async function draftDescriptionAction(input: {
+  title: string;
+  department: string;
+  location: string;
+  notes: string;
+}): Promise<{ text: string } | { error: string }> {
+  const user = await requireUser(canManageHiring);
+  const ai = await getAiFor("jobDescriptions");
+  if (!ai) return { error: "AI job descriptions are turned off." };
+  const title = input.title.trim().slice(0, 200);
+  if (!title) return { error: "Add a job title first." };
+  if (!allowAiCall(user.id)) return { error: "Too many AI requests. Try again in an hour." };
+
+  const clip = (s: string, n: number) => s.trim().slice(0, n) || null;
+  try {
+    const text = await ai.complete(
+      jobDescriptionPrompt({
+        title,
+        department: clip(input.department, 200),
+        location: clip(input.location, 200),
+        notes: clip(input.notes, 5000),
+      }),
+    );
+    return { text: text.trim() };
+  } catch (err) {
+    return { error: aiErrorMessage(err) };
+  }
 }

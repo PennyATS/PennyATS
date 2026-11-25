@@ -2,7 +2,7 @@
 
 Open source applicant tracking for founders, founding recruiters, and small teams. Self-host it, bring your own Postgres database, and optionally bring your own AI API key. AI features are off by default.
 
-> Status: milestone 5 of 7. The core hiring loop, pipeline board, scorecards, privacy tools, and reports work end to end; opt-in AI features are next. The UI is intentionally plain until the visual design is settled.
+> Status: milestone 6 of 7. The core hiring loop, pipeline board, scorecards, privacy tools, reports, and opt-in AI features work end to end; polish and launch are next. The UI is intentionally plain until the visual design is settled.
 
 ## What works today
 
@@ -14,6 +14,7 @@ Open source applicant tracking for founders, founding recruiters, and small team
 - **Scorecards.** Each job has its own list of attributes, rated 1 to 4, plus an overall recommendation from Strong no to Strong yes. Interviewers can't see anyone else's scorecard until they've submitted their own, so earlier feedback doesn't sway them.
 - **Candidate profiles.** Contact details, resume download, every application, scorecards, notes, and an activity timeline. Mark candidates hired, rejected, or withdrawn.
 - **Reports.** Filter by job and period to see the hiring funnel, time in each stage, time to hire, which sources produce hires, rejection reasons, and how many scorecards each interviewer has submitted.
+- **Optional AI.** Bring your own Anthropic or OpenAI key (or a local model through an OpenAI-compatible server like Ollama) to draft job descriptions and summarize interview feedback. Off unless you add a key, and each feature can be switched off.
 - **Privacy tools.** A privacy notice and optional consent checkbox on the apply form, one-click export of everything stored about a candidate, permanent deletion, automatic deletion of rejected candidates after a retention period you choose, and an audit log that records each of these without keeping the deleted person's details.
 
 ## Quick start
@@ -51,7 +52,7 @@ Admins set this up under **Privacy** in the sidebar:
 - **Notice and consent.** Text and a policy link shown on every apply form, with an optional required checkbox. The time of consent is saved on the candidate.
 - **Access and deletion requests.** Each candidate profile has *Export all their data* (JSON) and *Delete permanently*, which removes them from every job along with their resume, scorecards, notes, and history.
 - **Retention.** Pick a number of months, and rejected or withdrawn candidates with no activity for that long can be deleted from the Privacy page or on a schedule with `pnpm privacy:purge` (for example a daily cron job). Candidates with an active or hired application are never deleted.
-- **AI.** When AI is turned on, emails, phone numbers, and links are swapped for placeholders before text leaves your server. Names are not detected, so this reduces exposure rather than eliminating it.
+- **AI.** When AI is turned on, emails, phone numbers, and links are swapped for placeholders before text leaves your server (an admin can turn this off under **AI**). Names are not detected, so this reduces exposure rather than eliminating it. Feedback summaries don't send the candidate's or interviewers' names at all. For no third-party sharing, point `AI_BASE_URL` at a model you host yourself.
 
 Deleted data still exists in any database or file backups you keep, so expire those on a schedule too. These tools help with GDPR, CCPA, and similar laws, but they aren't legal advice.
 
@@ -62,7 +63,8 @@ Deleted data still exists in any database or file backups you keep, so expire th
 | `DATABASE_URL` | Any Postgres connection string. Required. |
 | `APP_URL` | Public URL of the app, used in invite links. Use `https://` in production so the login cookie is marked Secure. |
 | `STORAGE_DIR` | Where uploaded resumes are saved. Defaults to `apps/web/.data/uploads`. Back it up along with your database. |
-| `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` | Optional. Leave blank to keep every AI feature hidden. |
+| `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` | Optional. `anthropic` or `openai`. Leave blank to keep every AI feature hidden. |
+| `AI_BASE_URL` | Optional. Use an OpenAI-compatible server instead of the public API, for example a local model through Ollama (`http://localhost:11434/v1`). |
 | `AI_REDACT_PII` | Defaults to `true`. Strips emails, phone numbers, and links before text is sent to a model. It's pattern-based and doesn't catch names. |
 
 ## Development
@@ -89,7 +91,7 @@ docker           Local Postgres via Docker Compose
 3. Pipeline kanban and scorecards ✓
 4. Privacy and data protection ✓
 5. Reporting ✓
-6. AI features and settings page
+6. AI features and settings page ✓
 7. Polish, docs, demo site, launch
 
 Later: email, and CSV import from Greenhouse and other applicant tracking systems.

@@ -1,4 +1,7 @@
 import { ActionForm, Field, SubmitButton, type FormAction } from "@/components/form";
+import { isAiFeatureOn } from "@/lib/ai";
+import { draftDescriptionAction } from "./actions";
+import { AiDraftButton } from "./ai-draft-button";
 
 type JobValues = {
   title: string;
@@ -8,7 +11,7 @@ type JobValues = {
   status: "draft" | "open" | "closed";
 };
 
-export function JobForm({
+export async function JobForm({
   action,
   job,
   submitLabel,
@@ -17,6 +20,7 @@ export function JobForm({
   job?: JobValues;
   submitLabel: string;
 }) {
+  const aiDrafts = await isAiFeatureOn("jobDescriptions");
   return (
     <ActionForm action={action} className="card max-w-2xl space-y-4">
       <Field label="Title" name="title" required defaultValue={job?.title} />
@@ -36,6 +40,7 @@ export function JobForm({
           defaultValue={job?.description ?? ""}
         />
         <p className="muted mt-1 text-xs">Plain text. Shown on the careers page.</p>
+        {aiDrafts && <AiDraftButton action={draftDescriptionAction} />}
       </div>
       <div className="max-w-xs">
         <label className="label" htmlFor="status">

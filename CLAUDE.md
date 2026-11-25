@@ -2,7 +2,7 @@
 
 Open source applicant tracking system for founders, founding recruiters, and small teams. Self-hosted, bring your own Postgres, bring your own AI API key. AI features are off by default.
 
-Status: milestone 5 (reporting) done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form, privacy notice and consent, a kanban pipeline board per job, scorecards, candidate profiles with notes and an activity timeline, privacy tools (permanent delete, data export, retention purge, audit log), and reports (funnel, time in stage, time to hire, sources, rejection reasons, interviewer activity). No email or import yet; AI features are next. The UI is deliberately bare until a theme is chosen.
+Status: milestone 6 (AI) done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form, privacy notice and consent, a kanban pipeline board per job, scorecards, candidate profiles with notes and an activity timeline, privacy tools (permanent delete, data export, retention purge, audit log), reports (funnel, time in stage, time to hire, sources, rejection reasons, interviewer activity), and opt-in AI (job description drafts, interview feedback summaries) with an admin settings page. No email or import yet. Polish and launch is next. The UI is deliberately bare until a theme is chosen.
 
 ## Stack
 
@@ -46,7 +46,9 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 
 - Product name lives in `apps/web/src/lib/brand.ts`. User-facing text reads from it.
 - Database: Postgres only, reached through `DATABASE_URL`. Do not add MySQL or SQLite support.
-- AI is opt-in. Every AI feature must call `getAiClient()` from `@pennyats/ai` and hide itself when it returns null. The app must work fully with no AI key.
+- AI is opt-in. Every AI feature gets its client from `getAiFor(feature)` in `apps/web/src/lib/ai.ts` (which wraps `getAiClient()` from `@pennyats/ai`, applies the admin's redaction setting, and returns null when AI is unconfigured or the feature is off) and hides itself on null. Check `isAiFeatureOn` before rendering a button. The app must work fully with no AI key.
+- AI calls: rate limit with `allowAiCall(user.id)`, show errors with `aiErrorMessage(err)` (never raw provider responses), build prompts as pure functions in `lib/ai-rules.ts`, don't send names you don't need (feedback summaries label interviewers by number and omit the candidate), and tell the model that user-written text is data, not instructions.
+- The AI key lives only in the server environment. Never store it in the database or render more than `keyHint()`.
 - Never call a model provider directly from app code. Go through `@pennyats/ai` so PII redaction applies. Redaction is pattern-based (emails, phones, URLs) and does not catch names, so do not describe it as a guarantee.
 - Schema changes go in `packages/db/src/schema.ts`, then `pnpm db:generate`. Commit the generated migration.
 - UI: clean, responsive, dark mode supported, keyboard-friendly. Use CSS variables from `globals.css`.
@@ -82,6 +84,8 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Deleting a candidate doesn't remove them from database or file backups; self-hosters handle backup expiry.
 - Reports compute in memory over the selected period. Fine for small teams; a very large instance would want SQL aggregation.
 - No CSV download for reports yet.
+- AI features were tested against a local fake of the Anthropic API, not a real provider. Check with a real key before announcing them. The OpenAI default model (`gpt-4o-mini`) may be dated; it can be overridden with `AI_MODEL`.
+- AI results aren't saved; a feedback summary is regenerated each time.
 - Applications created before activity logging existed (the original seed) have no stage history, so their starting stage is assumed to be their current one.
 - After a keyboard move on the board, focus isn't moved to the card in its new column.
 - Kanban drag and drop uses native HTML5 drag events, which don't fire on touch screens; the arrow buttons cover touch and keyboard.
@@ -94,7 +98,7 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 3. Pipeline kanban and scorecards (done)
 4. Privacy: candidate delete, data export, privacy notice and consent, retention, audit log, AI redaction fix (done)
 5. Reporting (done)
-6. AI layer and settings page (provider, key, redaction toggle)
+6. AI layer and settings page (provider, key, redaction toggle) (done)
 7. Polish, docs, demo site, launch
 
 Later (on the roadmap, not scheduled): email (candidate and team messages, invite emails), CSV import from Greenhouse and other ATSs. The target user is often adopting their first ATS, so import isn't urgent.
@@ -103,4 +107,4 @@ Deferred: interview scheduling with calendar sync, offers and e-sign, job board 
 
 ## Next up
 
-Milestone 6: AI features and settings page.
+Milestone 7: polish, docs, demo site, launch. Choosing the license (MIT or AGPL) is part of this; ask before adding one.

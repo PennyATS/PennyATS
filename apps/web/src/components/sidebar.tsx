@@ -14,6 +14,7 @@ export function Sidebar({ user }: { user: SessionUser }) {
       ? [
           { href: "/settings/users", label: "Users" },
           { href: "/settings/privacy", label: "Privacy" },
+          { href: "/settings/ai", label: "AI" },
         ]
       : []),
     { href: "/careers", label: "Careers page" },

@@ -9,7 +9,14 @@ import { ActionForm, SubmitButton } from "@/components/form";
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 import type { Recommendation } from "@/lib/scorecards";
-import { addNoteAction, deleteCandidateAction, moveStageAction, setStatusAction } from "../actions";
+import { isAiFeatureOn } from "@/lib/ai";
+import {
+  addNoteAction,
+  deleteCandidateAction,
+  moveStageAction,
+  setStatusAction,
+  summarizeFeedbackAction,
+} from "../actions";
 import { Scorecards, type ScorecardRow } from "./scorecards";
 
 export default async function CandidatePage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +24,8 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
   const user = await requireUser();
   if (!isUuid(id) || !(await canSeeCandidate(user, id))) notFound();
   const manage = canManageHiring(user.role);
+  // Summaries cover every scorecard, so only people who may see them all get the button.
+  const aiSummaries = manage && (await isAiFeatureOn("feedbackSummaries"));
 
   const [candidate] = await db().select().from(candidates).where(eq(candidates.id, id));
   if (!candidate) notFound();
@@ -232,6 +241,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                 applicationId={app.id}
                 rows={cardsFor(app.id)}
                 attributes={app.attributes}
+                summarizeAction={aiSummaries ? summarizeFeedbackAction.bind(null, app.id) : undefined}
                 userId={user.id}
                 managesHiring={manage}
               />

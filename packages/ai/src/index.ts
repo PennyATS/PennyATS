@@ -3,6 +3,7 @@ import { anthropicProvider, openaiProvider } from "./providers";
 import type { AiConfig, AiProvider, CompletionRequest, ProviderName } from "./types";
 
 export * from "./types";
+export { DEFAULT_MODELS } from "./providers";
 
 /** Build the config from environment variables. Returns null when AI is off. */
 export function aiConfigFromEnv(env: NodeJS.ProcessEnv = process.env): AiConfig | null {
@@ -15,6 +16,7 @@ export function aiConfigFromEnv(env: NodeJS.ProcessEnv = process.env): AiConfig 
     apiKey,
     model: env.AI_MODEL || undefined,
     redactPii: env.AI_REDACT_PII !== "false",
+    baseUrl: env.AI_BASE_URL || undefined,
   };
 }
 

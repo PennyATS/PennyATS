@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FeedbackSummary } from "./feedback-summary";
 import {
   RATING_LABELS,
   RECOMMENDATION_LABELS,
@@ -24,7 +25,10 @@ export function Scorecards({
   userId,
   managesHiring,
   attributes,
+  summarizeAction,
 }: {
+  /** Present only when AI summaries are on and the viewer may see every scorecard. */
+  summarizeAction?: () => Promise<{ text: string } | { error: string }>;
   applicationId: string;
   rows: ScorecardRow[];
   /** The job's current attributes, used to list ratings in the same order as the form. */
@@ -51,6 +55,7 @@ export function Scorecards({
           feedback doesn&apos;t sway you.
         </p>
       )}
+      {summarizeAction && rows.length >= 2 && <FeedbackSummary action={summarizeAction} />}
       <ul className="mt-2 space-y-3">
         {visible.map((s) => (
           <li key={s.id}>
