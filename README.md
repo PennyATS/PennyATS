@@ -21,6 +21,19 @@ Open source applicant tracking for founders, founding recruiters, and small team
 
 ## Quick start
 
+### Docker Compose
+
+Docker Compose runs Postgres, applies migrations, and starts the production app:
+
+```bash
+cp .env.example .env
+docker compose -f docker/docker-compose.yml up --build -d
+```
+
+Open http://localhost:3000 to create the first admin account. The database and uploaded resumes use persistent Docker volumes. See the [deployment guide](docs/deploy.md) before exposing the app to the internet.
+
+### Local development
+
 Requires Node 22+ and pnpm (`corepack enable` gives you the right version).
 
 ```bash
@@ -30,13 +43,10 @@ cp .env.example .env
 
 Point `DATABASE_URL` in `.env` at any Postgres: a free [Neon](https://neon.tech) or Supabase database, RDS, or local Docker. PennyATS is developed and tested on Postgres 18; versions 14 and newer should work but aren't tested.
 
-```bash
-docker compose -f docker/docker-compose.yml up -d
-```
-
-Then create the tables and start the app:
+If you use the local Docker database, start only that service. Then create the tables and start the app:
 
 ```bash
+docker compose -f docker/docker-compose.yml up -d db
 pnpm db:migrate
 pnpm dev
 ```
@@ -83,7 +93,7 @@ apps/web         Next.js app (UI, server actions, API routes)
 packages/db      Drizzle schema, migrations, seed, password hashing
 packages/ai      Provider interface (Anthropic, OpenAI), off unless configured
 packages/redact  PII redaction before AI calls
-docker           Local Postgres via Docker Compose
+docker           Production Dockerfile and Docker Compose
 ```
 
 ## Contributing and security

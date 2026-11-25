@@ -8,6 +8,8 @@ const rootEnv = path.resolve(process.cwd(), "../../.env");
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 const config: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
   transpilePackages: ["@pennyats/db", "@pennyats/ai", "@pennyats/redact"],
   experimental: {
     // Resume uploads go through server actions; the default limit is 1 MB.
