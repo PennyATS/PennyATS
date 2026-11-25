@@ -9,7 +9,10 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  primaryKey,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /* ---------- Enums ---------- */
 
@@ -93,7 +96,7 @@ export const jobTeam = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
   },
-  (t) => [uniqueIndex("job_team_pk").on(t.jobId, t.userId)],
+  (t) => [primaryKey({ columns: [t.jobId, t.userId] })],
 );
 
 /* ---------- Candidates and applications ---------- */
@@ -207,7 +210,12 @@ export const activity = pgTable(
 );
 
 /** Tracks whether the instance has been set up (first admin created). */
-export const instance = pgTable("instance", {
-  id: boolean("id").primaryKey().default(true),
-  setupComplete: boolean("setup_complete").notNull().default(false),
-});
+export const instance = pgTable(
+  "instance",
+  {
+    id: boolean("id").primaryKey().default(true),
+    setupComplete: boolean("setup_complete").notNull().default(false),
+  },
+  // Single-row table: the only allowed id is true.
+  () => [check("instance_singleton", sql`"id" = true`)],
+);
