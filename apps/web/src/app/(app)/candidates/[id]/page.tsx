@@ -125,7 +125,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">{candidate.fullName}</h1>
-      <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[max-content_1fr]">
+      <dl className="card mt-4 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[max-content_1fr]">
         {(
           [
             ["Email", candidate.email && <a href={`mailto:${candidate.email}`} className="link">{candidate.email}</a>],
@@ -250,8 +250,11 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
         })}
       </div>
 
-      <h2 className="mt-8 text-lg font-semibold">Notes and activity</h2>
-      <form action={addNoteAction.bind(null, candidate.id)} className="mt-3 space-y-2">
+      <section className="card mt-8" aria-labelledby="notes-title">
+      <div className="card-header">
+        <h2 id="notes-title" className="card-title">Notes and activity</h2>
+      </div>
+      <form action={addNoteAction.bind(null, candidate.id)} className="space-y-2">
         <label className="label" htmlFor="note">
           Add a note
         </label>
@@ -260,7 +263,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           Save note
         </button>
       </form>
-      <ol className="mt-6 space-y-4 text-sm">
+      <ol className="card-rows mt-6 border-t pt-4 text-sm" style={{ borderColor: "var(--border)" }}>
         {timeline.map((item) => (
           <li key={item.key}>
             <div>
@@ -272,10 +275,11 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           </li>
         ))}
       </ol>
+      </section>
 
       {manage && (
-        <section className="mt-12 border-t pt-6 text-sm" style={{ borderColor: "var(--border)" }}>
-          <h2 className="text-lg font-semibold">Privacy</h2>
+        <section className="card mt-8 text-sm" aria-labelledby="privacy-title">
+          <h2 id="privacy-title" className="card-title">Privacy</h2>
           <p className="muted mt-1">
             {candidate.consentedAt
               ? `Agreed to the privacy notice on ${candidate.consentedAt.toLocaleDateString()}.`
@@ -289,7 +293,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                 </a>{" "}
                 <span className="muted">for a data access request.</span>
               </p>
-              <ActionForm action={deleteCandidateAction.bind(null, candidate.id)} className="card mt-4 max-w-xl space-y-3">
+              <ActionForm action={deleteCandidateAction.bind(null, candidate.id)} className="inset mt-4 max-w-xl space-y-3">
                 <h3 className="font-medium">Delete permanently</h3>
                 <p className="muted">
                   Removes this candidate from every job, with their resume, scorecards, notes, and history. This

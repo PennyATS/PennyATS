@@ -64,115 +64,154 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         submitLabel="Save"
       />
 
-      <h2 className="mt-10 text-lg font-semibold">Scorecard</h2>
-      <p className="muted mb-3 text-sm">
-        What interviewers rate for this job, one per line (up to {MAX_ATTRIBUTES}). Each is scored 1 to 4,
-        plus an overall recommendation.
-      </p>
-      <ActionForm
-        resetKey={job.scorecardAttributes.join("|")}
-        action={updateAttributesAction.bind(null, job.id)}
-        className="max-w-md space-y-2"
-      >
-        <label className="label" htmlFor="attributes">
-          Attributes
-        </label>
-        <textarea
-          id="attributes"
-          name="attributes"
-          rows={Math.max(4, job.scorecardAttributes.length + 1)}
-          className="input"
-          defaultValue={job.scorecardAttributes.join("\n")}
-        />
-        <SubmitButton variant="secondary">Save attributes</SubmitButton>
-      </ActionForm>
+      <section className="card mt-6 max-w-2xl" aria-labelledby="scorecard-title">
+        <div className="card-header">
+          <h2 id="scorecard-title" className="card-title">Scorecard</h2>
+          <p className="card-note">
+            What interviewers rate for this job, one per line (up to {MAX_ATTRIBUTES}). Each is scored 1 to 4, plus an
+            overall recommendation.
+          </p>
+        </div>
+        <ActionForm
+          resetKey={job.scorecardAttributes.join("|")}
+          action={updateAttributesAction.bind(null, job.id)}
+          className="space-y-3"
+        >
+          <label className="label" htmlFor="attributes">
+            Attributes
+          </label>
+          <textarea
+            id="attributes"
+            name="attributes"
+            rows={Math.max(4, job.scorecardAttributes.length + 1)}
+            className="input"
+            defaultValue={job.scorecardAttributes.join("\n")}
+          />
+          <SubmitButton variant="secondary">Save attributes</SubmitButton>
+        </ActionForm>
+      </section>
 
-      <h2 className="mt-10 text-lg font-semibold">Pipeline stages</h2>
-      <p className="muted mb-3 text-sm">Stages with candidates in them can't be deleted.</p>
-      <ol className="space-y-2">
-        {stages.map((stage, i) => {
-          const n = inStage.get(stage.id) ?? 0;
-          return (
-            <li key={stage.id} className="flex flex-wrap items-center gap-2">
-              <form action={renameStageAction.bind(null, job.id, stage.id)} className="flex gap-2">
-                <input
-                  key={stage.name}
-                  name="name"
-                  defaultValue={stage.name}
-                  aria-label={`Stage ${i + 1} name`}
-                  className="input w-56"
-                  required
-                />
-                <button type="submit" className="btn btn-secondary">
-                  Rename
-                </button>
-              </form>
-              <form action={moveStageAction.bind(null, job.id, stage.id, -1)}>
-                <button type="submit" className="btn btn-secondary" disabled={i === 0} aria-label="Move up">
-                  ↑
-                </button>
-              </form>
-              <form action={moveStageAction.bind(null, job.id, stage.id, 1)}>
-                <button
-                  type="submit"
-                  className="btn btn-secondary"
-                  disabled={i === stages.length - 1}
-                  aria-label="Move down"
-                >
-                  ↓
-                </button>
-              </form>
-              <form action={deleteStageAction.bind(null, job.id, stage.id)}>
-                <button type="submit" className="btn btn-secondary" disabled={n > 0}>
-                  Delete
-                </button>
-              </form>
-              {n > 0 && <span className="muted text-xs">{n} in stage</span>}
-            </li>
-          );
-        })}
-      </ol>
-      <form action={addStageAction.bind(null, job.id)} className="mt-3 flex gap-2">
-        <input name="name" placeholder="New stage name" aria-label="New stage name" className="input w-56" required />
-        <button type="submit" className="btn btn-secondary">
-          Add stage
-        </button>
-      </form>
-
-      <h2 className="mt-10 text-lg font-semibold">Hiring team</h2>
-      <p className="muted mb-3 text-sm">Interviewers only see jobs they are on the hiring team for.</p>
-      {team.length === 0 ? (
-        <p className="muted text-sm">No one yet.</p>
-      ) : (
-        <ul className="space-y-1 text-sm">
-          {team.map((member) => (
-            <li key={member.id} className="flex items-center gap-3">
-              <span>
-                {member.name} <span className="muted capitalize">({member.role})</span>
-              </span>
-              <form action={removeTeamMemberAction.bind(null, job.id, member.id)}>
-                <button type="submit" className="link text-xs">
-                  Remove
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      )}
-      {addable.length > 0 && (
-        <form action={addTeamMemberAction.bind(null, job.id)} className="mt-3 flex gap-2">
-          <select name="userId" aria-label="Team member" className="input w-56">
-            {addable.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
+      <section className="card mt-6 max-w-2xl" aria-labelledby="stages-title">
+        <div className="card-header">
+          <h2 id="stages-title" className="card-title">Pipeline stages</h2>
+          <p className="card-note">The order candidates move through. A stage can be deleted once it&apos;s empty.</p>
+        </div>
+        <ol className="card-rows">
+          {stages.map((stage, i) => {
+            const n = inStage.get(stage.id) ?? 0;
+            return (
+              <li key={stage.id} className="flex flex-wrap items-center gap-2">
+                <form action={renameStageAction.bind(null, job.id, stage.id)} className="flex min-w-0 flex-1 gap-2">
+                  <input
+                    key={stage.name}
+                    name="name"
+                    defaultValue={stage.name}
+                    aria-label={`Stage ${i + 1} name`}
+                    className="input min-w-0 flex-1"
+                    required
+                  />
+                  <button type="submit" className="btn btn-secondary">
+                    Rename
+                  </button>
+                </form>
+                <div className="flex items-center gap-2">
+                  <form action={moveStageAction.bind(null, job.id, stage.id, -1)}>
+                    <button
+                      type="submit"
+                      className="btn btn-secondary btn-icon"
+                      disabled={i === 0}
+                      aria-label={`Move ${stage.name} up`}
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                  </form>
+                  <form action={moveStageAction.bind(null, job.id, stage.id, 1)}>
+                    <button
+                      type="submit"
+                      className="btn btn-secondary btn-icon"
+                      disabled={i === stages.length - 1}
+                      aria-label={`Move ${stage.name} down`}
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                  </form>
+                  <form action={deleteStageAction.bind(null, job.id, stage.id)}>
+                    <button
+                      type="submit"
+                      className="btn btn-secondary"
+                      disabled={n > 0}
+                      title={n > 0 ? "Move its candidates to another stage first" : `Delete ${stage.name}`}
+                      aria-describedby={n > 0 ? `stage-count-${stage.id}` : undefined}
+                    >
+                      Delete
+                    </button>
+                  </form>
+                </div>
+                {n > 0 && (
+                  <p id={`stage-count-${stage.id}`} className="muted w-full text-xs">
+                    {n} candidate{n === 1 ? "" : "s"} here, so this stage can&apos;t be deleted yet.
+                  </p>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <form
+          action={addStageAction.bind(null, job.id)}
+          className="mt-4 flex gap-2 border-t pt-4"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <input name="name" placeholder="New stage name" aria-label="New stage name" className="input min-w-0 flex-1" required />
           <button type="submit" className="btn btn-secondary">
-            Add to team
+            Add stage
           </button>
         </form>
-      )}
+      </section>
+
+      <section className="card mt-6 max-w-2xl" aria-labelledby="team-title">
+        <div className="card-header">
+          <h2 id="team-title" className="card-title">Hiring team</h2>
+          <p className="card-note">Interviewers only see jobs they are on the hiring team for.</p>
+        </div>
+        {team.length === 0 ? (
+          <p className="muted text-sm">No one yet.</p>
+        ) : (
+          <ul className="card-rows text-sm">
+            {team.map((member) => (
+              <li key={member.id} className="flex items-center justify-between gap-3">
+                <span>
+                  {member.name} <span className="muted capitalize">· {member.role}</span>
+                </span>
+                <form action={removeTeamMemberAction.bind(null, job.id, member.id)}>
+                  <button type="submit" className="btn btn-secondary" aria-label={`Remove ${member.name} from the hiring team`}>
+                    Remove
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+        {addable.length > 0 && (
+          <form
+            action={addTeamMemberAction.bind(null, job.id)}
+            className="mt-4 flex gap-2 border-t pt-4"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <select name="userId" aria-label="Team member" className="input min-w-0 flex-1">
+              {addable.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="btn btn-secondary">
+              Add to team
+            </button>
+          </form>
+        )}
+      </section>
     </>
   );
 }
