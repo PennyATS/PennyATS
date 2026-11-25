@@ -10,6 +10,7 @@ import { createRateLimiter } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
 import { extensionOf, storage } from "@/lib/storage";
 import { checkResume, parseCandidate } from "@/lib/validation";
+import { sendStageEntryEmail } from "@/lib/candidate-email";
 
 const applyLimiter = createRateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
 
@@ -47,7 +48,7 @@ export async function applyAction(jobId: string, _: FormState, form: FormData): 
     resume = { key, name: file.name.slice(0, 200) };
   }
 
-  await db().transaction((tx) =>
+  const result = await db().transaction((tx) =>
     addApplication(tx, {
       jobId: job.id,
       candidate: { ...parsed.value, source: "Careers page" },
@@ -56,6 +57,7 @@ export async function applyAction(jobId: string, _: FormState, form: FormData): 
       actorId: null,
     }),
   );
+  if (result.created && result.applicationId) await sendStageEntryEmail(result.applicationId, null, null);
   // Same reply whether or not they had already applied, so the form can't be used
   // to check whether someone is a candidate.
   return { message: THANKS };

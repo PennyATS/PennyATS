@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { inArray } from "drizzle-orm";
-import { stageSchedulingSettings } from "@pennyats/db";
+import { asc, eq, inArray } from "drizzle-orm";
+import { emailTemplateFolders, emailTemplates, stageSchedulingSettings } from "@pennyats/db";
 import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -13,21 +13,36 @@ export default async function JobSchedulingPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const user = await requireUser(canManageHiring);
   const { job, stages } = await loadJob(user, id);
-  const settings = stages.length ? await db().select().from(stageSchedulingSettings)
-    .where(inArray(stageSchedulingSettings.stageId, stages.map((stage) => stage.id))) : [];
+  const [settings, templates] = await Promise.all([
+    stages.length ? db().select().from(stageSchedulingSettings)
+      .where(inArray(stageSchedulingSettings.stageId, stages.map((stage) => stage.id))) : [],
+    db().select({ id: emailTemplates.id, name: emailTemplates.name, folder: emailTemplateFolders.name })
+      .from(emailTemplates).leftJoin(emailTemplateFolders, eq(emailTemplateFolders.id, emailTemplates.folderId))
+      .orderBy(asc(emailTemplateFolders.name), asc(emailTemplates.name)),
+  ]);
+  const groups = Map.groupBy(templates, (t) => t.folder ?? "Unfiled");
   return <div className="max-w-4xl">
     <Link href={`/jobs/${job.id}`} className="link text-sm">← Back to {job.title}</Link>
-    <h1 className="mt-4 text-2xl font-semibold tracking-tight">Stage scheduling</h1>
-    <p className="muted mt-1 text-sm">Choose whether entering a stage sends a scheduling link, and when scheduled interviews send a reminder. Automation is off until you opt in.</p>
-    {!smtpConfigured() && <p className="inset mt-5 text-sm">SMTP is not configured. Automatic messages will wait; recruiters can still copy links manually. <Link href="/settings/email" className="link">Email settings</Link></p>}
+    <h1 className="mt-4 text-2xl font-semibold tracking-tight">Stage automation</h1>
+    <p className="muted mt-1 text-sm">Choose what happens when a candidate enters each stage: an email from your <Link href="/templates" className="link">templates</Link>, a scheduling link, and interview reminders. Everything is off until you opt in. Each email is sent once per candidate and stage, even if they move back and forth.</p>
+    {!smtpConfigured() && <p className="inset mt-5 text-sm">SMTP is not configured. Automatic emails are recorded on the candidate timeline as not sent, and can be resent once SMTP is set up; recruiters can still copy scheduling links manually. <Link href="/settings/email" className="link">Email settings</Link></p>}
     <div className="mt-6 space-y-4">
       {stages.map((stage) => {
         const setting = settings.find((row) => row.stageId === stage.id);
         return <section key={stage.id} className="card">
           <h2 className="font-semibold">{stage.name}</h2>
           <ActionForm action={saveStageSchedulingAction.bind(null, job.id, stage.id)}
-            resetKey={`${setting?.autoLinkMode}-${setting?.reminderMinutes}`} className="mt-4 space-y-4">
-            <div><label htmlFor={`mode-${stage.id}`} className="label">On stage entry</label>
+            resetKey={`${setting?.autoLinkMode}-${setting?.reminderMinutes}-${setting?.emailTemplateId}`} className="mt-4 space-y-4">
+            <div><label htmlFor={`template-${stage.id}`} className="label">Email the candidate on stage entry</label>
+              <select id={`template-${stage.id}`} name="emailTemplateId" className="input" defaultValue={setting?.emailTemplateId ?? ""}>
+                <option value="">Do not send an email</option>
+                {[...groups].map(([folder, items]) => <optgroup key={folder} label={folder}>
+                  {items.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </optgroup>)}
+              </select>
+              {templates.length === 0 && <p className="muted mt-1 text-xs"><Link href="/templates/new" className="link">Write a template</Link> to send one automatically.</p>}
+            </div>
+            <div><label htmlFor={`mode-${stage.id}`} className="label">Scheduling link on stage entry</label>
               <select id={`mode-${stage.id}`} name="autoLinkMode" className="input" defaultValue={setting?.autoLinkMode ?? "none"}>
                 <option value="none">Do not send a link</option>
                 <option value="booking">Send a direct booking link for one interviewer</option>

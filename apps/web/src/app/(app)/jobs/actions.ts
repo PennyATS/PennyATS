@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { jobDescriptionPrompt } from "@/lib/ai-rules";
 import { moveApplication } from "@/lib/hiring";
+import { sendStageEntryEmail } from "@/lib/candidate-email";
 import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
 import { MAX_ATTRIBUTES, parseAttributes } from "@/lib/scorecards";
 import { canManageHiring } from "@/lib/permissions";
@@ -182,6 +183,7 @@ export async function moveCardAction(applicationId: string, stageId: string): Pr
   if (!moved) return { ok: false };
   if (moved.stageId) await suppressQueuedStageLinks(applicationId, moved.stageId);
   await queueStageLinkOnEntry(applicationId, stageId);
+  await sendStageEntryEmail(applicationId, stageId, user.id);
   revalidatePath(`/jobs/${moved.jobId}`);
   revalidatePath(`/candidates/${moved.candidateId}`);
   return { ok: true };

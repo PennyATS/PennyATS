@@ -2,7 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { applications, interviews, stageSchedulingSettings, stages } from "@pennyats/db";
+import { applications, emailTemplates, interviews, stageSchedulingSettings, stages } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -23,13 +23,21 @@ export async function saveStageSchedulingAction(jobId: string, stageId: string,
   if (reminderMinutes !== null && (!Number.isInteger(reminderMinutes) || reminderMinutes < 5 || reminderMinutes > 10080)) {
     return { error: "Reminder timing must be between 5 minutes and 7 days." };
   }
+  const templateRaw = String(form.get("emailTemplateId") ?? "");
+  let emailTemplateId: string | null = null;
+  if (templateRaw) {
+    if (!isUuid(templateRaw)) return { error: "Template not found." };
+    const [template] = await db().select({ id: emailTemplates.id }).from(emailTemplates).where(eq(emailTemplates.id, templateRaw));
+    if (!template) return { error: "Template not found." };
+    emailTemplateId = template.id;
+  }
   await db().insert(stageSchedulingSettings).values({ stageId, autoLinkMode: mode,
-    reminderMinutes }).onConflictDoUpdate({ target: stageSchedulingSettings.stageId,
-    set: { autoLinkMode: mode, reminderMinutes, updatedAt: new Date() } });
+    reminderMinutes, emailTemplateId }).onConflictDoUpdate({ target: stageSchedulingSettings.stageId,
+    set: { autoLinkMode: mode, reminderMinutes, emailTemplateId, updatedAt: new Date() } });
   const current = await db().select({ id: interviews.id }).from(interviews)
     .innerJoin(applications, eq(applications.id, interviews.applicationId))
     .where(and(eq(interviews.stageId, stageId), eq(applications.status, "active")));
   for (const interview of current) await queueInterviewReminders(interview.id);
   revalidatePath(`/jobs/${jobId}/scheduling`);
-  return { message: "Scheduling settings saved." };
+  return { message: "Stage settings saved." };
 }

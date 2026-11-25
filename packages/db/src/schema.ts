@@ -153,6 +153,8 @@ export const stageSchedulingSettings = pgTable("stage_scheduling_settings", {
   stageId: uuid("stage_id").primaryKey().references(() => stages.id, { onDelete: "cascade" }),
   autoLinkMode: text("auto_link_mode").notNull().default("none"),
   reminderMinutes: integer("reminder_minutes"),
+  /** Template emailed to the candidate when an application enters this stage. Null means off. */
+  emailTemplateId: uuid("email_template_id").references(() => emailTemplates.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -397,25 +399,60 @@ export const notes = pgTable(
   (t) => [index("notes_candidate_idx").on(t.candidateId)],
 );
 
-export const emailTemplates = pgTable("email_templates", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  subject: text("subject").notNull(),
-  body: text("body").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+/** Folders for organizing email templates. Deleting a folder leaves its templates unfiled. */
+export const emailTemplateFolders = pgTable(
+  "email_template_folders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("email_template_folders_name_idx").on(sql`lower(${t.name})`)],
+);
 
-export const emails = pgTable("emails", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  candidateId: uuid("candidate_id")
-    .notNull()
-    .references(() => candidates.id, { onDelete: "cascade" }),
-  direction: text("direction").notNull().default("outbound"),
-  subject: text("subject").notNull(),
-  body: text("body").notNull(),
-  sentBy: uuid("sent_by").references(() => users.id),
-  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const emailTemplates = pgTable(
+  "email_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    folderId: uuid("folder_id").references(() => emailTemplateFolders.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    subject: text("subject").notNull(),
+    /** Plain-text version, derived from `bodyHtml`. Sent as the text part of the email. */
+    body: text("body").notNull(),
+    /** Sanitized rich text. Empty for templates written before rich text; those fall back to `body`. */
+    bodyHtml: text("body_html").notNull().default(""),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_templates_folder_idx").on(t.folderId)],
+);
+
+export const emails = pgTable(
+  "emails",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    candidateId: uuid("candidate_id")
+      .notNull()
+      .references(() => candidates.id, { onDelete: "cascade" }),
+    applicationId: uuid("application_id").references(() => applications.id, { onDelete: "cascade" }),
+    templateId: uuid("template_id").references(() => emailTemplates.id, { onDelete: "set null" }),
+    /** Set when the email was sent automatically because the application entered this stage. */
+    stageId: uuid("stage_id").references(() => stages.id, { onDelete: "set null" }),
+    direction: text("direction").notNull().default("outbound"),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    bodyHtml: text("body_html"),
+    /** sending, sent, failed, or skipped (no SMTP, no candidate email). */
+    status: text("status").notNull().default("sent"),
+    error: text("error"),
+    /** One automatic email per application and stage, however often the card moves. */
+    triggerKey: text("trigger_key").unique(),
+    sentBy: uuid("sent_by").references(() => users.id),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("emails_candidate_idx").on(t.candidateId)],
+);
 
 /** Durable, uniquely keyed scheduling mail. A sending claim is never retried automatically. */
 export const schedulingDeliveries = pgTable("scheduling_deliveries", {

@@ -7,13 +7,14 @@ import type { SessionUser } from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
 
-type IconName = "home" | "jobs" | "candidates" | "reports" | "settings" | "careers" | "chevron" | "menu" | "plus";
+type IconName = "home" | "jobs" | "candidates" | "templates" | "reports" | "settings" | "careers" | "chevron" | "menu" | "plus";
 
 function Icon({ name, className = "size-4" }: { name: IconName; className?: string }) {
   const paths: Record<IconName, React.ReactNode> = {
     home: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z" /><path d="M9 21v-8h6v8" /></>,
     jobs: <><rect x="3" y="6" width="18" height="15" rx="2" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M3 12h18" /></>,
     candidates: <><circle cx="9" cy="8" r="3" /><path d="M3 20v-2a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2" /></>,
+    templates: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
     reports: <><path d="M4 20V4M4 20h17M8 16l4-5 3 2 5-6" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></>,
     careers: <><path d="M4 7h16v13H4zM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 12h16" /></>,
@@ -56,7 +57,10 @@ export function TopNav({ user }: { user: Pick<SessionUser, "name" | "role"> }) {
     { href: "/", label: "Dashboard", icon: "home" },
     { href: "/jobs", label: "Jobs", icon: "jobs" },
     { href: "/candidates", label: "Candidates", icon: "candidates" },
-    ...(canHire ? [{ href: "/reports", label: "Reports", icon: "reports" as const }] : []),
+    ...(canHire ? [
+      { href: "/templates", label: "Templates", icon: "templates" as const },
+      { href: "/reports", label: "Reports", icon: "reports" as const },
+    ] : []),
   ];
   const secondary: { href: string; label: string; icon: IconName }[] = [
     { href: "/settings/calendar", label: "Google Calendar", icon: "settings" },
