@@ -10,4 +10,6 @@ next-env.d.ts
 
 # Uploaded files (resumes) from local storage
 .data
+playwright-report
+test-results
 /public/references/
