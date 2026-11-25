@@ -1,0 +1,17 @@
+{
+  "name": "pennyats-monorepo",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm --filter @pennyats/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @pennyats/db generate",
+    "db:migrate": "pnpm --filter @pennyats/db migrate",
+    "db:seed": "pnpm --filter @pennyats/db seed"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
