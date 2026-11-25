@@ -7,6 +7,11 @@ Thanks for helping. PennyATS is an open source applicant tracking system for fou
 - Planned work lives in [issues](https://github.com/PennyATS/PennyATS/issues) on the [roadmap board](https://github.com/orgs/PennyATS/projects/1). Comment on an issue before starting something big, so work isn't duplicated.
 - Security problems: don't open an issue. See [SECURITY.md](SECURITY.md).
 
+## Where to start
+
+- **Developers:** Read the [README](README.md), run the app with synthetic seed data, and pick a focused issue. Possible first contributions include [more README screenshots and a demo GIF](https://github.com/PennyATS/PennyATS/issues/9), [a hiring manager field when creating a job](https://github.com/PennyATS/PennyATS/issues/22), or [a light/dark theme toggle](https://github.com/PennyATS/PennyATS/issues/30). Discuss the scope on the issue before starting.
+- **Recruiters:** Try the hiring flow with made-up candidates and [report a bug](https://github.com/PennyATS/PennyATS/issues/new/choose) or [suggest an improvement](https://github.com/PennyATS/PennyATS/issues/new/choose). Tell us what you were trying to do, what you expected, and where you got stuck. Keep real candidate details out of reports and screenshots.
+
 ## Setup
 
 You need Node 22+ and pnpm (`corepack enable` installs the right version), plus any Postgres database.

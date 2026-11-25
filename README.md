@@ -2,9 +2,15 @@
 
 [![CI](https://github.com/PennyATS/PennyATS/actions/workflows/ci.yml/badge.svg)](https://github.com/PennyATS/PennyATS/actions/workflows/ci.yml)
 
-Open source applicant tracking for founders, founding recruiters, and small teams. Self-host it, bring your own Postgres database, and optionally bring your own AI API key. AI features are off by default.
+**Run your hiring pipeline on your own infrastructure.**
 
-> Status: milestone 6 of 7. The core hiring loop, pipeline board, scorecards, privacy tools, reports, and opt-in AI features work end to end; polish and launch are next. The UI is intentionally plain until the visual design is settled.
+Post jobs, review applicants, and collect interview feedback in one place.
+Self-host PennyATS with your own Postgres database. AI features are optional
+and off by default.
+
+**Status: Early preview**
+
+[Quick start](#quick-start) · [Roadmap](#roadmap) · [Contributing](CONTRIBUTING.md)
 
 ## What works today
 
