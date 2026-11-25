@@ -14,7 +14,8 @@ import {
   logActivity,
   moveApplication,
 } from "@/lib/hiring";
-import { canManageHiring } from "@/lib/permissions";
+import { canManageHiring, canManageUsers } from "@/lib/permissions";
+import { deleteCandidates } from "@/lib/privacy";
 import { extensionOf, storage } from "@/lib/storage";
 import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
 
@@ -95,4 +96,19 @@ export async function addNoteAction(candidateId: string, form: FormData): Promis
   if (!(await canSeeCandidate(user, candidateId))) return;
   await db().insert(notes).values({ candidateId, authorId: user.id, body });
   revalidatePath(`/candidates/${candidateId}`);
+}
+
+/** Permanently delete a candidate, e.g. for a deletion request. Admin only; needs the confirm box. */
+export async function deleteCandidateAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
+  const admin = await requireUser(canManageUsers);
+  if (form.get("confirm") !== "on") return { error: "Tick the box to confirm permanent deletion." };
+  if (!isUuid(candidateId)) return { error: "Candidate not found." };
+  const count = await deleteCandidates([candidateId], {
+    actorId: admin.id,
+    reason: field(form, "reason", 300),
+    action: "candidate_deleted",
+  });
+  if (count === 0) return { error: "Candidate not found. They may already have been deleted." };
+  revalidatePath("/candidates");
+  redirect("/candidates?deleted=1");
 }

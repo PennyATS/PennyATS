@@ -2,7 +2,7 @@
 
 Open source applicant tracking system for founders, founding recruiters, and small teams. Self-hosted, bring your own Postgres, bring your own AI API key. AI features are off by default.
 
-Status: milestone 3 done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form and resume upload, a kanban pipeline board per job, scorecards, and candidate profiles with notes and an activity timeline. No email, reporting, or import yet. The UI is deliberately bare until a theme is chosen.
+Status: milestone 4 (privacy) done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form, privacy notice and consent, a kanban pipeline board per job, scorecards, candidate profiles with notes and an activity timeline, and privacy tools (permanent delete, data export, retention purge, audit log). No reporting, email, or import yet. The UI is deliberately bare until a theme is chosen.
 
 ## Stack
 
@@ -31,6 +31,7 @@ pnpm dev                 # run the web app
 pnpm typecheck           # all packages
 pnpm build               # production build
 pnpm test                # unit tests (no database needed)
+pnpm privacy:purge       # delete candidates past the retention period (schedule it, e.g. daily cron)
 pnpm db:generate         # generate a migration from schema.ts
 pnpm db:migrate          # apply migrations (needs DATABASE_URL)
 pnpm db:seed             # demo data (needs DATABASE_URL)
@@ -57,6 +58,9 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Uploaded files go through `apps/web/src/lib/storage.ts` (local disk under `STORAGE_DIR`). Resumes are always served as downloads, never inline.
 - Candidate emails are stored lowercased and are unique; applying or adding with an existing email reuses that candidate.
 - Scorecards: one per interviewer per stage (resubmitting edits it). Interviewers can't see other scorecards on an application until they submit their own; keep that rule in `lib/scorecards.ts` and apply it anywhere scorecard content is shown, including summaries.
+- Privacy: any new table holding candidate data must cascade on candidate delete (`onDelete: "cascade"`) and be added to `exportCandidate` in `lib/privacy.ts`. Never write a deleted person's details to `audit_log`.
+- `lib/privacy.ts` has no Next.js imports so `scripts/privacy-purge.mts` can use it. Keep it that way.
+- Raw `sql` templates don't serialize `Date` params with postgres-js; pass `date.toISOString()` and cast to `::timestamptz`.
 - Exports from a `"use server"` file are callable by anyone as endpoints. Put helpers in `lib/`, not in actions files.
 - Forms: React 19 resets a form after its action runs. Key inputs (or the form) on the saved value so they don't snap back to stale defaults.
 
@@ -72,7 +76,9 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - The first-run `/setup` page has not been exercised in a browser (the dev database was seeded first).
 - Rate limiting (login, apply) is in memory, per server process.
 - Resume storage is local disk only; no S3-compatible option yet.
-- Invites show a link to copy; nothing is emailed until milestone 4.
+- Invites show a link to copy; email is deferred.
+- Retention only runs when someone clicks "Delete now" or schedules `pnpm privacy:purge`; there is no built-in scheduler.
+- Deleting a candidate doesn't remove them from database or file backups; self-hosters handle backup expiry.
 - After a keyboard move on the board, focus isn't moved to the card in its new column.
 - Kanban drag and drop uses native HTML5 drag events, which don't fire on touch screens; the arrow buttons cover touch and keyboard.
 - License is not chosen yet (MIT or AGPL). Do not add a license file without asking.
@@ -82,12 +88,15 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 1. Foundation (done)
 2. Auth (roles: admin, recruiter, interviewer), jobs create and edit, public careers page, applications, candidate profile (done)
 3. Pipeline kanban and scorecards (done)
-4. Email, reporting, Greenhouse CSV import
-5. AI layer and settings page (provider, key, redaction toggle)
-6. Polish, docs, demo site, launch
+4. Privacy: candidate delete, data export, privacy notice and consent, retention, audit log, AI redaction fix (done)
+5. Reporting
+6. AI layer and settings page (provider, key, redaction toggle)
+7. Polish, docs, demo site, launch
+
+Later (on the roadmap, not scheduled): email (candidate and team messages, invite emails), CSV import from Greenhouse and other ATSs. The target user is often adopting their first ATS, so import isn't urgent.
 
 Deferred: interview scheduling with calendar sync, offers and e-sign, job board distribution, Chrome extension, resume parsing, multi-tenant hosting.
 
 ## Next up
 
-Milestone 4: email, reporting, Greenhouse CSV import.
+Milestone 5: reporting. Wait for the plan to be approved before building.

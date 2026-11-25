@@ -5,10 +5,11 @@ import { activity, applications, candidates, jobs, notes, scorecards, stages, us
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canSeeCandidate, visibleJobIds } from "@/lib/hiring";
-import { canManageHiring } from "@/lib/permissions";
+import { ActionForm, SubmitButton } from "@/components/form";
+import { canManageHiring, canManageUsers } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 import type { Recommendation } from "@/lib/scorecards";
-import { addNoteAction, moveStageAction, setStatusAction } from "../actions";
+import { addNoteAction, deleteCandidateAction, moveStageAction, setStatusAction } from "../actions";
 import { Scorecards, type ScorecardRow } from "./scorecards";
 
 export default async function CandidatePage({ params }: { params: Promise<{ id: string }> }) {
@@ -261,6 +262,45 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           </li>
         ))}
       </ol>
+
+      {manage && (
+        <section className="mt-12 border-t pt-6 text-sm" style={{ borderColor: "var(--border)" }}>
+          <h2 className="text-lg font-semibold">Privacy</h2>
+          <p className="muted mt-1">
+            {candidate.consentedAt
+              ? `Agreed to the privacy notice on ${candidate.consentedAt.toLocaleDateString()}.`
+              : "No privacy notice consent recorded."}
+          </p>
+          {canManageUsers(user.role) && (
+            <>
+              <p className="mt-3">
+                <a href={`/api/candidates/${candidate.id}/export`} className="link">
+                  Export all their data (JSON)
+                </a>{" "}
+                <span className="muted">for a data access request.</span>
+              </p>
+              <ActionForm action={deleteCandidateAction.bind(null, candidate.id)} className="card mt-4 max-w-xl space-y-3">
+                <h3 className="font-medium">Delete permanently</h3>
+                <p className="muted">
+                  Removes this candidate from every job, with their resume, scorecards, notes, and history. This
+                  can&apos;t be undone. The audit log records that a deletion happened, not who it was.
+                </p>
+                <div>
+                  <label className="label" htmlFor="reason">
+                    Reason (optional, don&apos;t include their name)
+                  </label>
+                  <input id="reason" name="reason" className="input" placeholder="e.g. Deletion request received by email" />
+                </div>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="confirm" required />
+                  I understand this permanently deletes {candidate.fullName}&apos;s data.
+                </label>
+                <SubmitButton>Delete candidate</SubmitButton>
+              </ActionForm>
+            </>
+          )}
+        </section>
+      )}
     </>
   );
 }

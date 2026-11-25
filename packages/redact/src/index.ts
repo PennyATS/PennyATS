@@ -19,25 +19,47 @@ const PATTERNS: { kind: string; regex: RegExp }[] = [
   { kind: "PHONE", regex: /(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}/g },
 ];
 
-export function redact(input: string): RedactionResult {
+export interface Redactor {
+  /** Redact one piece of text. Placeholders are numbered across every call on this redactor. */
+  redact(input: string): string;
+  /** placeholder -> original value, for everything redacted so far */
+  readonly map: Record<string, string>;
+}
+
+/**
+ * Use one redactor per model request, so the prompt and the system message share
+ * numbering. Two separate redactions would both start at [EMAIL_1] for different
+ * people, and restoring the reply would then swap their details.
+ */
+export function createRedactor(): Redactor {
   const map: Record<string, string> = {};
   const counters: Record<string, number> = {};
   const seen = new Map<string, string>();
-  let text = input;
 
-  for (const { kind, regex } of PATTERNS) {
-    text = text.replace(regex, (match) => {
-      const existing = seen.get(match);
-      if (existing) return existing;
-      counters[kind] = (counters[kind] ?? 0) + 1;
-      const placeholder = `[${kind}_${counters[kind]}]`;
-      map[placeholder] = match;
-      seen.set(match, placeholder);
-      return placeholder;
-    });
-  }
+  return {
+    map,
+    redact(input) {
+      let text = input;
+      for (const { kind, regex } of PATTERNS) {
+        text = text.replace(regex, (match) => {
+          const existing = seen.get(match);
+          if (existing) return existing;
+          counters[kind] = (counters[kind] ?? 0) + 1;
+          const placeholder = `[${kind}_${counters[kind]}]`;
+          map[placeholder] = match;
+          seen.set(match, placeholder);
+          return placeholder;
+        });
+      }
+      return text;
+    },
+  };
+}
 
-  return { text, map };
+/** Redact a single string. For a request with several parts, use createRedactor(). */
+export function redact(input: string): RedactionResult {
+  const r = createRedactor();
+  return { text: r.redact(input), map: r.map };
 }
 
 /** Put original values back into model output. */

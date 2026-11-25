@@ -10,10 +10,11 @@ const PAGE_SIZE = 100;
 export default async function CandidatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; deleted?: string }>;
 }) {
   const user = await requireUser();
-  const q = ((await searchParams).q ?? "").trim().slice(0, 100);
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim().slice(0, 100);
   const ids = await visibleJobIds(user);
 
   // Escape LIKE wildcards so a search for "50%" means the literal text.
@@ -46,6 +47,11 @@ export default async function CandidatesPage({
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Candidates</h1>
+      {sp.deleted && (
+        <p role="status" className="mt-2 text-sm">
+          Candidate permanently deleted.
+        </p>
+      )}
       <form className="mt-4 flex max-w-md gap-2" role="search">
         <input
           name="q"

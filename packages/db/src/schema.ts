@@ -147,6 +147,8 @@ export const candidates = pgTable(
     resumeKey: text("resume_key"),
     /** Original file name, shown in the UI and used on download. */
     resumeName: text("resume_name"),
+    /** When the candidate agreed to the privacy notice on the apply form, if one was required. */
+    consentedAt: timestamp("consented_at", { withTimezone: true }),
     resumeText: text("resume_text"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -253,6 +255,23 @@ export const activity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("activity_application_idx").on(t.applicationId)],
+);
+
+/**
+ * Record of privacy-sensitive actions (deletions, exports, retention purges), kept so
+ * you can show a request was handled. Never store the deleted person's details here.
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    action: text("action").notNull(),
+    /** Null for automated runs such as a scheduled retention purge. */
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("audit_log_created_idx").on(t.createdAt)],
 );
 
 /** Tracks whether the instance has been set up (first admin created). */

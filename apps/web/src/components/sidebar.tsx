@@ -9,7 +9,12 @@ export function Sidebar({ user }: { user: SessionUser }) {
     { href: "/", label: "Dashboard" },
     { href: "/jobs", label: "Jobs" },
     { href: "/candidates", label: "Candidates" },
-    ...(canManageUsers(user.role) ? [{ href: "/settings/users", label: "Users" }] : []),
+    ...(canManageUsers(user.role)
+      ? [
+          { href: "/settings/users", label: "Users" },
+          { href: "/settings/privacy", label: "Privacy" },
+        ]
+      : []),
     { href: "/careers", label: "Careers page" },
   ];
 

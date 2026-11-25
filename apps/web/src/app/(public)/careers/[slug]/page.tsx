@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { jobs } from "@pennyats/db";
 import { db } from "@/lib/db";
+import { getPrivacySettings } from "@/lib/privacy";
 import { applyAction } from "../actions";
 import { ApplyForm } from "./apply-form";
 
@@ -24,6 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function CareerJobPage({ params }: { params: Promise<{ slug: string }> }) {
   const job = await getOpenJob((await params).slug);
   if (!job) notFound();
+  const privacy = await getPrivacySettings();
 
   return (
     <>
@@ -37,7 +39,10 @@ export default async function CareerJobPage({ params }: { params: Promise<{ slug
       {job.description && <div className="mt-6 whitespace-pre-wrap text-sm leading-6">{job.description}</div>}
 
       <h2 className="mb-3 mt-10 text-lg font-semibold">Apply</h2>
-      <ApplyForm action={applyAction.bind(null, job.id)} />
+      <ApplyForm
+        action={applyAction.bind(null, job.id)}
+        notice={{ text: privacy.noticeText, url: privacy.noticeUrl, requireConsent: privacy.requireConsent }}
+      />
     </>
   );
 }

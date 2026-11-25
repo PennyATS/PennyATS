@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /**
@@ -9,6 +9,8 @@ import path from "node:path";
 export interface FileStorage {
   put(bytes: Uint8Array, extension: string): Promise<string>;
   get(key: string): Promise<Uint8Array | null>;
+  /** Remove a file. Missing files are ignored, so deletes can be retried safely. */
+  delete(key: string): Promise<void>;
 }
 
 const KEY_PATTERN = /^[0-9a-f-]{36}\.[a-z]{2,5}$/;
@@ -31,6 +33,11 @@ class LocalDiskStorage implements FileStorage {
     } catch {
       return null;
     }
+  }
+
+  async delete(key: string): Promise<void> {
+    if (!KEY_PATTERN.test(key)) return;
+    await rm(path.join(this.dir, key), { force: true });
   }
 }
 

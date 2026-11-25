@@ -5,6 +5,7 @@ import { jobs } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { db } from "@/lib/db";
 import { addApplication } from "@/lib/hiring";
+import { getPrivacySettings } from "@/lib/privacy";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
 import { extensionOf, storage } from "@/lib/storage";
@@ -31,6 +32,12 @@ export async function applyAction(jobId: string, _: FormState, form: FormData): 
   const parsed = parseCandidate(form, { requireEmail: true });
   if (!parsed.ok) return { error: parsed.error };
 
+  const privacy = await getPrivacySettings();
+  const consented = form.get("consent") === "on";
+  if (privacy.requireConsent && !consented) {
+    return { error: "Please confirm you've read the privacy notice." };
+  }
+
   let resume: { key: string; name: string } | undefined;
   const file = form.get("resume");
   if (file instanceof File && file.size > 0) {
@@ -45,6 +52,7 @@ export async function applyAction(jobId: string, _: FormState, form: FormData): 
       jobId: job.id,
       candidate: { ...parsed.value, source: "Careers page" },
       resume,
+      consentedAt: privacy.requireConsent && consented ? new Date() : undefined,
       actorId: null,
     }),
   );

@@ -3,7 +3,9 @@
 import { useActionState } from "react";
 import { Field, SubmitButton, type FormAction } from "@/components/form";
 
-export function ApplyForm({ action }: { action: FormAction }) {
+type Notice = { text: string | null; url: string | null; requireConsent: boolean };
+
+export function ApplyForm({ action, notice }: { action: FormAction; notice: Notice }) {
   const [state, formAction] = useActionState(action, undefined);
 
   if (state?.message) {
@@ -38,6 +40,24 @@ export function ApplyForm({ action }: { action: FormAction }) {
         <label htmlFor="website">Website</label>
         <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
       </div>
+      {(notice.text || notice.url) && (
+        <div className="muted space-y-1 text-sm">
+          {notice.text && <p className="whitespace-pre-wrap">{notice.text}</p>}
+          {notice.url && (
+            <p>
+              <a href={notice.url} className="link" target="_blank" rel="noopener noreferrer">
+                Privacy policy
+              </a>
+            </p>
+          )}
+        </div>
+      )}
+      {notice.requireConsent && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="consent" required className="mt-1" />
+          I have read the privacy notice and agree to my information being used to consider my application.
+        </label>
+      )}
       {state?.error && (
         <p role="alert" className="error text-sm">
           {state.error}

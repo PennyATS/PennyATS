@@ -2,7 +2,7 @@
 
 Open source applicant tracking for founders, founding recruiters, and small teams. Self-host it, bring your own Postgres database, and optionally bring your own AI API key. AI features are off by default.
 
-> Status: milestone 3 of 6. The core hiring loop, pipeline board, and scorecards work end to end; email, reporting, and Greenhouse import are next. The UI is intentionally plain until the visual design is settled.
+> Status: milestone 4 of 7. The core hiring loop, pipeline board, scorecards, and privacy tools work end to end; reporting is next. The UI is intentionally plain until the visual design is settled.
 
 ## What works today
 
@@ -13,6 +13,7 @@ Open source applicant tracking for founders, founding recruiters, and small team
 - **Pipeline board.** A kanban view per job. Drag candidates between stages, or use the arrow buttons from the keyboard. Cards show days in stage and scorecard results.
 - **Scorecards.** Each job has its own list of attributes, rated 1 to 4, plus an overall recommendation from Strong no to Strong yes. Interviewers can't see anyone else's scorecard until they've submitted their own, so earlier feedback doesn't sway them.
 - **Candidate profiles.** Contact details, resume download, every application, scorecards, notes, and an activity timeline. Mark candidates hired, rejected, or withdrawn.
+- **Privacy tools.** A privacy notice and optional consent checkbox on the apply form, one-click export of everything stored about a candidate, permanent deletion, automatic deletion of rejected candidates after a retention period you choose, and an audit log that records each of these without keeping the deleted person's details.
 
 ## Quick start
 
@@ -41,6 +42,17 @@ Open http://localhost:3000 and you'll be asked to create the first admin account
 ### Demo data
 
 To try it with sample data instead, run `pnpm db:seed` after migrating. It adds one job, three made-up candidates, and a demo login: `admin@example.com` / `pennyats-demo`. Only use the seed on a throwaway database.
+
+## Privacy
+
+Admins set this up under **Privacy** in the sidebar:
+
+- **Notice and consent.** Text and a policy link shown on every apply form, with an optional required checkbox. The time of consent is saved on the candidate.
+- **Access and deletion requests.** Each candidate profile has *Export all their data* (JSON) and *Delete permanently*, which removes them from every job along with their resume, scorecards, notes, and history.
+- **Retention.** Pick a number of months, and rejected or withdrawn candidates with no activity for that long can be deleted from the Privacy page or on a schedule with `pnpm privacy:purge` (for example a daily cron job). Candidates with an active or hired application are never deleted.
+- **AI.** When AI is turned on, emails, phone numbers, and links are swapped for placeholders before text leaves your server. Names are not detected, so this reduces exposure rather than eliminating it.
+
+Deleted data still exists in any database or file backups you keep, so expire those on a schedule too. These tools help with GDPR, CCPA, and similar laws, but they aren't legal advice.
 
 ## Configuration
 
@@ -74,8 +86,11 @@ docker           Local Postgres via Docker Compose
 1. Foundation ✓
 2. Auth, jobs, careers page, applications, candidate profiles ✓
 3. Pipeline kanban and scorecards ✓
-4. Email, reporting, Greenhouse CSV import
-5. AI features and settings page
-6. Polish, docs, demo site, launch
+4. Privacy and data protection ✓
+5. Reporting
+6. AI features and settings page
+7. Polish, docs, demo site, launch
+
+Later: email, and CSV import from Greenhouse and other applicant tracking systems.
 
 Not planned for now: interview scheduling with calendar sync, offers and e-sign, job board distribution, a Chrome extension, resume parsing, and hosted multi-tenant.

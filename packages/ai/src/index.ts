@@ -1,4 +1,4 @@
-import { redact, restore } from "@pennyats/redact";
+import { createRedactor, restore } from "@pennyats/redact";
 import { anthropicProvider, openaiProvider } from "./providers";
 import type { AiConfig, AiProvider, CompletionRequest, ProviderName } from "./types";
 
@@ -45,14 +45,14 @@ export function getAiClient(config: AiConfig | null = aiConfigFromEnv()): AiClie
   return {
     async complete(req) {
       if (!shouldRedact) return provider.complete(req);
-      const { text: prompt, map } = redact(req.prompt);
-      const system = req.system ? redact(req.system) : undefined;
+      // One redactor for the whole request so placeholders never collide.
+      const redactor = createRedactor();
       const out = await provider.complete({
         ...req,
-        prompt,
-        system: system?.text,
+        system: req.system === undefined ? undefined : redactor.redact(req.system),
+        prompt: redactor.redact(req.prompt),
       });
-      return restore(out, { ...map, ...(system?.map ?? {}) });
+      return restore(out, redactor.map);
     },
   };
 }

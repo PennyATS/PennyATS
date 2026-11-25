@@ -56,34 +56,39 @@ export async function addApplication(
     jobId: string;
     candidate: CandidateInput & { source: string | null };
     resume?: { key: string; name: string };
+    /** Set when the applicant agreed to the privacy notice. */
+    consentedAt?: Date;
     actorId: string | null;
   },
 ): Promise<{ candidateId: string; applicationId: string | null; created: boolean }> {
-  const { candidate, resume } = input;
+  const { candidate, resume, consentedAt } = input;
   let candidateId: string;
 
   if (candidate.email) {
     // Insert-then-select keeps this safe when two submissions with one email race.
     await ex
       .insert(candidates)
-      .values({ ...candidate, resumeKey: resume?.key, resumeName: resume?.name })
+      .values({ ...candidate, resumeKey: resume?.key, resumeName: resume?.name, consentedAt })
       .onConflictDoNothing({ target: candidates.email });
     const [existing] = await ex
       .select({ id: candidates.id })
       .from(candidates)
       .where(eq(candidates.email, candidate.email));
     candidateId = existing.id;
-    // A returning candidate's newest resume replaces the old one.
-    if (resume) {
+    // A returning candidate's newest resume and consent replace the old ones.
+    if (resume || consentedAt) {
       await ex
         .update(candidates)
-        .set({ resumeKey: resume.key, resumeName: resume.name })
+        .set({
+          ...(resume ? { resumeKey: resume.key, resumeName: resume.name } : {}),
+          ...(consentedAt ? { consentedAt } : {}),
+        })
         .where(eq(candidates.id, candidateId));
     }
   } else {
     const [created] = await ex
       .insert(candidates)
-      .values({ ...candidate, resumeKey: resume?.key, resumeName: resume?.name })
+      .values({ ...candidate, resumeKey: resume?.key, resumeName: resume?.name, consentedAt })
       .returning({ id: candidates.id });
     candidateId = created.id;
   }
