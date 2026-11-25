@@ -121,3 +121,7 @@ Planned work is tracked as [GitHub issues](https://github.com/PennyATS/PennyATS/
 Later: email, and CSV import from Greenhouse and other applicant tracking systems.
 
 Not planned for now: interview scheduling with calendar sync, offers and e-sign, job board distribution, a Chrome extension, resume parsing, and hosted multi-tenant.
+
+## License
+
+PennyATS is available under the [MIT License](LICENSE).
