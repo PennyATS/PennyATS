@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { activity, applications, candidates, jobs, notes, stages, users } from "@pennyats/db";
+import { activity, applications, candidates, jobs, notes, scorecards, stages, users } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canSeeCandidate, visibleJobIds } from "@/lib/hiring";
 import { canManageHiring } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
+import type { Recommendation } from "@/lib/scorecards";
 import { addNoteAction, moveStageAction, setStatusAction } from "../actions";
+import { Scorecards, type ScorecardRow } from "./scorecards";
 
 export default async function CandidatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,6 +31,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
       rejectionReason: applications.rejectionReason,
       appliedAt: applications.appliedAt,
       jobTitle: jobs.title,
+      attributes: jobs.scorecardAttributes,
     })
     .from(applications)
     .innerJoin(jobs, eq(jobs.id, applications.jobId))
@@ -36,7 +39,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
     .orderBy(desc(applications.appliedAt));
 
   const appIds = apps.map((a) => a.id);
-  const [jobStages, events, candidateNotes] = await Promise.all([
+  const [jobStages, events, candidateNotes, cards] = await Promise.all([
     apps.length
       ? db()
           .select()
@@ -63,7 +66,29 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
       .from(notes)
       .innerJoin(users, eq(users.id, notes.authorId))
       .where(eq(notes.candidateId, id)),
+    appIds.length
+      ? db()
+          .select({
+            id: scorecards.id,
+            applicationId: scorecards.applicationId,
+            authorId: scorecards.authorId,
+            author: users.name,
+            stageName: scorecards.stageName,
+            recommendation: scorecards.recommendation,
+            ratings: scorecards.ratings,
+            summary: scorecards.summary,
+            updatedAt: scorecards.updatedAt,
+          })
+          .from(scorecards)
+          .innerJoin(users, eq(users.id, scorecards.authorId))
+          .where(inArray(scorecards.applicationId, appIds))
+          .orderBy(desc(scorecards.updatedAt))
+      : [],
   ]);
+  const cardsFor = (applicationId: string): ScorecardRow[] =>
+    cards
+      .filter((c) => c.applicationId === applicationId)
+      .map((c) => ({ ...c, recommendation: c.recommendation as Recommendation }));
 
   const stageName = new Map(jobStages.map((s) => [s.id, s.name]));
   const jobTitleByApp = new Map(apps.map((a) => [a.id, a.jobTitle]));
@@ -184,11 +209,16 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                       Mark withdrawn
                     </button>
                   </form>
+                  <form action={setStatusAction.bind(null, app.id, "hired")}>
+                    <button type="submit" className="btn btn-secondary">
+                      Mark hired
+                    </button>
+                  </form>
                 </div>
               ) : (
                 <div>
                   Stage: {app.stageId ? stageName.get(app.stageId) : "-"}
-                  {manage && app.status !== "active" && app.status !== "hired" && (
+                  {manage && app.status !== "active" && (
                     <form action={setStatusAction.bind(null, app.id, "active")} className="ml-3 inline">
                       <button type="submit" className="link">
                         Reopen
@@ -197,6 +227,13 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                   )}
                 </div>
               )}
+              <Scorecards
+                applicationId={app.id}
+                rows={cardsFor(app.id)}
+                attributes={app.attributes}
+                userId={user.id}
+                managesHiring={manage}
+              />
             </div>
           );
         })}
@@ -243,6 +280,10 @@ function describe(type: string, data: Record<string, unknown>, stageName: Map<st
       return "marked them as withdrawn";
     case "reopened":
       return "reopened the application";
+    case "hired":
+      return "marked them as hired";
+    case "scorecard_submitted":
+      return `submitted a scorecard${typeof data.stage === "string" ? ` for ${data.stage}` : ""}`;
     default:
       return type;
   }

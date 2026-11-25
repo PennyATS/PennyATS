@@ -21,7 +21,7 @@ export default async function AddCandidatePage({ params }: { params: Promise<{ i
       <p className="muted mb-6 text-sm">
         If someone with this email already exists, they&apos;re added to this job instead of duplicated.
       </p>
-      <ActionForm action={addCandidateAction.bind(null, job.id)} className="card space-y-4">
+      <ActionForm action={addCandidateAction.bind(null, job.id)} className="card max-w-2xl space-y-4">
         <Field label="Full name" name="fullName" required />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Email" name="email" type="email" />

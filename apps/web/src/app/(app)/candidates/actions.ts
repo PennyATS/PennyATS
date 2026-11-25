@@ -12,7 +12,7 @@ import {
   canSeeCandidate,
   getApplicationFor,
   logActivity,
-  stageBelongsToJob,
+  moveApplication,
 } from "@/lib/hiring";
 import { canManageHiring } from "@/lib/permissions";
 import { extensionOf, storage } from "@/lib/storage";
@@ -57,30 +57,14 @@ function refresh(candidateId: string, jobId: string) {
 
 export async function moveStageAction(applicationId: string, form: FormData): Promise<void> {
   const user = await requireUser(canManageHiring);
-  const app = await getApplicationFor(user, applicationId);
-  const stageId = field(form, "stageId", 64);
-  if (!app || !stageId || !isUuid(stageId) || stageId === app.stageId) return;
-  if (!(await stageBelongsToJob(stageId, app.jobId))) return;
-
-  await db().transaction(async (tx) => {
-    await tx
-      .update(applications)
-      .set({ stageId, stageChangedAt: new Date() })
-      .where(eq(applications.id, app.id));
-    await logActivity(tx, {
-      applicationId: app.id,
-      actorId: user.id,
-      type: "stage_changed",
-      data: { from: app.stageId, to: stageId },
-    });
-  });
-  refresh(app.candidateId, app.jobId);
+  const moved = await moveApplication(user, applicationId, field(form, "stageId", 64) ?? "");
+  if (moved) refresh(moved.candidateId, moved.jobId);
 }
 
-/** Reject, withdraw, or reopen an application. */
+/** Hire, reject, withdraw, or reopen an application. */
 export async function setStatusAction(
   applicationId: string,
-  status: "rejected" | "withdrawn" | "active",
+  status: "hired" | "rejected" | "withdrawn" | "active",
   form: FormData,
 ): Promise<void> {
   const user = await requireUser(canManageHiring);

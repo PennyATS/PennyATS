@@ -8,7 +8,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar user={user} />
       <main className="flex-1 p-6 md:p-10">
-        <div className="mx-auto max-w-4xl">{children}</div>
+        {/* Wide enough for the pipeline board; forms cap their own width. */}
+        <div className="mx-auto max-w-6xl">{children}</div>
       </main>
     </div>
   );

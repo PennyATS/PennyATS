@@ -91,6 +91,11 @@ export const jobs = pgTable(
     location: text("location"),
     description: text("description"),
     status: jobStatus("status").notNull().default("draft"),
+    /** What interviewers rate on this job's scorecards, 1 to 4 each. */
+    scorecardAttributes: text("scorecard_attributes")
+      .array()
+      .notNull()
+      .default(["Role skills", "Problem solving", "Communication", "Ownership"]),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -175,21 +180,28 @@ export const applications = pgTable(
 
 /* ---------- Feedback, notes, email ---------- */
 
-export const scorecards = pgTable("scorecards", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  applicationId: uuid("application_id")
-    .notNull()
-    .references(() => applications.id, { onDelete: "cascade" }),
-  authorId: uuid("author_id")
-    .notNull()
-    .references(() => users.id),
-  stageName: text("stage_name"),
-  /** Free-form attribute ratings, e.g. { "Problem solving": 4 } */
-  ratings: jsonb("ratings").$type<Record<string, number>>().notNull().default({}),
-  recommendation: recommendation("recommendation"),
-  summary: text("summary"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const scorecards = pgTable(
+  "scorecards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id),
+    /** Stage name at the time of the interview, kept as text so renaming a stage doesn't rewrite history. */
+    stageName: text("stage_name").notNull(),
+    /** Attribute ratings from 1 to 4, e.g. { "Problem solving": 4 } */
+    ratings: jsonb("ratings").$type<Record<string, number>>().notNull().default({}),
+    recommendation: recommendation("recommendation").notNull(),
+    summary: text("summary"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // One scorecard per interviewer per stage; submitting again edits it.
+  (t) => [uniqueIndex("scorecards_author_stage_idx").on(t.applicationId, t.authorId, t.stageName)],
+);
 
 export const notes = pgTable(
   "notes",

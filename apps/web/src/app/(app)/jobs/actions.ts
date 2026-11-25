@@ -7,6 +7,8 @@ import { DEFAULT_STAGES, applications, jobTeam, jobs, stages, users } from "@pen
 import type { FormState } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveApplication } from "@/lib/hiring";
+import { MAX_ATTRIBUTES, parseAttributes } from "@/lib/scorecards";
 import { canManageHiring } from "@/lib/permissions";
 import { field, isUuid, slugify } from "@/lib/validation";
 
@@ -158,4 +160,28 @@ export async function removeTeamMemberAction(jobId: string, userId: string): Pro
     .delete(jobTeam)
     .where(and(eq(jobTeam.jobId, jobId), eq(jobTeam.userId, userId)));
   stagePath(jobId);
+}
+
+/* ---------- Pipeline board ---------- */
+
+/** Called by the kanban board when a card is dropped or moved with the arrow buttons. */
+export async function moveCardAction(applicationId: string, stageId: string): Promise<{ ok: boolean }> {
+  const user = await requireUser(canManageHiring);
+  const moved = await moveApplication(user, applicationId, stageId);
+  if (!moved) return { ok: false };
+  revalidatePath(`/jobs/${moved.jobId}`);
+  revalidatePath(`/candidates/${moved.candidateId}`);
+  return { ok: true };
+}
+
+/* ---------- Scorecard attributes ---------- */
+
+export async function updateAttributesAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
+  await requireUser(canManageHiring);
+  const raw = form.get("attributes");
+  const attributes = parseAttributes(typeof raw === "string" ? raw : "");
+  // Existing scorecards keep their ratings under the old names, so renaming here is safe.
+  await db().update(jobs).set({ scorecardAttributes: attributes, updatedAt: new Date() }).where(eq(jobs.id, jobId));
+  revalidatePath(`/jobs/${jobId}/edit`);
+  return { message: attributes.length ? "Saved." : "Saved. Scorecards will only ask for a recommendation." };
 }

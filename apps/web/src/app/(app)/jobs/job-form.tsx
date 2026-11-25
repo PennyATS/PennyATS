@@ -18,7 +18,7 @@ export function JobForm({
   submitLabel: string;
 }) {
   return (
-    <ActionForm action={action} className="card space-y-4">
+    <ActionForm action={action} className="card max-w-2xl space-y-4">
       <Field label="Title" name="title" required defaultValue={job?.title} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Department" name="department" defaultValue={job?.department} />

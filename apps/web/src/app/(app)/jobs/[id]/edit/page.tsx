@@ -12,8 +12,11 @@ import {
   moveStageAction,
   removeTeamMemberAction,
   renameStageAction,
+  updateAttributesAction,
   updateJobAction,
 } from "../../actions";
+import { ActionForm, SubmitButton } from "@/components/form";
+import { MAX_ATTRIBUTES } from "@/lib/scorecards";
 import { JobForm } from "../../job-form";
 
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {
@@ -61,6 +64,29 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         job={job}
         submitLabel="Save"
       />
+
+      <h2 className="mt-10 text-lg font-semibold">Scorecard</h2>
+      <p className="muted mb-3 text-sm">
+        What interviewers rate for this job, one per line (up to {MAX_ATTRIBUTES}). Each is scored 1 to 4,
+        plus an overall recommendation.
+      </p>
+      <ActionForm
+        key={job.scorecardAttributes.join("|")}
+        action={updateAttributesAction.bind(null, job.id)}
+        className="max-w-md space-y-2"
+      >
+        <label className="label" htmlFor="attributes">
+          Attributes
+        </label>
+        <textarea
+          id="attributes"
+          name="attributes"
+          rows={Math.max(4, job.scorecardAttributes.length + 1)}
+          className="input"
+          defaultValue={job.scorecardAttributes.join("\n")}
+        />
+        <SubmitButton variant="secondary">Save attributes</SubmitButton>
+      </ActionForm>
 
       <h2 className="mt-10 text-lg font-semibold">Pipeline stages</h2>
       <p className="muted mb-3 text-sm">Stages with candidates in them can't be deleted.</p>

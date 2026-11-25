@@ -2,7 +2,7 @@
 
 Open source applicant tracking for founders, founding recruiters, and small teams. Self-host it, bring your own Postgres database, and optionally bring your own AI API key. AI features are off by default.
 
-> Status: milestone 2 of 6. The core hiring loop works end to end; the pipeline board, scorecards, email, and reporting are next. The UI is intentionally plain until the visual design is settled.
+> Status: milestone 3 of 6. The core hiring loop, pipeline board, and scorecards work end to end; email, reporting, and Greenhouse import are next. The UI is intentionally plain until the visual design is settled.
 
 ## What works today
 
@@ -10,7 +10,9 @@ Open source applicant tracking for founders, founding recruiters, and small team
 - **Jobs.** Create and edit jobs as draft, open, or closed. Each job has its own pipeline stages (rename, reorder, add, remove) and hiring team.
 - **Careers page.** Open jobs are listed at `/careers` with an apply form and resume upload. Includes basic spam protection.
 - **Applications.** Candidates are matched by email, so someone applying to a second role keeps one profile. Recruiters can add candidates by hand, move them between stages, reject with a reason, or mark them withdrawn.
-- **Candidate profiles.** Contact details, resume download, every application, notes, and an activity timeline.
+- **Pipeline board.** A kanban view per job. Drag candidates between stages, or use the arrow buttons from the keyboard. Cards show days in stage and scorecard results.
+- **Scorecards.** Each job has its own list of attributes, rated 1 to 4, plus an overall recommendation from Strong no to Strong yes. Interviewers can't see anyone else's scorecard until they've submitted their own, so earlier feedback doesn't sway them.
+- **Candidate profiles.** Contact details, resume download, every application, scorecards, notes, and an activity timeline. Mark candidates hired, rejected, or withdrawn.
 
 ## Quick start
 
@@ -71,7 +73,7 @@ docker           Local Postgres via Docker Compose
 
 1. Foundation ✓
 2. Auth, jobs, careers page, applications, candidate profiles ✓
-3. Pipeline kanban and scorecards
+3. Pipeline kanban and scorecards ✓
 4. Email, reporting, Greenhouse CSV import
 5. AI features and settings page
 6. Polish, docs, demo site, launch

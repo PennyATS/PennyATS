@@ -2,7 +2,7 @@
 
 Open source applicant tracking system for founders, founding recruiters, and small teams. Self-hosted, bring your own Postgres, bring your own AI API key. AI features are off by default.
 
-Status: milestone 2 done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form and resume upload, applications, and candidate profiles with notes and an activity timeline. No kanban, scorecards, email, or reporting yet. The UI is deliberately bare until a theme is chosen.
+Status: milestone 3 done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form and resume upload, a kanban pipeline board per job, scorecards, and candidate profiles with notes and an activity timeline. No email, reporting, or import yet. The UI is deliberately bare until a theme is chosen.
 
 ## Stack
 
@@ -56,6 +56,8 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Sessions and invite tokens are stored as SHA-256 hashes. Passwords use Node's built-in scrypt (`packages/db/src/password.ts`).
 - Uploaded files go through `apps/web/src/lib/storage.ts` (local disk under `STORAGE_DIR`). Resumes are always served as downloads, never inline.
 - Candidate emails are stored lowercased and are unique; applying or adding with an existing email reuses that candidate.
+- Scorecards: one per interviewer per stage (resubmitting edits it). Interviewers can't see other scorecards on an application until they submit their own; keep that rule in `lib/scorecards.ts` and apply it anywhere scorecard content is shown, including summaries.
+- Exports from a `"use server"` file are callable by anyone as endpoints. Put helpers in `lib/`, not in actions files.
 - Forms: React 19 resets a form after its action runs. Key inputs (or the form) on the saved value so they don't snap back to stale defaults.
 
 ## Done means
@@ -71,13 +73,15 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Rate limiting (login, apply) is in memory, per server process.
 - Resume storage is local disk only; no S3-compatible option yet.
 - Invites show a link to copy; nothing is emailed until milestone 4.
+- After a keyboard move on the board, focus isn't moved to the card in its new column.
+- Kanban drag and drop uses native HTML5 drag events, which don't fire on touch screens; the arrow buttons cover touch and keyboard.
 - License is not chosen yet (MIT or AGPL). Do not add a license file without asking.
 
 ## Roadmap
 
 1. Foundation (done)
 2. Auth (roles: admin, recruiter, interviewer), jobs create and edit, public careers page, applications, candidate profile (done)
-3. Pipeline kanban and scorecards
+3. Pipeline kanban and scorecards (done)
 4. Email, reporting, Greenhouse CSV import
 5. AI layer and settings page (provider, key, redaction toggle)
 6. Polish, docs, demo site, launch
@@ -86,4 +90,4 @@ Deferred: interview scheduling with calendar sync, offers and e-sign, job board 
 
 ## Next up
 
-Milestone 3: pipeline kanban and scorecards. Wait for the plan to be approved before building.
+Milestone 4: email, reporting, Greenhouse CSV import.

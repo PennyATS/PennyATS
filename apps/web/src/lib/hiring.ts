@@ -3,7 +3,7 @@ import { activity, applications, candidates, jobTeam, stages, type Db } from "@p
 import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { seesAllJobs } from "./permissions";
-import type { CandidateInput } from "./validation";
+import { isUuid, type CandidateInput } from "./validation";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type Executor = Db | Tx;
@@ -29,7 +29,9 @@ export type ActivityType =
   | "stage_changed"
   | "rejected"
   | "withdrawn"
-  | "reopened";
+  | "hired"
+  | "reopened"
+  | "scorecard_submitted";
 
 export async function logActivity(
   ex: Executor,
@@ -145,4 +147,37 @@ export async function canSeeCandidate(user: SessionUser, candidateId: string): P
     .where(and(eq(applications.candidateId, candidateId), inArray(applications.jobId, ids)))
     .limit(1);
   return Boolean(row);
+}
+
+/**
+ * Move an active application to another stage of its job and log it.
+ * Returns the application when it moved, or null when the move isn't allowed.
+ * Callers check the user's role; this checks job access, status, and that the stage fits.
+ */
+export async function moveApplication(user: SessionUser, applicationId: string, stageId: string) {
+  if (!isUuid(applicationId) || !isUuid(stageId)) return null;
+  const app = await getApplicationFor(user, applicationId);
+  if (!app || app.status !== "active" || app.stageId === stageId) return null;
+  if (!(await stageBelongsToJob(stageId, app.jobId))) return null;
+
+  await db().transaction(async (tx) => {
+    await tx
+      .update(applications)
+      .set({ stageId, stageChangedAt: new Date() })
+      .where(eq(applications.id, app.id));
+    await logActivity(tx, {
+      applicationId: app.id,
+      actorId: user.id,
+      type: "stage_changed",
+      data: { from: app.stageId, to: stageId },
+    });
+  });
+  return app;
+}
+
+/** Stage label a scorecard is filed under: the application's current stage. */
+export async function currentStageName(stageId: string | null): Promise<string> {
+  if (!stageId) return "General";
+  const [stage] = await db().select({ name: stages.name }).from(stages).where(eq(stages.id, stageId));
+  return stage?.name ?? "General";
 }
