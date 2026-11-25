@@ -1,19 +1,37 @@
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { loadRootEnv } from "./env";
-import { createDb, jobs, stages, candidates, applications, users } from "./index";
+import {
+  createDb,
+  jobs,
+  stages,
+  candidates,
+  applications,
+  users,
+  instance,
+  hashPassword,
+  DEFAULT_STAGES,
+} from "./index";
 
 loadRootEnv();
 
-const DEFAULT_STAGES = ["Applied", "Recruiter screen", "Technical interview", "Onsite", "Offer"];
-
 const db = createDb();
 
+// Demo login for local use only. Never run the seed against a real instance.
 const ADMIN_EMAIL = "admin@example.com";
+const ADMIN_PASSWORD = "pennyats-demo";
 
+const passwordHash = await hashPassword(ADMIN_PASSWORD);
 await db
   .insert(users)
-  .values({ email: ADMIN_EMAIL, name: "Demo Admin", role: "admin" })
-  .onConflictDoNothing();
+  .values({ email: ADMIN_EMAIL, name: "Demo Admin", role: "admin", passwordHash })
+  // Databases seeded before login existed have a demo admin with no password.
+  .onConflictDoUpdate({ target: users.email, set: { passwordHash }, setWhere: isNull(users.passwordHash) });
+
+// The demo admin counts as the first admin, so skip the first-run setup screen.
+await db
+  .insert(instance)
+  .values({ id: true, setupComplete: true })
+  .onConflictDoUpdate({ target: instance.id, set: { setupComplete: true } });
 
 // Look the admin up rather than relying on RETURNING, which is empty on a re-run.
 const [admin] = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL));
@@ -60,5 +78,6 @@ const job = await db.transaction(async (tx) => {
   return job;
 });
 
-console.log(job ? "Seed complete." : "Demo job already exists; nothing to seed.");
+console.log(job ? "Seed complete." : "Demo job already exists; skipped demo data.");
+console.log(`Demo login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
 process.exit(0);

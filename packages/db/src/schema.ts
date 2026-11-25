@@ -46,6 +46,32 @@ export const users = pgTable(
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
 );
 
+/** Login sessions. `id` is the SHA-256 of the cookie token, so a leaked table can't be replayed. */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/** Pending user invites. The link carries the token; only its SHA-256 is stored. */
+export const invites = pgTable("invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tokenHash: text("token_hash").notNull().unique(),
+  email: text("email").notNull(),
+  role: userRole("role").notNull().default("recruiter"),
+  invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Single-row-per-key workspace settings (branding, AI config, etc). */
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
@@ -112,11 +138,15 @@ export const candidates = pgTable(
     location: text("location"),
     source: text("source"),
     tags: text("tags").array().notNull().default([]),
-    resumeUrl: text("resume_url"),
+    /** Storage key for an uploaded resume (see apps/web/src/lib/storage.ts). */
+    resumeKey: text("resume_key"),
+    /** Original file name, shown in the UI and used on download. */
+    resumeName: text("resume_name"),
     resumeText: text("resume_text"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("candidates_email_idx").on(t.email)],
+  // Emails are stored lowercased; one candidate per email. Candidates without an email are allowed.
+  (t) => [uniqueIndex("candidates_email_idx").on(t.email)],
 );
 
 export const applications = pgTable(
@@ -161,17 +191,21 @@ export const scorecards = pgTable("scorecards", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const notes = pgTable("notes", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  candidateId: uuid("candidate_id")
-    .notNull()
-    .references(() => candidates.id, { onDelete: "cascade" }),
-  authorId: uuid("author_id")
-    .notNull()
-    .references(() => users.id),
-  body: text("body").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const notes = pgTable(
+  "notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    candidateId: uuid("candidate_id")
+      .notNull()
+      .references(() => candidates.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notes_candidate_idx").on(t.candidateId)],
+);
 
 export const emailTemplates = pgTable("email_templates", {
   id: uuid("id").primaryKey().defaultRandom(),

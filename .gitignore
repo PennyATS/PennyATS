@@ -7,3 +7,6 @@ dist
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Uploaded files (resumes) from local storage
+.data

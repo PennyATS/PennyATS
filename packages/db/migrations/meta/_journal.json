@@ -8,6 +8,20 @@
       "when": 1795570568268,
       "tag": "0000_wandering_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795571465327,
+      "tag": "0001_far_grandmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795571466541,
+      "tag": "0002_loving_runaways",
+      "breakpoints": true
     }
   ]
 }

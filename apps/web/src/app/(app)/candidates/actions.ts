@@ -1,0 +1,114 @@
+"use server";
+
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { applications, jobs, notes } from "@pennyats/db";
+import type { FormState } from "@/components/form";
+import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import {
+  addApplication,
+  canSeeCandidate,
+  getApplicationFor,
+  logActivity,
+  stageBelongsToJob,
+} from "@/lib/hiring";
+import { canManageHiring } from "@/lib/permissions";
+import { extensionOf, storage } from "@/lib/storage";
+import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
+
+/** Recruiter adds someone by hand (sourced, referral, etc.). Email is optional here. */
+export async function addCandidateAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
+  const user = await requireUser(canManageHiring);
+  if (!isUuid(jobId)) return { error: "Job not found." };
+  const [job] = await db().select({ id: jobs.id }).from(jobs).where(eq(jobs.id, jobId));
+  if (!job) return { error: "Job not found." };
+  const parsed = parseCandidate(form, { requireEmail: false });
+  if (!parsed.ok) return { error: parsed.error };
+
+  let resume: { key: string; name: string } | undefined;
+  const file = form.get("resume");
+  if (file instanceof File && file.size > 0) {
+    const problem = checkResume(file.name, file.size);
+    if (problem) return { error: problem };
+    const key = await storage.put(new Uint8Array(await file.arrayBuffer()), extensionOf(file.name));
+    resume = { key, name: file.name.slice(0, 200) };
+  }
+
+  const result = await db().transaction((tx) =>
+    addApplication(tx, {
+      jobId,
+      candidate: { ...parsed.value, source: field(form, "source", 100) ?? "Sourced" },
+      resume,
+      actorId: user.id,
+    }),
+  );
+  if (!result.created) {
+    return { error: "This candidate already has an application for this job." };
+  }
+  redirect(`/candidates/${result.candidateId}`);
+}
+
+function refresh(candidateId: string, jobId: string) {
+  revalidatePath(`/candidates/${candidateId}`);
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function moveStageAction(applicationId: string, form: FormData): Promise<void> {
+  const user = await requireUser(canManageHiring);
+  const app = await getApplicationFor(user, applicationId);
+  const stageId = field(form, "stageId", 64);
+  if (!app || !stageId || !isUuid(stageId) || stageId === app.stageId) return;
+  if (!(await stageBelongsToJob(stageId, app.jobId))) return;
+
+  await db().transaction(async (tx) => {
+    await tx
+      .update(applications)
+      .set({ stageId, stageChangedAt: new Date() })
+      .where(eq(applications.id, app.id));
+    await logActivity(tx, {
+      applicationId: app.id,
+      actorId: user.id,
+      type: "stage_changed",
+      data: { from: app.stageId, to: stageId },
+    });
+  });
+  refresh(app.candidateId, app.jobId);
+}
+
+/** Reject, withdraw, or reopen an application. */
+export async function setStatusAction(
+  applicationId: string,
+  status: "rejected" | "withdrawn" | "active",
+  form: FormData,
+): Promise<void> {
+  const user = await requireUser(canManageHiring);
+  const app = await getApplicationFor(user, applicationId);
+  if (!app || app.status === status) return;
+  const reason = status === "active" ? null : field(form, "reason", 500);
+
+  await db().transaction(async (tx) => {
+    await tx
+      .update(applications)
+      .set({ status, rejectionReason: status === "rejected" ? reason : null })
+      .where(eq(applications.id, app.id));
+    await logActivity(tx, {
+      applicationId: app.id,
+      actorId: user.id,
+      type: status === "active" ? "reopened" : status,
+      data: reason ? { reason } : {},
+    });
+  });
+  refresh(app.candidateId, app.jobId);
+}
+
+/** Anyone who can see the candidate can add a note, interviewers included. */
+export async function addNoteAction(candidateId: string, form: FormData): Promise<void> {
+  const user = await requireUser();
+  const body = field(form, "body", 10_000);
+  if (!body || !isUuid(candidateId)) return;
+  if (!(await canSeeCandidate(user, candidateId))) return;
+  await db().insert(notes).values({ candidateId, authorId: user.id, body });
+  revalidatePath(`/candidates/${candidateId}`);
+}
