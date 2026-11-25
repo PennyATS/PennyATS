@@ -1,6 +1,8 @@
 FROM node:22-bookworm-slim AS build
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Ask next.config.ts for standalone output (used by the runtime stage below).
+ENV PENNYATS_STANDALONE=1
 WORKDIR /app
 
 RUN npm install --global pnpm@10.28.0
