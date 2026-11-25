@@ -37,8 +37,7 @@ export default async function PrivacySettingsPage() {
       </p>
 
       <h2 className="mt-8 text-lg font-semibold">Careers page notice</h2>
-      {/* Keyed on the saved values so the form shows them after React resets it post-submit. */}
-      <ActionForm key={JSON.stringify(settings)} action={savePrivacyAction} className="card mt-3 max-w-2xl space-y-4">
+      <ActionForm resetKey={JSON.stringify(settings)} action={savePrivacyAction} className="card mt-3 max-w-2xl space-y-4">
         <div>
           <label className="label" htmlFor="noticeText">
             Notice shown on the apply form

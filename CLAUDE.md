@@ -65,7 +65,7 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Raw `sql` templates don't serialize `Date` params with postgres-js; pass `date.toISOString()` and cast to `::timestamptz`.
 - Reports: the page loads raw rows for the selected job and period, and every number comes from pure functions in `lib/reports.ts` (unit tested). Stage history is rebuilt from `stage_changed` activity, so anything that moves an application must log it through `logActivity`.
 - Exports from a `"use server"` file are callable by anyone as endpoints. Put helpers in `lib/`, not in actions files.
-- Forms: React 19 resets a form after its action runs. Key inputs (or the form) on the saved value so they don't snap back to stale defaults.
+- Forms: React 19 resets a form after its action runs, snapping inputs back to stale defaults. For `ActionForm`, pass `resetKey` (the saved value) rather than keying the whole form, which would also wipe the "Saved." message. Plain forms: key the inputs.
 
 ## Done means
 

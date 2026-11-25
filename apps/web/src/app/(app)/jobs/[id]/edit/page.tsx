@@ -57,9 +57,8 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         </Link>
       </p>
       <h1 className="mb-6 mt-2 text-2xl font-semibold tracking-tight">Edit job</h1>
-      {/* Keyed on updatedAt so the form shows saved values after React resets it post-submit. */}
       <JobForm
-        key={job.updatedAt.toISOString()}
+        version={job.updatedAt.toISOString()}
         action={updateJobAction.bind(null, job.id)}
         job={job}
         submitLabel="Save"
@@ -71,7 +70,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         plus an overall recommendation.
       </p>
       <ActionForm
-        key={job.scorecardAttributes.join("|")}
+        resetKey={job.scorecardAttributes.join("|")}
         action={updateAttributesAction.bind(null, job.id)}
         className="max-w-md space-y-2"
       >

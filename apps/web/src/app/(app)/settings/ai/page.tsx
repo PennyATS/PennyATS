@@ -53,8 +53,7 @@ AI_BASE_URL=            # optional, for OpenAI-compatible servers like Ollama`}<
       )}
 
       <h2 className="mt-10 text-lg font-semibold">Settings</h2>
-      {/* Keyed on the saved values so the form shows them after React resets it post-submit. */}
-      <ActionForm key={JSON.stringify(settings)} action={saveAiSettingsAction} className="card mt-3 max-w-2xl space-y-4">
+      <ActionForm resetKey={JSON.stringify(settings)} action={saveAiSettingsAction} className="card mt-3 max-w-2xl space-y-4">
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="redactPii" defaultChecked={settings.redactPii} className="mt-1" />
           <span>

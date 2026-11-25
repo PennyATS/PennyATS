@@ -1,25 +1,33 @@
 "use client";
 
-import { useActionState } from "react";
+import { Fragment, useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 export type FormState = { error?: string; message?: string } | undefined;
 export type FormAction = (state: FormState, form: FormData) => Promise<FormState>;
 
-/** A form that shows the error or success message its server action returns. */
+/**
+ * A form that shows the error or success message its server action returns.
+ *
+ * React 19 resets a form after its action runs, which puts inputs back to their old
+ * defaults. Pass `resetKey` (e.g. the saved value or an updated-at time) to re-mount just
+ * the fields with the new values while keeping the success message.
+ */
 export function ActionForm({
   action,
   children,
   className = "space-y-4",
+  resetKey,
 }: {
   action: FormAction;
   children: React.ReactNode;
   className?: string;
+  resetKey?: string;
 }) {
   const [state, formAction] = useActionState(action, undefined);
   return (
     <form action={formAction} className={className}>
-      {children}
+      <Fragment key={resetKey}>{children}</Fragment>
       {state?.error && (
         <p role="alert" className="error text-sm">
           {state.error}

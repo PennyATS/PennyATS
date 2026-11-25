@@ -15,14 +15,17 @@ export async function JobForm({
   action,
   job,
   submitLabel,
+  version,
 }: {
   action: FormAction;
   job?: JobValues;
   submitLabel: string;
+  /** Changes when the job is saved, so the fields show the saved values. */
+  version?: string;
 }) {
   const aiDrafts = await isAiFeatureOn("jobDescriptions");
   return (
-    <ActionForm action={action} className="card max-w-2xl space-y-4">
+    <ActionForm action={action} resetKey={version} className="card max-w-2xl space-y-4">
       <Field label="Title" name="title" required defaultValue={job?.title} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Department" name="department" defaultValue={job?.department} />
