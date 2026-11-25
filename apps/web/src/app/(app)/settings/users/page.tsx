@@ -4,7 +4,7 @@ import { ActionForm, Field, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ROLES, canManageUsers } from "@/lib/permissions";
-import { createInviteAction, revokeInviteAction } from "./actions";
+import { createInviteAction, revokeInviteAction, updateUserAction } from "./actions";
 
 export default async function UsersPage() {
   await requireUser(canManageUsers);
@@ -16,6 +16,7 @@ export default async function UsersPage() {
       .where(and(isNull(invites.acceptedAt), gt(invites.expiresAt, new Date())))
       .orderBy(desc(invites.createdAt)),
   ]);
+  const activeAdmins = people.filter((u) => u.active && u.role === "admin").length;
 
   return (
     <>
@@ -27,6 +28,8 @@ export default async function UsersPage() {
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Status</th>
+            <th>Access</th>
           </tr>
         </thead>
         <tbody>
@@ -34,7 +37,34 @@ export default async function UsersPage() {
             <tr key={u.id}>
               <td>{u.name}</td>
               <td>{u.email}</td>
-              <td className="capitalize">{u.role}</td>
+              <td>
+                <ActionForm action={updateUserAction.bind(null, u.id)} resetKey={u.role} className="space-y-1">
+                  <input type="hidden" name="intent" value="role" />
+                  <label className="sr-only" htmlFor={`role-${u.id}`}>Role for {u.name}</label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select id={`role-${u.id}`} name="role" className="input" defaultValue={u.role}>
+                      {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <SubmitButton variant="secondary">Save</SubmitButton>
+                  </div>
+                </ActionForm>
+              </td>
+              <td>{u.active ? "Active" : "Deactivated"}</td>
+              <td>
+                {u.active && u.role === "admin" && activeAdmins === 1 ? (
+                  <span className="muted text-sm">Last active admin</span>
+                ) : (
+                  <ActionForm action={updateUserAction.bind(null, u.id)} resetKey={String(u.active)} className="space-y-2">
+                    <input type="hidden" name="intent" value={u.active ? "deactivate" : "reactivate"} />
+                    {u.active && (
+                      <label className="flex items-center gap-1 text-xs">
+                        <input type="checkbox" name="confirm" /> Confirm
+                      </label>
+                    )}
+                    <SubmitButton variant="secondary">{u.active ? "Deactivate" : "Reactivate"}</SubmitButton>
+                  </ActionForm>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

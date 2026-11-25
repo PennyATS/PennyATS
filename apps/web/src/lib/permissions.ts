@@ -20,3 +20,15 @@ export const canManageHiring = (role: Role) => role === "admin" || role === "rec
 
 /** Interviewers only see jobs they are on the hiring team for. Everyone else sees all jobs. */
 export const seesAllJobs = (role: Role) => role !== "interviewer";
+
+/** Keep at least one active admin able to manage the instance. */
+export function removesLastAdmin(input: {
+  currentRole: Role;
+  currentActive: boolean;
+  nextRole: Role;
+  nextActive: boolean;
+  activeAdminCount: number;
+}): boolean {
+  return input.currentRole === "admin" && input.currentActive &&
+    (input.nextRole !== "admin" || !input.nextActive) && input.activeAdminCount <= 1;
+}
