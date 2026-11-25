@@ -92,7 +92,7 @@ export default async function CandidatesPage({
           <p className="muted mt-1">
             Words must all appear (AND). Use <code>OR</code> for either, <code>NOT word</code> or <code>-word</code> to
             exclude, quotes for a phrase, and parentheses to group. Searches name, email, phone, location, source,
-            tags, resume text, notes, rejection reasons, and application history.
+            tags, resume text, notes, phone screen notes, rejection reasons, and application history.
           </p>
         </details>
 

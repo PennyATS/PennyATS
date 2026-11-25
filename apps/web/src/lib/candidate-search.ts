@@ -1,5 +1,5 @@
 import { and, desc, eq, exists, gte, ilike, inArray, isNotNull, lt, not, or, sql, type SQL } from "drizzle-orm";
-import { activity, applications, candidates, notes, stages } from "@pennyats/db";
+import { activity, applicationNotes, applications, candidates, notes, stages } from "@pennyats/db";
 import type { SessionUser } from "./auth";
 import { db } from "./db";
 import { visibleJobIds } from "./hiring";
@@ -94,6 +94,13 @@ function termMatches(term: string, jobIds: string[] | null): SQL {
             visibleApps,
             or(
               ilike(applications.rejectionReason, p),
+              // Phone screen notes, kept even after a rejection.
+              exists(
+                db()
+                  .select({ x: sql`1` })
+                  .from(applicationNotes)
+                  .where(and(eq(applicationNotes.applicationId, applications.id), ilike(applicationNotes.body, p))),
+              ),
               exists(
                 db()
                   .select({ x: sql`1` })

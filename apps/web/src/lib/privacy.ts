@@ -1,6 +1,7 @@
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import {
   activity,
+  applicationNotes,
   applications,
   auditLog,
   candidates,
@@ -153,7 +154,7 @@ export async function exportCandidate(candidateId: string) {
         .where(inArray(interviewInterviewers.interviewId, loop.map((i) => i.id)))
     : [];
 
-  const [candidateNotes, cards, history, sent, availability, schedulingMail] = await Promise.all([
+  const [candidateNotes, cards, history, sent, availability, schedulingMail, appNotes] = await Promise.all([
     db()
       .select({ author: users.name, body: notes.body, createdAt: notes.createdAt })
       .from(notes)
@@ -194,6 +195,9 @@ export async function exportCandidate(candidateId: string) {
       status: schedulingDeliveries.status, scheduledFor: schedulingDeliveries.scheduledFor,
       sentAt: schedulingDeliveries.sentAt })
       .from(schedulingDeliveries).where(inArray(schedulingDeliveries.applicationId, appIds)) : [],
+    appIds.length ? db().select({ applicationId: applicationNotes.applicationId, kind: applicationNotes.kind,
+      body: applicationNotes.body, createdAt: applicationNotes.createdAt, updatedAt: applicationNotes.updatedAt })
+      .from(applicationNotes).where(inArray(applicationNotes.applicationId, appIds)) : [],
   ]);
 
   const { resumeKey, ...profile } = candidate;
@@ -204,6 +208,7 @@ export async function exportCandidate(candidateId: string) {
       ...a,
       scorecards: cards.filter((c) => c.applicationId === id).map(({ applicationId, ...c }) => c),
       history: history.filter((h) => h.applicationId === id).map(({ applicationId, ...h }) => h),
+      notes: appNotes.filter((n) => n.applicationId === id).map(({ applicationId, ...n }) => n),
       availability: availability.filter((window) => window.applicationId === id)
         .map(({ applicationId, ...window }) => window),
       schedulingMail: schedulingMail.filter((message) => message.applicationId === id)

@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm";
 import { generate, type Stage } from "synthetic-recruiting";
 import {
   activity,
+  applicationNotes,
   applications,
   candidates,
   interviewInterviewers,
@@ -257,6 +258,7 @@ export async function seedSynthetic(db: Db, input: { adminId: string; passwordHa
     const interviewRows: (typeof interviews.$inferInsert)[] = [];
     const interviewerRows: (typeof interviewInterviewers.$inferInsert)[] = [];
     const scorecardRows: (typeof scorecards.$inferInsert)[] = [];
+    const phoneScreenRows: (typeof applicationNotes.$inferInsert)[] = [];
 
     for (const a of t.applications) {
       const id = randomUUID();
@@ -274,7 +276,7 @@ export async function seedSynthetic(db: Db, input: { adminId: string; passwordHa
       let rejectionReason: string | null = null;
       if (a.status === "stalled" && job.status === "closed") {
         status = "rejected";
-        rejectionReason = "Position filled or closed";
+        rejectionReason = "Position filled";
       } else if (status === "rejected") {
         rejectionReason = pick(REJECTION_REASONS[a.current_stage], a.application_id);
       }
@@ -328,6 +330,25 @@ export async function seedSynthetic(db: Db, input: { adminId: string; passwordHa
           const byUser = new Map<string, (typeof found)[number] | null>();
           for (const i of found) byUser.set(interviewerFor(i.interviewer_id), i);
           if (byUser.size === 0) byUser.set(pick(interviewerIds, `${a.application_id}:${e.stage}`), null);
+          // The recruiter's phone screen notes, kept on the application even if it's later rejected.
+          if (e.stage === "recruiter_screen" && scheduled && found.some((i) => i.result !== "pending")) {
+            const c = candidateById.get(a.candidate_id);
+            const passed = found.some((i) => i.result === "pass");
+            const written = new Date(scheduled.getTime() + 45 * 60_000);
+            phoneScreenRows.push({
+              applicationId: id,
+              kind: "phone_screen",
+              authorId: recruiterId,
+              body: [
+                `Motivation: ${pick(["Wants more ownership", "Looking for a smaller team", "Interested in the product space", "Team was reorganized"], a.application_id)}.`,
+                `Location: ${c?.location ?? "not discussed"}. Work authorization: ${pick(["no sponsorship needed", "no sponsorship needed", "needs transfer"], a.application_id + "auth")}.`,
+                `Compensation: ${pick(["within band", "top of band", "above band, flexible"], a.application_id + "comp")}. Notice period: ${pick(["2 weeks", "3 weeks", "1 month"], a.application_id + "notice")}.`,
+                passed ? "Recommend moving forward." : "Not a fit for this role right now.",
+              ].join("\n"),
+              createdAt: written,
+              updatedAt: written,
+            });
+          }
           for (const [uid, i] of byUser) {
             interviewerRows.push({ interviewId, userId: uid });
             team.get(jobId.get(a.job_id)!)!.add(uid);
@@ -405,6 +426,7 @@ export async function seedSynthetic(db: Db, input: { adminId: string; passwordHa
     await insertChunked(interviewerRows, (chunk) => tx.insert(interviewInterviewers).values(chunk).onConflictDoNothing());
     await insertChunked(scorecardRows, (chunk) => tx.insert(scorecards).values(chunk));
     await insertChunked(activityRows, (chunk) => tx.insert(activity).values(chunk));
+    await insertChunked(phoneScreenRows, (chunk) => tx.insert(applicationNotes).values(chunk));
     await tx
       .insert(jobTeam)
       .values([...team].flatMap(([job, ids]) => [...ids].map((uid) => ({ jobId: job, userId: uid }))))
