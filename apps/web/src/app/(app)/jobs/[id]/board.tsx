@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 
 export type BoardStage = { id: string; name: string };
 export type BoardCard = {
@@ -37,10 +37,23 @@ export function Board({
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  // After an arrow-button move the card re-renders in another column and focus would be lost.
+  const [refocus, setRefocus] = useState<{ id: string; direction: "back" | "forward" } | null>(null);
 
-  function move(card: BoardCard, stageId: string) {
+  useEffect(() => {
+    if (!refocus) return;
+    const card = boardRef.current?.querySelector<HTMLElement>(`[data-card-id="${refocus.id}"]`);
+    if (!card) return;
+    // Prefer the same-direction button so pressing Enter again keeps moving the card.
+    const button = card.querySelector<HTMLElement>(`[data-direction="${refocus.direction}"]`);
+    (button ?? card).focus();
+  }, [refocus, optimisticCards]);
+
+  function move(card: BoardCard, stageId: string, direction?: "back" | "forward") {
     if (card.stageId === stageId) return;
     setError(null);
+    setRefocus(direction ? { id: card.id, direction } : null);
     startTransition(async () => {
       applyMove({ id: card.id, stageId });
       const result = await moveAction(card.id, stageId);
@@ -61,7 +74,7 @@ export function Board({
           {error}
         </p>
       )}
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div ref={boardRef} className="flex gap-3 overflow-x-auto pb-4">
         {columns.map((column) => {
           const inColumn = optimisticCards.filter((c) => (c.stageId ?? "") === column.id);
           const index = stages.findIndex((s) => s.id === column.id);
@@ -95,6 +108,9 @@ export function Board({
                   return (
                     <li
                       key={card.id}
+                      data-card-id={card.id}
+                      tabIndex={-1}
+                      aria-label={card.name}
                       draggable={canMove}
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/plain", card.id);
@@ -116,7 +132,8 @@ export function Board({
                             <button
                               type="button"
                               className="link text-xs"
-                              onClick={() => move(card, prev.id)}
+                              data-direction="back"
+                              onClick={() => move(card, prev.id, "back")}
                               aria-label={`Move ${card.name} back to ${prev.name}`}
                             >
                               ← {prev.name}
@@ -128,7 +145,8 @@ export function Board({
                             <button
                               type="button"
                               className="link text-xs"
-                              onClick={() => move(card, next.id)}
+                              data-direction="forward"
+                              onClick={() => move(card, next.id, "forward")}
                               aria-label={`Move ${card.name} forward to ${next.name}`}
                             >
                               {next.name} →
