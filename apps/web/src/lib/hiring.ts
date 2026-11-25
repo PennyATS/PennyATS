@@ -1,5 +1,16 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { activity, applications, candidates, jobTeam, stages, type Db } from "@pennyats/db";
+import {
+  activity,
+  applications,
+  candidates,
+  interviewInterviewers,
+  interviewTemplateInterviewers,
+  interviewTemplates,
+  interviews,
+  jobTeam,
+  stages,
+  type Db,
+} from "@pennyats/db";
 import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { seesAllJobs } from "./permissions";
@@ -31,7 +42,11 @@ export type ActivityType =
   | "withdrawn"
   | "hired"
   | "reopened"
-  | "scorecard_submitted";
+  | "scorecard_submitted"
+  | "interview_added"
+  | "interview_scheduled"
+  | "interview_completed"
+  | "interview_cancelled";
 
 export async function logActivity(
   ex: Executor,
@@ -108,6 +123,7 @@ export async function addApplication(
 
   if (!application) return { candidateId, applicationId: null, created: false };
 
+  if (firstStage) await createStageInterviews(ex, application.id, firstStage.id);
   await logActivity(ex, {
     applicationId: application.id,
     actorId: input.actorId,
@@ -170,6 +186,7 @@ export async function moveApplication(user: SessionUser, applicationId: string, 
       .update(applications)
       .set({ stageId, stageChangedAt: new Date() })
       .where(eq(applications.id, app.id));
+    await createStageInterviews(tx, app.id, stageId);
     await logActivity(tx, {
       applicationId: app.id,
       actorId: user.id,
@@ -185,4 +202,52 @@ export async function currentStageName(stageId: string | null): Promise<string> 
   if (!stageId) return "General";
   const [stage] = await db().select({ name: stages.name }).from(stages).where(eq(stages.id, stageId));
   return stage?.name ?? "General";
+}
+
+/**
+ * Create a candidate's interviews for a stage from the job's interview plan, copying each
+ * planned interview's details and default interviewers. Safe to call again: interviews
+ * already created from a template are skipped. Returns how many were created.
+ */
+export async function createStageInterviews(ex: Executor, applicationId: string, stageId: string): Promise<number> {
+  const plan = await ex
+    .select()
+    .from(interviewTemplates)
+    .innerJoin(stages, eq(stages.id, interviewTemplates.stageId))
+    .where(eq(interviewTemplates.stageId, stageId))
+    .orderBy(asc(interviewTemplates.position), asc(interviewTemplates.createdAt));
+  if (plan.length === 0) return 0;
+
+  const people = await ex
+    .select()
+    .from(interviewTemplateInterviewers)
+    .where(inArray(interviewTemplateInterviewers.templateId, plan.map((p) => p.interview_templates.id)));
+
+  let created = 0;
+  for (const { interview_templates: t, stages: stage } of plan) {
+    const [row] = await ex
+      .insert(interviews)
+      .values({
+        applicationId,
+        templateId: t.id,
+        stageId,
+        name: t.name,
+        stageName: stage.name,
+        durationMinutes: t.durationMinutes,
+        attributes: t.attributes,
+        instructions: t.instructions,
+      })
+      .onConflictDoNothing({ target: [interviews.applicationId, interviews.templateId] })
+      .returning({ id: interviews.id });
+    if (!row) continue;
+    created += 1;
+    const assigned = people.filter((p) => p.templateId === t.id);
+    if (assigned.length) {
+      await ex
+        .insert(interviewInterviewers)
+        .values(assigned.map((p) => ({ interviewId: row.id, userId: p.userId })))
+        .onConflictDoNothing();
+    }
+  }
+  return created;
 }

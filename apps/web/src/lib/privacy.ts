@@ -5,6 +5,8 @@ import {
   auditLog,
   candidates,
   emails,
+  interviewInterviewers,
+  interviews,
   jobs,
   notes,
   scorecards,
@@ -118,6 +120,30 @@ export async function exportCandidate(candidateId: string) {
     .orderBy(asc(applications.appliedAt));
   const appIds = apps.map((a) => a.id);
 
+  const loop = appIds.length
+    ? await db()
+        .select({
+          id: interviews.id,
+          applicationId: interviews.applicationId,
+          name: interviews.name,
+          stage: interviews.stageName,
+          durationMinutes: interviews.durationMinutes,
+          scheduledAt: interviews.scheduledAt,
+          completedAt: interviews.completedAt,
+          cancelledAt: interviews.cancelledAt,
+        })
+        .from(interviews)
+        .where(inArray(interviews.applicationId, appIds))
+        .orderBy(asc(interviews.createdAt))
+    : [];
+  const loopPeople = loop.length
+    ? await db()
+        .select({ interviewId: interviewInterviewers.interviewId, name: users.name })
+        .from(interviewInterviewers)
+        .innerJoin(users, eq(users.id, interviewInterviewers.userId))
+        .where(inArray(interviewInterviewers.interviewId, loop.map((i) => i.id)))
+    : [];
+
   const [candidateNotes, cards, history, sent] = await Promise.all([
     db()
       .select({ author: users.name, body: notes.body, createdAt: notes.createdAt })
@@ -158,6 +184,12 @@ export async function exportCandidate(candidateId: string) {
       ...a,
       scorecards: cards.filter((c) => c.applicationId === id).map(({ applicationId, ...c }) => c),
       history: history.filter((h) => h.applicationId === id).map(({ applicationId, ...h }) => h),
+      interviews: loop
+        .filter((i) => i.applicationId === id)
+        .map(({ id: interviewId, applicationId, ...i }) => ({
+          ...i,
+          interviewers: loopPeople.filter((p) => p.interviewId === interviewId).map((p) => p.name),
+        })),
     })),
     notes: candidateNotes,
     emails: sent.map(({ candidateId: _, sentBy: __, ...e }) => e),

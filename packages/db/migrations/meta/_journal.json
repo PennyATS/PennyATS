@@ -50,6 +50,13 @@
       "when": 1795582436284,
       "tag": "0006_fixed_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795589429500,
+      "tag": "0007_messy_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }
