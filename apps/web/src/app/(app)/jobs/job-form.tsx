@@ -6,7 +6,10 @@ import { AiDraftButton } from "./ai-draft-button";
 type JobValues = {
   title: string;
   department: string | null;
+  team: string | null;
   location: string | null;
+  region: string | null;
+  headcount: number | null;
   description: string | null;
   status: "draft" | "open" | "closed";
 };
@@ -29,7 +32,13 @@ export async function JobForm({
       <Field label="Title" name="title" required defaultValue={job?.title} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Department" name="department" defaultValue={job?.department} />
+        <Field label="Team" name="team" defaultValue={job?.team} />
         <Field label="Location" name="location" placeholder="e.g. Remote (US)" defaultValue={job?.location} />
+        <Field label="Region" name="region" placeholder="e.g. North America" defaultValue={job?.region} />
+        <div>
+          <label className="label" htmlFor="headcount">Headcount</label>
+          <input id="headcount" name="headcount" type="number" min="0" max="10000" step="1" defaultValue={job?.headcount ?? ""} className="input" />
+        </div>
       </div>
       <div>
         <label className="label" htmlFor="description">
