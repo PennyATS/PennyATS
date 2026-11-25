@@ -37,6 +37,8 @@ export function Board({
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [touchDrag, setTouchDrag] = useState<{ id: string; name: string; x: number; y: number } | null>(null);
+  const touchDragRef = useRef<{ pointerId: number; card: BoardCard } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   // After an arrow-button move the card re-renders in another column and focus would be lost.
   const [refocus, setRefocus] = useState<{ id: string; direction: "back" | "forward" } | null>(null);
@@ -61,6 +63,21 @@ export function Board({
     });
   }
 
+  function stageAt(x: number, y: number): string | null {
+    const section = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-stage-id]");
+    return section?.dataset.stageId ?? null;
+  }
+
+  function endTouchDrag(pointerId: number, x: number, y: number, cancelled = false) {
+    const dragging = touchDragRef.current;
+    if (!dragging || dragging.pointerId !== pointerId) return;
+    touchDragRef.current = null;
+    setTouchDrag(null);
+    setDropTarget(null);
+    const stageId = cancelled ? null : stageAt(x, y);
+    if (stageId) move(dragging.card, stageId);
+  }
+
   // Applications without a stage (a job with no stages) get their own column, so nobody is hidden.
   const columns: (BoardStage & { droppable: boolean })[] = [
     ...(optimisticCards.some((c) => c.stageId === null) ? [{ id: "", name: "No stage", droppable: false }] : []),
@@ -81,6 +98,7 @@ export function Board({
           return (
             <section
               key={column.id || "none"}
+              data-stage-id={column.droppable ? column.id : undefined}
               aria-label={column.name}
               className="card w-60 shrink-0 p-2"
               style={dropTarget === column.id ? { outline: "2px solid var(--accent)" } : undefined}
@@ -117,11 +135,44 @@ export function Board({
                         e.dataTransfer.effectAllowed = "move";
                       }}
                       className="rounded-md border p-2 text-sm"
-                      style={{ borderColor: "var(--border)", background: "var(--bg)", cursor: canMove ? "grab" : undefined }}
+                      style={{ borderColor: "var(--border)", background: "var(--bg)", cursor: canMove ? "grab" : undefined, opacity: touchDrag?.id === card.id ? 0.5 : undefined }}
                     >
-                      <Link href={`/candidates/${card.candidateId}`} className="font-medium hover:underline">
-                        {card.name}
-                      </Link>
+                      <div className="flex items-start justify-between gap-2">
+                        <Link href={`/candidates/${card.candidateId}`} className="font-medium hover:underline">
+                          {card.name}
+                        </Link>
+                        {canMove && stages.length > 1 && (
+                          <span
+                            aria-hidden="true"
+                            data-touch-drag-handle
+                            className="muted inline-flex min-h-11 min-w-11 shrink-0 cursor-grab select-none items-center justify-center rounded border text-xs"
+                            style={{ borderColor: "var(--border)", touchAction: "none" }}
+                            onPointerDown={(e) => {
+                              if (e.pointerType === "mouse") return;
+                              e.preventDefault();
+                              e.currentTarget.setPointerCapture(e.pointerId);
+                              touchDragRef.current = { pointerId: e.pointerId, card };
+                              setTouchDrag({ id: card.id, name: card.name, x: e.clientX, y: e.clientY });
+                            }}
+                            onPointerMove={(e) => {
+                              if (touchDragRef.current?.pointerId !== e.pointerId) return;
+                              const board = boardRef.current;
+                              if (board) {
+                                const rect = board.getBoundingClientRect();
+                                if (e.clientX < rect.left + 48) board.scrollLeft -= 18;
+                                if (e.clientX > rect.right - 48) board.scrollLeft += 18;
+                              }
+                              setDropTarget(stageAt(e.clientX, e.clientY));
+                              setTouchDrag({ id: card.id, name: card.name, x: e.clientX, y: e.clientY });
+                            }}
+                            onPointerUp={(e) => endTouchDrag(e.pointerId, e.clientX, e.clientY)}
+                            onPointerCancel={(e) => endTouchDrag(e.pointerId, e.clientX, e.clientY, true)}
+                            onLostPointerCapture={(e) => endTouchDrag(e.pointerId, e.clientX, e.clientY, true)}
+                          >
+                            Drag
+                          </span>
+                        )}
+                      </div>
                       <div className="muted mt-0.5 text-xs">
                         {card.daysInStage === 0 ? "Today" : `${card.daysInStage}d in stage`}
                         {card.feedback && ` · ${card.feedback}`}
@@ -162,6 +213,15 @@ export function Board({
           );
         })}
       </div>
+      {touchDrag && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-50 rounded-md border px-2 py-1 text-sm shadow-lg"
+          style={{ left: touchDrag.x + 12, top: touchDrag.y + 12, borderColor: "var(--accent)", background: "var(--surface)" }}
+        >
+          {touchDrag.name}
+        </div>
+      )}
     </>
   );
 }
