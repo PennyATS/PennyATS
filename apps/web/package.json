@@ -18,11 +18,16 @@
     "@pennyats/ai": "workspace:*",
     "@pennyats/db": "workspace:*",
     "@pennyats/redact": "workspace:*",
+    "@tiptap/pm": "^3.35.0",
+    "@tiptap/react": "^3.35.0",
+    "@tiptap/starter-kit": "^3.35.0",
     "drizzle-orm": "^0.44.7",
+    "htmlparser2": "^12.0.0",
     "next": "^15.1.0",
     "nodemailer": "^10.6.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "sanitize-html": "^2.18.2"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
@@ -31,6 +36,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/sanitize-html": "^2.16.2",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.23.15",
     "typescript": "^5.6.0"

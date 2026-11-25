@@ -9,7 +9,7 @@ import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { feedbackPrompt } from "@/lib/ai-rules";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { renderEmailTemplate } from "@/lib/email-templates";
+import { prepareTemplateEmail, retryEmail, sendStageEntryEmail } from "@/lib/candidate-email";
 import {
   addApplication,
   canSeeCandidate,
@@ -20,7 +20,7 @@ import {
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
 import { deleteCandidates } from "@/lib/privacy";
 import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
-import { sendSmtp, smtpConfigured } from "@/lib/smtp";
+import { smtpConfigured } from "@/lib/smtp";
 import { extensionOf, storage } from "@/lib/storage";
 import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
 
@@ -53,6 +53,7 @@ export async function addCandidateAction(jobId: string, _: FormState, form: Form
   if (!result.created) {
     return { error: "This candidate already has an application for this job." };
   }
+  if (result.applicationId) await sendStageEntryEmail(result.applicationId, null, user.id);
   redirect(`/candidates/${result.candidateId}`);
 }
 
@@ -66,7 +67,9 @@ export async function moveStageAction(applicationId: string, form: FormData): Pr
   const moved = await moveApplication(user, applicationId, field(form, "stageId", 64) ?? "");
   if (moved) {
     if (moved.stageId) await suppressQueuedStageLinks(applicationId, moved.stageId);
-    await queueStageLinkOnEntry(applicationId, field(form, "stageId", 64) ?? "");
+    const stageId = field(form, "stageId", 64) ?? "";
+    await queueStageLinkOnEntry(applicationId, stageId);
+    await sendStageEntryEmail(applicationId, stageId, user.id);
     refresh(moved.candidateId, moved.jobId);
   }
 }
@@ -94,19 +97,25 @@ export async function sendCandidateEmailAction(candidateId: string, _: FormState
   const app = await getApplicationFor(user, applicationId);
   if (!app || app.candidateId !== candidateId) return { error: "Application not found." };
   if (!smtpConfigured()) return { error: "Configure SMTP before sending candidate email." };
-  const [[candidate], [template], [job]] = await Promise.all([
-    db().select({ name: candidates.fullName, email: candidates.email }).from(candidates).where(eq(candidates.id, candidateId)),
-    db().select().from(emailTemplates).where(eq(emailTemplates.id, templateId)),
-    db().select({ title: jobs.title }).from(jobs).where(eq(jobs.id, app.jobId)),
-  ]);
-  if (!candidate?.email || !template || !job) return { error: "Candidate email or template is missing." };
-  const subject = renderEmailTemplate(template.subject, candidate.name, job.title);
-  const body = renderEmailTemplate(template.body, candidate.name, job.title);
-  try { await sendSmtp({ to: candidate.email, subject, text: body }); }
-  catch { return { error: "SMTP did not confirm delivery. No email was added to the candidate timeline." }; }
-  await db().insert(emails).values({ candidateId, subject, body, sentBy: user.id });
+  const attempt = await prepareTemplateEmail({ applicationId, templateId, actorId: user.id });
   revalidatePath(`/candidates/${candidateId}`);
-  return { message: "Email sent and recorded on the candidate timeline." };
+  if (attempt.status === "skipped") return { error: attempt.error };
+  if (attempt.status !== "sending") return { error: "Template not found." };
+  return (await attempt.deliver()) === "sent"
+    ? { message: "Email sent and recorded on the candidate timeline." }
+    : { error: "SMTP did not confirm delivery. The failed attempt is on the timeline; you can resend it." };
+}
+
+/** Resend an email that failed or was skipped (for example, before SMTP was set up). */
+export async function resendEmailAction(emailId: string, candidateId: string): Promise<void> {
+  const user = await requireUser(canManageHiring);
+  if (!isUuid(emailId) || !isUuid(candidateId)) return;
+  const [row] = await db().select({ applicationId: emails.applicationId, candidateId: emails.candidateId })
+    .from(emails).where(eq(emails.id, emailId));
+  if (!row || row.candidateId !== candidateId || !row.applicationId) return;
+  if (!(await getApplicationFor(user, row.applicationId))) return;
+  await retryEmail(emailId);
+  revalidatePath(`/candidates/${candidateId}`);
 }
 
 /** Hire, reject, withdraw, or reopen an application. */

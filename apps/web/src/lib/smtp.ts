@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { isEmail } from "./validation";
 
-export type OutboundMessage = { to: string; subject: string; text: string; messageId?: string };
+export type OutboundMessage = { to: string; subject: string; text: string; html?: string; messageId?: string };
 
 export function smtpConfigured(): boolean {
   const port = Number(process.env.SMTP_PORT ?? 587);
@@ -37,7 +37,7 @@ export async function sendSmtp(message: OutboundMessage): Promise<string> {
   }
   const sent = await smtpTransport().sendMail({
     from: process.env.SMTP_FROM, to: message.to, subject: message.subject,
-    text: message.text, messageId: message.messageId,
+    text: message.text, html: message.html, messageId: message.messageId,
   });
   if (!sent.accepted.includes(message.to)) throw new Error("SMTP did not accept the recipient.");
   return sent.messageId;

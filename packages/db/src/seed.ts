@@ -9,6 +9,8 @@ import {
   applications,
   users,
   instance,
+  emailTemplateFolders,
+  emailTemplates,
   hashPassword,
   DEFAULT_STAGES,
 } from "./index";
@@ -92,6 +94,49 @@ console.log(
         `${synthetic.interviews} interviews, ${synthetic.scorecards} scorecards.`
     : "Synthetic data already exists; skipped it.",
 );
+
+// Demo email templates, filed in folders. Skipped once any folder exists.
+const [anyFolder] = await db.select({ id: emailTemplateFolders.id }).from(emailTemplateFolders).limit(1);
+if (!anyFolder) {
+  const [screen, decisions] = await db.insert(emailTemplateFolders)
+    .values([{ name: "Recruiter screen" }, { name: "Decisions" }]).returning();
+  await db.insert(emailTemplates).values([
+    {
+      folderId: screen.id, createdBy: admin.id,
+      name: "Recruiter screen invitation",
+      subject: "Next steps for {{job_title}} at {{company_name}}",
+      bodyHtml: "<p>Hi {{first_name}},</p><p>Thanks for applying for the <strong>{{job_title}}</strong> role. " +
+        "We'd like to set up a 30-minute phone call with our recruiting team.</p>" +
+        "<p>On the call we'll cover:</p><ul><li><p>Your background and what you're looking for</p></li>" +
+        "<li><p>The team and the role</p></li><li><p>Timeline and next steps</p></li></ul>" +
+        "<p>Reply with a few times that work for you this week.</p><p>Best,<br>The {{company_name}} team</p>",
+      body: [
+        "Hi {{first_name}},",
+        "Thanks for applying for the {{job_title}} role. We'd like to set up a 30-minute phone call with our recruiting team.",
+        "On the call we'll cover:",
+        "- Your background and what you're looking for\n- The team and the role\n- Timeline and next steps",
+        "Reply with a few times that work for you this week.",
+        "Best,\nThe {{company_name}} team",
+      ].join("\n\n"),
+    },
+    {
+      folderId: decisions.id, createdBy: admin.id,
+      name: "Not moving forward",
+      subject: "Your application for {{job_title}}",
+      bodyHtml: "<p>Hi {{first_name}},</p><p>Thank you for your interest in {{company_name}} and the time you spent with us. " +
+        "We've decided not to move forward with your application for <strong>{{job_title}}</strong>.</p>" +
+        "<p>We'll keep your details on file and may reach out about future roles.</p><p>Best,<br>The {{company_name}} team</p>",
+      body: [
+        "Hi {{first_name}},",
+        "Thank you for your interest in {{company_name}} and the time you spent with us. " +
+          "We've decided not to move forward with your application for {{job_title}}.",
+        "We'll keep your details on file and may reach out about future roles.",
+        "Best,\nThe {{company_name}} team",
+      ].join("\n\n"),
+    },
+  ]);
+  console.log("Demo email templates created.");
+}
 
 console.log("Seed complete.");
 console.log(`Demo login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);

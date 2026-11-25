@@ -8,6 +8,7 @@ import {
   candidateAvailabilityLinks,
   candidateAvailabilityWindows,
   emails,
+  emailTemplateFolders,
   emailTemplates,
   interviewBookingLinks,
   interviewInterviewers,
@@ -34,6 +35,7 @@ import {
   deleteCandidateAction,
   moveStageAction,
   retrySchedulingDeliveryAction,
+  resendEmailAction,
   sendCandidateEmailAction,
   setStatusAction,
   summarizeFeedbackAction,
@@ -120,11 +122,15 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
       : [],
   ]);
   const [templates, sentEmails] = await Promise.all([
-    manage ? db().select().from(emailTemplates).orderBy(asc(emailTemplates.name)) : [],
-    db().select({ id: emails.id, subject: emails.subject, body: emails.body,
+    manage ? db().select({ id: emailTemplates.id, name: emailTemplates.name, folder: emailTemplateFolders.name })
+      .from(emailTemplates).leftJoin(emailTemplateFolders, eq(emailTemplateFolders.id, emailTemplates.folderId))
+      .orderBy(asc(emailTemplateFolders.name), asc(emailTemplates.name)) : [],
+    db().select({ id: emails.id, subject: emails.subject, body: emails.body, bodyHtml: emails.bodyHtml,
+      status: emails.status, error: emails.error, stageId: emails.stageId, applicationId: emails.applicationId,
       sentAt: emails.sentAt, sender: users.name }).from(emails)
       .leftJoin(users, eq(users.id, emails.sentBy)).where(eq(emails.candidateId, id)),
   ]);
+  const templateGroups = Map.groupBy(templates, (t) => t.folder ?? "Unfiled");
   // Interview loop: interviews, who runs them, and who has submitted feedback for each.
   const [loop, planned, people] = await Promise.all([
     appIds.length
@@ -223,6 +229,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
       text: describe(e.type, e.data, stageName),
       job: e.applicationId ? jobTitleByApp.get(e.applicationId) : undefined,
       body: null as string | null,
+      email: null as { id: string; html: string | null; status: string; error: string | null } | null,
     })),
     ...candidateNotes.map((n) => ({
       key: `n-${n.id}`,
@@ -231,10 +238,18 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
       text: "added a note",
       job: undefined,
       body: n.body,
+      email: null,
     })),
-    ...sentEmails.map((message) => ({ key: `email-${message.id}`, at: message.sentAt,
-      who: message.sender, text: `emailed candidate: ${message.subject}`,
-      job: undefined, body: message.body })),
+    ...sentEmails.map((message) => {
+      const auto = message.stageId ? ` automatically on entering ${stageName.get(message.stageId) ?? "a stage"}` : "";
+      const verb = message.status === "sent" ? "emailed candidate" : message.status === "sending" ? "is emailing candidate"
+        : "email not sent";
+      return { key: `email-${message.id}`, at: message.sentAt, who: message.sender,
+        text: `${verb}${auto}: ${message.subject}`,
+        job: message.applicationId ? jobTitleByApp.get(message.applicationId) : undefined,
+        body: message.bodyHtml ? null : message.body,
+        email: { id: message.id, html: message.bodyHtml, status: message.status, error: message.error } };
+    }),
   ].sort((a, b) => b.at.getTime() - a.at.getTime());
 
   return (
@@ -398,8 +413,8 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
 
       {manage && candidate.email && <section className="card mt-8 text-sm" aria-labelledby="email-title">
         <h2 id="email-title" className="card-title">Email candidate</h2>
-        {!smtpConfigured() ? <p className="muted mt-2">Configure SMTP under Admin → Email delivery to send messages.</p> :
-          templates.length === 0 ? <p className="muted mt-2">Create an email template under Admin → Email delivery first.</p> :
+        {!smtpConfigured() ? <p className="muted mt-2">Configure SMTP under Admin → Email to send messages.</p> :
+          templates.length === 0 ? <p className="muted mt-2"><Link href="/templates/new" className="link">Write an email template</Link> first.</p> :
           <ActionForm action={sendCandidateEmailAction.bind(null, candidate.id)} className="mt-4 space-y-3">
             <div><label className="label" htmlFor="email-application">Job</label>
               <select id="email-application" name="applicationId" className="input">
@@ -407,7 +422,9 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
               </select></div>
             <div><label className="label" htmlFor="email-template">Template</label>
               <select id="email-template" name="templateId" className="input">
-                {templates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.subject}</option>)}
+                {[...templateGroups].map(([folder, items]) => <optgroup key={folder} label={folder}>
+                  {items.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                </optgroup>)}
               </select></div>
             <SubmitButton variant="secondary">Send email</SubmitButton>
           </ActionForm>}
@@ -435,6 +452,27 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
             </div>
             <div className="muted text-xs">{item.at.toLocaleString()}</div>
             {item.body && <p className="mt-1 whitespace-pre-wrap">{item.body}</p>}
+            {item.email && (
+              <>
+                {(item.email.status === "failed" || item.email.status === "skipped") && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="error text-xs">{item.email.error ?? "Not sent."}</span>
+                    {manage && smtpConfigured() && (
+                      <form action={resendEmailAction.bind(null, item.email.id, candidate.id)}>
+                        <button type="submit" className="link text-xs">Send now</button>
+                      </form>
+                    )}
+                  </div>
+                )}
+                {item.email.html && (
+                  <details className="mt-1">
+                    <summary className="link cursor-pointer text-xs">Show email</summary>
+                    {/* Sanitized when the template was saved; merge values were escaped. */}
+                    <div className="rich-text inset mt-2" dangerouslySetInnerHTML={{ __html: item.email.html }} />
+                  </details>
+                )}
+              </>
+            )}
           </li>
         ))}
       </ol>
