@@ -10,6 +10,8 @@ RUN pnpm --filter @pennyats/web build
 
 # Migrations need the source files, migration SQL, and the tsx CLI.
 FROM build AS migrate
+RUN mkdir -p /app/apps/web/.data/uploads && chown -R node:node /app/apps/web/.data
+USER node
 CMD ["pnpm", "db:migrate"]
 
 FROM node:22-bookworm-slim AS app

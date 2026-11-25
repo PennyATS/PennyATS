@@ -25,6 +25,9 @@ services:
       target: migrate
     environment:
       DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://pennyats:${POSTGRES_PASSWORD:-pennyats}@db:5432/pennyats}
+      STORAGE_DIR: /app/apps/web/.data/uploads
+    volumes:
+      - pennyats_uploads:/app/apps/web/.data/uploads
     depends_on:
       db:
         condition: service_healthy

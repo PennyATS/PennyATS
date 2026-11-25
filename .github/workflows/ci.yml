@@ -58,6 +58,9 @@ jobs:
           done
           exit 1
 
+      - name: Check uploads volume is writable
+        run: docker compose -f docker/docker-compose.yml exec -T app node -e "const fs = require('node:fs'); const file = process.env.STORAGE_DIR + '/ci-write-check'; fs.writeFileSync(file, 'ok'); fs.unlinkSync(file)"
+
       - name: Show container status on failure
         if: failure()
         run: |
