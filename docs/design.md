@@ -2,7 +2,7 @@
 
 ## Light theme
 
-The application canvas uses `--bg` (`#f6f7fa`). Content surfaces use `--surface` (`#ffffff`), a `--border` (`#e2e3eb`) outline, and a 12px corner radius. Text uses `--text` (`#222330`), supporting text uses `--muted` (`#6d7080`), and actions use `--accent` (`#6253b5`). Keep the interface readable and keyboard accessible.
+The application canvas uses `--bg` (`#f5f8f5`). Content surfaces use `--surface` (`#ffffff`), a `--border` (`#dce6df`) outline, and a 12px corner radius. Text uses `--text` (`#1d2c24`), supporting text uses `--muted` (`#617267`), and actions use the dark green `--accent` (`#176b4d`). The top navigation uses a deeper green (`#0d2e24`). Keep the interface readable and keyboard accessible.
 
 ## Tables and reports
 
