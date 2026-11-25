@@ -40,7 +40,7 @@ docker compose -f docker/docker-compose.yml up -d   # local Postgres
 
 Copy `.env.example` to `.env` (repo root) before running anything that touches the database. The db scripts and `next.config.ts` both load the root `.env`; real environment variables win over it.
 
-`pnpm db:seed` creates a demo login (`admin@example.com` / `pennyats-demo`) and marks setup complete. On an empty database without the seed, `/setup` creates the first admin.
+`pnpm db:seed` creates a demo login (`admin@example.com` / `pennyats-demo`) and marks setup complete. It also loads a reproducible synthetic funnel from the `synthetic-recruiting` package (`packages/db/src/seed-synthetic.ts`): 9 jobs, about 1,400 candidates, stage history, interviews and scorecards, with dates shifted so the data ends on the day you seed, plus `recruiter@example.com` and six `*.interviewer@example.com` users with the same password. It skips itself if already loaded. On an empty database without the seed, `/setup` creates the first admin.
 
 ## Conventions
 

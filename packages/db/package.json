@@ -19,6 +19,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "drizzle-kit": "^0.31.0",
+    "synthetic-recruiting": "^0.2.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }
