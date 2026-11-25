@@ -53,7 +53,7 @@ export default async function Dashboard() {
   const ai = aiEnabled();
 
   return (
-    <div className="mx-auto max-w-[1112px] space-y-7">
+    <div className="space-y-7">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[32px] leading-[38px] font-bold tracking-[-0.045em]">Dashboard</h1>

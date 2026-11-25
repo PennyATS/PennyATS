@@ -78,7 +78,7 @@ To try it with sample data instead, run `pnpm db:seed` after migrating. It adds 
 
 ## Privacy
 
-Admins set this up under **Privacy** in the sidebar:
+Admins set this up under **Admin → Privacy** in the top navigation:
 
 - **Notice and consent.** Text and a policy link shown on every apply form, with an optional required checkbox. The time of consent is saved on the candidate.
 - **Access and deletion requests.** Each candidate profile has *Export all their data* (JSON) and *Delete permanently*, which removes them from every job along with their resume, scorecards, notes, and history.
