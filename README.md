@@ -86,6 +86,10 @@ packages/redact  PII redaction before AI calls
 docker           Local Postgres via Docker Compose
 ```
 
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions. To report a security problem privately, see [SECURITY.md](SECURITY.md).
+
 ## Roadmap
 
 Planned work is tracked as [GitHub issues](https://github.com/PennyATS/PennyATS/issues) on the [PennyATS roadmap board](https://github.com/orgs/PennyATS/projects/1), grouped into "Before launch", "Polish and launch", and "Later".
