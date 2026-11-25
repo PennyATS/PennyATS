@@ -2,7 +2,7 @@
 
 import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { invites, sessions, users } from "@pennyats/db";
+import { invites, passwordResets, sessions, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { hashToken, newToken, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -10,6 +10,7 @@ import { canManageUsers, isRole, removesLastAdmin } from "@/lib/permissions";
 import { field, isEmail, isUuid, normalizeEmail } from "@/lib/validation";
 
 const INVITE_DAYS = 7;
+const RESET_HOURS = 24;
 
 /** Creates an invite and returns the link for the admin to send. Email sending comes later. */
 export async function createInviteAction(_: FormState, form: FormData): Promise<FormState> {
@@ -44,6 +45,33 @@ export async function revokeInviteAction(inviteId: string): Promise<void> {
     .delete(invites)
     .where(and(eq(invites.id, inviteId), isNull(invites.acceptedAt)));
   revalidatePath("/settings/users");
+}
+
+/** Generate a one-time reset link for an active user; any older link is revoked. */
+export async function createPasswordResetAction(userId: string, _: FormState, _form: FormData): Promise<FormState> {
+  await requireUser(canManageUsers);
+  if (!isUuid(userId)) return { error: "User not found." };
+
+  const token = newToken();
+  const target = await db().transaction(async (tx) => {
+    // Lock the account so concurrent requests cannot leave two usable links.
+    const [user] = await tx.select({ id: users.id, email: users.email, active: users.active })
+      .from(users).where(eq(users.id, userId)).for("update");
+    if (!user || !user.active) return null;
+    await tx.delete(passwordResets).where(eq(passwordResets.userId, userId));
+    await tx.insert(passwordResets).values({
+      tokenHash: hashToken(token),
+      userId,
+      expiresAt: new Date(Date.now() + RESET_HOURS * 60 * 60 * 1000),
+    });
+    return user;
+  });
+  if (!target) return { error: "Active user not found." };
+
+  const base = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  return {
+    message: `Reset link for ${target.email}. Send it to them now. It works once, expires in ${RESET_HOURS} hours, and is only shown here: ${base}/reset/${token}`,
+  };
 }
 
 /** Change a role or deactivate/reactivate an account without deleting its attribution. */

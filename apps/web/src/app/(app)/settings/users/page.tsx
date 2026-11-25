@@ -4,7 +4,7 @@ import { ActionForm, Field, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ROLES, canManageUsers } from "@/lib/permissions";
-import { createInviteAction, revokeInviteAction, updateUserAction } from "./actions";
+import { createInviteAction, createPasswordResetAction, revokeInviteAction, updateUserAction } from "./actions";
 
 export default async function UsersPage() {
   await requireUser(canManageUsers);
@@ -22,7 +22,8 @@ export default async function UsersPage() {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
 
-      <table className="table mt-6">
+      <div className="mt-6 overflow-x-auto">
+      <table className="table">
         <thead>
           <tr>
             <th>Name</th>
@@ -51,24 +52,32 @@ export default async function UsersPage() {
               </td>
               <td>{u.active ? "Active" : "Deactivated"}</td>
               <td>
-                {u.active && u.role === "admin" && activeAdmins === 1 ? (
-                  <span className="muted text-sm">Last active admin</span>
-                ) : (
-                  <ActionForm action={updateUserAction.bind(null, u.id)} resetKey={String(u.active)} className="space-y-2">
-                    <input type="hidden" name="intent" value={u.active ? "deactivate" : "reactivate"} />
-                    {u.active && (
-                      <label className="flex items-center gap-1 text-xs">
-                        <input type="checkbox" name="confirm" /> Confirm
-                      </label>
-                    )}
-                    <SubmitButton variant="secondary">{u.active ? "Deactivate" : "Reactivate"}</SubmitButton>
-                  </ActionForm>
-                )}
+                <div className="space-y-3">
+                  {u.active && u.role === "admin" && activeAdmins === 1 ? (
+                    <span className="muted text-sm">Last active admin</span>
+                  ) : (
+                    <ActionForm action={updateUserAction.bind(null, u.id)} resetKey={String(u.active)} className="space-y-2">
+                      <input type="hidden" name="intent" value={u.active ? "deactivate" : "reactivate"} />
+                      {u.active && (
+                        <label className="flex items-center gap-1 text-xs">
+                          <input type="checkbox" name="confirm" /> Confirm
+                        </label>
+                      )}
+                      <SubmitButton variant="secondary">{u.active ? "Deactivate" : "Reactivate"}</SubmitButton>
+                    </ActionForm>
+                  )}
+                  {u.active && (
+                    <ActionForm action={createPasswordResetAction.bind(null, u.id)} className="space-y-1 break-all">
+                      <SubmitButton variant="secondary">Create reset link</SubmitButton>
+                    </ActionForm>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
 
       <h2 className="mt-10 text-lg font-semibold">Invite someone</h2>
       <p className="muted mb-3 text-sm">

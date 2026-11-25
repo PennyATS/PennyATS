@@ -3,7 +3,6 @@
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import {
-  MIN_PASSWORD_LENGTH,
   hashPassword,
   instance,
   invites,
@@ -15,20 +14,10 @@ import { endSession, hashToken, startSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
+import { readPassword } from "@/lib/password";
 import { field, isEmail, normalizeEmail } from "@/lib/validation";
 
 const loginLimiter = createRateLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
-
-function readPassword(form: FormData): { password: string } | { error: string } {
-  const password = form.get("password");
-  const confirm = form.get("confirm");
-  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
-    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
-  }
-  if (password.length > 200) return { error: "Password is too long." };
-  if (password !== confirm) return { error: "Passwords don't match." };
-  return { password };
-}
 
 /** First-run setup: creates the first admin. Only works once. */
 export async function setupAction(_: FormState, form: FormData): Promise<FormState> {

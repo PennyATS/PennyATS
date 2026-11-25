@@ -8,7 +8,7 @@ Open source applicant tracking for founders, founding recruiters, and small team
 
 ## What works today
 
-- **Sign in and roles.** First-run setup creates the admin. Admins invite teammates as admin, recruiter, or interviewer. Interviewers only see jobs they're on the hiring team for.
+- **Sign in and roles.** First-run setup creates the admin. Admins invite teammates, change roles, deactivate accounts, and issue one-time password reset links to copy and send. Interviewers only see jobs they're on the hiring team for.
 - **Jobs.** Create and edit jobs as draft, open, or closed. Each job has its own pipeline stages (rename, reorder, add, remove) and hiring team.
 - **Careers page.** Open jobs are listed at `/careers` with an apply form and resume upload. Includes basic spam protection.
 - **Applications.** Candidates are matched by email, so someone applying to a second role keeps one profile. Recruiters can add candidates by hand, move them between stages, reject with a reason, or mark them withdrawn.
