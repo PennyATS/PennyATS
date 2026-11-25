@@ -73,6 +73,20 @@ export const invites = pgTable("invites", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** One-time password reset links. Only the SHA-256 of each link token is stored. */
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("password_resets_user_idx").on(t.userId)],
+);
+
 /** Single-row-per-key workspace settings (branding, AI config, etc). */
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),

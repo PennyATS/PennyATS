@@ -43,6 +43,13 @@
       "when": 1795581644007,
       "tag": "0005_graceful_cardiac",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795582436284,
+      "tag": "0006_fixed_black_queen",
+      "breakpoints": true
     }
   ]
 }
