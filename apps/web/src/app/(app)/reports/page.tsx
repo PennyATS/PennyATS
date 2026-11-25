@@ -167,7 +167,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-10">
+    <section className="report-section mt-8">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">{title}</h2>
         <a href={csvHref} className="link text-xs" download>
@@ -175,7 +175,7 @@ function Section({
         </a>
       </div>
       {note && <p className="muted mt-1 text-sm">{note}</p>}
-      <div className="mt-3">{children}</div>
+      <div className="mt-4 overflow-x-auto">{children}</div>
     </section>
   );
 }

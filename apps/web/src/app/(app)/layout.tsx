@@ -6,7 +6,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <Sidebar user={user} />
+      <Sidebar user={{ name: user.name, role: user.role }} />
       <main className="flex-1 p-6 md:p-10">
         {/* Wide enough for the pipeline board; forms cap their own width. */}
         <div className="mx-auto max-w-6xl">{children}</div>
