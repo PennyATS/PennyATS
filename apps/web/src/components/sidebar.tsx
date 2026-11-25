@@ -2,13 +2,14 @@ import Link from "next/link";
 import { logoutAction } from "@/app/(auth)/actions";
 import type { SessionUser } from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
-import { canManageUsers } from "@/lib/permissions";
+import { canManageHiring, canManageUsers } from "@/lib/permissions";
 
 export function Sidebar({ user }: { user: SessionUser }) {
   const nav = [
     { href: "/", label: "Dashboard" },
     { href: "/jobs", label: "Jobs" },
     { href: "/candidates", label: "Candidates" },
+    ...(canManageHiring(user.role) ? [{ href: "/reports", label: "Reports" }] : []),
     ...(canManageUsers(user.role)
       ? [
           { href: "/settings/users", label: "Users" },

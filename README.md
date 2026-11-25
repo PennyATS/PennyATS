@@ -2,7 +2,7 @@
 
 Open source applicant tracking for founders, founding recruiters, and small teams. Self-host it, bring your own Postgres database, and optionally bring your own AI API key. AI features are off by default.
 
-> Status: milestone 4 of 7. The core hiring loop, pipeline board, scorecards, and privacy tools work end to end; reporting is next. The UI is intentionally plain until the visual design is settled.
+> Status: milestone 5 of 7. The core hiring loop, pipeline board, scorecards, privacy tools, and reports work end to end; opt-in AI features are next. The UI is intentionally plain until the visual design is settled.
 
 ## What works today
 
@@ -13,6 +13,7 @@ Open source applicant tracking for founders, founding recruiters, and small team
 - **Pipeline board.** A kanban view per job. Drag candidates between stages, or use the arrow buttons from the keyboard. Cards show days in stage and scorecard results.
 - **Scorecards.** Each job has its own list of attributes, rated 1 to 4, plus an overall recommendation from Strong no to Strong yes. Interviewers can't see anyone else's scorecard until they've submitted their own, so earlier feedback doesn't sway them.
 - **Candidate profiles.** Contact details, resume download, every application, scorecards, notes, and an activity timeline. Mark candidates hired, rejected, or withdrawn.
+- **Reports.** Filter by job and period to see the hiring funnel, time in each stage, time to hire, which sources produce hires, rejection reasons, and how many scorecards each interviewer has submitted.
 - **Privacy tools.** A privacy notice and optional consent checkbox on the apply form, one-click export of everything stored about a candidate, permanent deletion, automatic deletion of rejected candidates after a retention period you choose, and an audit log that records each of these without keeping the deleted person's details.
 
 ## Quick start
@@ -87,7 +88,7 @@ docker           Local Postgres via Docker Compose
 2. Auth, jobs, careers page, applications, candidate profiles ✓
 3. Pipeline kanban and scorecards ✓
 4. Privacy and data protection ✓
-5. Reporting
+5. Reporting ✓
 6. AI features and settings page
 7. Polish, docs, demo site, launch
 

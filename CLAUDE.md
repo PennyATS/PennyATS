@@ -2,7 +2,7 @@
 
 Open source applicant tracking system for founders, founding recruiters, and small teams. Self-hosted, bring your own Postgres, bring your own AI API key. AI features are off by default.
 
-Status: milestone 4 (privacy) done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form, privacy notice and consent, a kanban pipeline board per job, scorecards, candidate profiles with notes and an activity timeline, and privacy tools (permanent delete, data export, retention purge, audit log). No reporting, email, or import yet. The UI is deliberately bare until a theme is chosen.
+Status: milestone 5 (reporting) done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form, privacy notice and consent, a kanban pipeline board per job, scorecards, candidate profiles with notes and an activity timeline, privacy tools (permanent delete, data export, retention purge, audit log), and reports (funnel, time in stage, time to hire, sources, rejection reasons, interviewer activity). No email or import yet; AI features are next. The UI is deliberately bare until a theme is chosen.
 
 ## Stack
 
@@ -61,6 +61,7 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Privacy: any new table holding candidate data must cascade on candidate delete (`onDelete: "cascade"`) and be added to `exportCandidate` in `lib/privacy.ts`. Never write a deleted person's details to `audit_log`.
 - `lib/privacy.ts` has no Next.js imports so `scripts/privacy-purge.mts` can use it. Keep it that way.
 - Raw `sql` templates don't serialize `Date` params with postgres-js; pass `date.toISOString()` and cast to `::timestamptz`.
+- Reports: the page loads raw rows for the selected job and period, and every number comes from pure functions in `lib/reports.ts` (unit tested). Stage history is rebuilt from `stage_changed` activity, so anything that moves an application must log it through `logActivity`.
 - Exports from a `"use server"` file are callable by anyone as endpoints. Put helpers in `lib/`, not in actions files.
 - Forms: React 19 resets a form after its action runs. Key inputs (or the form) on the saved value so they don't snap back to stale defaults.
 
@@ -79,6 +80,9 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Invites show a link to copy; email is deferred.
 - Retention only runs when someone clicks "Delete now" or schedules `pnpm privacy:purge`; there is no built-in scheduler.
 - Deleting a candidate doesn't remove them from database or file backups; self-hosters handle backup expiry.
+- Reports compute in memory over the selected period. Fine for small teams; a very large instance would want SQL aggregation.
+- No CSV download for reports yet.
+- Applications created before activity logging existed (the original seed) have no stage history, so their starting stage is assumed to be their current one.
 - After a keyboard move on the board, focus isn't moved to the card in its new column.
 - Kanban drag and drop uses native HTML5 drag events, which don't fire on touch screens; the arrow buttons cover touch and keyboard.
 - License is not chosen yet (MIT or AGPL). Do not add a license file without asking.
@@ -89,7 +93,7 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 2. Auth (roles: admin, recruiter, interviewer), jobs create and edit, public careers page, applications, candidate profile (done)
 3. Pipeline kanban and scorecards (done)
 4. Privacy: candidate delete, data export, privacy notice and consent, retention, audit log, AI redaction fix (done)
-5. Reporting
+5. Reporting (done)
 6. AI layer and settings page (provider, key, redaction toggle)
 7. Polish, docs, demo site, launch
 
@@ -99,4 +103,4 @@ Deferred: interview scheduling with calendar sync, offers and e-sign, job board 
 
 ## Next up
 
-Milestone 5: reporting. Wait for the plan to be approved before building.
+Milestone 6: AI features and settings page.
