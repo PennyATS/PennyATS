@@ -4,6 +4,7 @@
  */
 
 import { rejectionReasonKey } from "./candidate-review";
+import { monthKey, monthRange } from "./charts";
 
 export type ReportApp = {
   id: string;
@@ -181,6 +182,22 @@ export function rejectionReasons(apps: ReportApp[]): { reason: string; count: nu
   return [...rows.values()].sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
 }
 
+/** Applications received and hires made per calendar month (UTC), with no gaps. */
+export function monthlyTrend(apps: ReportApp[], events: ReportEvent[]): { month: string; applications: number; hires: number }[] {
+  const hiredAt = new Map<string, Date>();
+  const ids = new Set(apps.filter((a) => a.status === "hired").map((a) => a.id));
+  for (const e of events) {
+    if (e.type === "hired" && ids.has(e.applicationId)) hiredAt.set(e.applicationId, e.createdAt);
+  }
+  const dates = [...apps.map((a) => a.appliedAt), ...hiredAt.values()];
+  if (dates.length === 0) return [];
+  const months = monthRange(new Date(Math.min(...dates.map(Number))), new Date(Math.max(...dates.map(Number))));
+  const rows = new Map(months.map((m) => [m, { month: m, applications: 0, hires: 0 }]));
+  for (const a of apps) rows.get(monthKey(a.appliedAt))!.applications += 1;
+  for (const at of hiredAt.values()) rows.get(monthKey(at))!.hires += 1;
+  return [...rows.values()];
+}
+
 export type JobSummary = {
   applicants: number;
   active: number;
@@ -240,7 +257,7 @@ export type ReportInput = {
   cards: ReportCard[];
 };
 
-export const REPORT_TABLES = ["funnel", "jobs", "stages", "sources", "reasons", "interviewers"] as const;
+export const REPORT_TABLES = ["funnel", "jobs", "trend", "stages", "sources", "reasons", "interviewers"] as const;
 export type ReportTableId = (typeof REPORT_TABLES)[number];
 
 /** Teams often post one title in several places, so include the location. */
@@ -290,6 +307,10 @@ export function reportTables(input: ReportInput): Partial<Record<ReportTableId, 
     };
   }
 
+  tables.trend = {
+    head: ["Month", "Applications", "Hires"],
+    rows: monthlyTrend(apps, events).map((r) => [r.month, r.applications, r.hires]),
+  };
   tables.stages = {
     head: ["Stage", "Candidates", "Average days", "Median days"],
     rows: timeInStage(stages, apps, events).map((r) => [r.stage, r.samples, dayCell(r.averageDays), dayCell(r.medianDays)]),
