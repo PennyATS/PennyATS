@@ -305,3 +305,66 @@ export function ChartToggle({ id, graph, table }: { id: string; graph: React.Rea
     </div>
   );
 }
+
+/** Vertical stacked columns over ordered labels (e.g. hires per month by department). */
+export function ColumnChart({ labels, series }: { labels: string[]; series: { name: string; values: number[] }[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  if (labels.length === 0 || series.length === 0) return <p className="muted text-sm">No data for this period.</p>;
+  const W = 640;
+  const H = 240;
+  const pad = { l: 32, r: 8, t: 16, b: 26 };
+  const totals = labels.map((_, i) => series.reduce((a, s) => a + s.values[i], 0));
+  const ticks = niceTicks(Math.max(1, ...totals));
+  const top = ticks[ticks.length - 1];
+  const band = (W - pad.l - pad.r) / labels.length;
+  const barW = Math.min(36, band * 0.6);
+  const y = (v: number) => pad.t + (1 - v / top) * (H - pad.t - pad.b);
+  const color = (i: number) => (series[i].name === "Other" ? OTHER_COLOR : SERIES_COLORS[i]);
+  return (
+    <div className="relative space-y-3">
+      {series.length > 1 && <Legend items={series.map((s, i) => ({ label: s.name, color: color(i) }))} />}
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={labels.map((l, i) => `${l}: ${totals[i]}`).join(", ")} onMouseLeave={() => setHover(null)}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="var(--border)" />
+            <text x={pad.l - 6} y={y(t) + 3} textAnchor="end" className="text-[10px]" fill="var(--muted)">{t}</text>
+          </g>
+        ))}
+        {labels.map((label, i) => {
+          const cx = pad.l + band * i + band / 2;
+          let acc = 0;
+          return (
+            <g key={label} onMouseEnter={() => setHover(i)}>
+              <rect x={cx - band / 2} y={pad.t} width={band} height={H - pad.t - pad.b} fill={hover === i ? "var(--bg)" : "transparent"} />
+              {series.map((s, si) => {
+                const v = s.values[i];
+                if (v <= 0) return null;
+                const y0 = y(acc);
+                acc += v;
+                const y1 = y(acc);
+                return <rect key={s.name} x={cx - barW / 2} y={y1} width={barW} height={Math.max(0, y0 - y1 - 2)} rx={2} fill={color(si)} />;
+              })}
+              {totals[i] > 0 && (
+                <text x={cx} y={y(totals[i]) - 4} textAnchor="middle" className="text-[10px] font-semibold" fill="var(--text)">{totals[i]}</text>
+              )}
+              <text x={cx} y={H - 8} textAnchor="middle" className="text-[10px]" fill="var(--muted)">{label}</text>
+            </g>
+          );
+        })}
+      </svg>
+      {hover !== null && totals[hover] > 0 && (
+        <Tooltip x={`${((pad.l + band * hover + band / 2) / W) * 100}%`} y={48}>
+          <div className="font-medium">{labels[hover]} · {totals[hover]}</div>
+          {series.map((s, i) =>
+            s.values[hover] > 0 ? (
+              <div key={s.name} className="flex items-center gap-1.5">
+                <span className="inline-block size-2 rounded-sm" style={{ background: color(i) }} />
+                {s.name}: <span className="tabular-nums">{s.values[hover]}</span>
+              </div>
+            ) : null,
+          )}
+        </Tooltip>
+      )}
+    </div>
+  );
+}
