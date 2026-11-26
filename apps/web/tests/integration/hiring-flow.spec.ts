@@ -30,7 +30,7 @@ test("a candidate moves from application to scorecard", async ({ page }) => {
     await page.getByLabel("Email").fill("admin@example.com");
     await page.getByLabel("Password").fill("pennyats-demo");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   });
 
   let candidateId = "";

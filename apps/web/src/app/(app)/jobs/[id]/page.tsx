@@ -11,7 +11,6 @@ import { loadReportInput } from "@/lib/report-data";
 import { reportTables } from "@/lib/reports";
 import { RECOMMENDATION_LABELS, summarize, type Recommendation } from "@/lib/scorecards";
 import { moveCardAction } from "../actions";
-import { EMPLOYMENT_TYPES, PRIORITIES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
 import { Board, type BoardCard } from "./board";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,9 +66,6 @@ export default async function JobPage({
             .where(inArray(applicationNotes.applicationId, archived.map((r) => r.id))),
         ])
       : null;
-  const closedCounts = (["hired", "rejected", "withdrawn"] as const)
-    .map((status) => ({ status, n: rows.filter((r) => r.status === status).length }))
-    .filter((x) => x.n > 0);
 
   // Scorecards on this job: board card summaries and the overview's feedback check.
   const feedback = await db()
@@ -155,91 +151,39 @@ export default async function JobPage({
           };
         })()
       : null;
-  const peopleIds = [job.hiringManagerId, job.recruiterId].filter((x): x is string => Boolean(x));
-  const people = peopleIds.length
-    ? await db().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, peopleIds))
-    : [];
-  const personName = (id: string | null) => (id ? people.find((p) => p.id === id)?.name : undefined);
-  const pay = manage ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
-  const facts = [
-    job.employmentType && EMPLOYMENT_TYPES[job.employmentType as keyof typeof EMPLOYMENT_TYPES],
-    job.workplaceType && WORKPLACE_TYPES[job.workplaceType as keyof typeof WORKPLACE_TYPES],
-    job.requisitionId && `Req ${job.requisitionId}`,
-    personName(job.hiringManagerId) && `Hiring manager: ${personName(job.hiringManagerId)}`,
-    personName(job.recruiterId) && `Recruiter: ${personName(job.recruiterId)}`,
-    pay,
-    job.targetStartDate && `Start by ${job.targetStartDate}`,
-    job.priority && job.priority !== "normal" && `${PRIORITIES[job.priority as keyof typeof PRIORITIES]} priority`,
-    job.confidential && "Confidential",
-  ].filter((x): x is string => Boolean(x));
   const advanced = rows.filter((r) => r.status === "hired" || (r.stageId && r.stageId !== stages[0]?.id)).length;
 
   return (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{job.title}</h1>
-          <p className="muted mt-1 text-sm">
-            {[job.department, job.location].filter(Boolean).join(" · ")}
-            {" · "}
-            <span className="capitalize">{job.status}</span>
-            {job.status === "open" && !job.confidential && (
-              <>
-                {" · "}
-                <Link href={`/careers/${job.slug}`} className="link">
-                  Careers page
+      {view === "board" && (
+        <ol aria-label="Pipeline stages" className="mb-4 flex flex-wrap gap-2">
+          {stages.map((s, i) => {
+            const n = active.filter((r) => r.stageId === s.id).length;
+            return (
+              <li key={s.id} className="flex shrink-0 items-center gap-2">
+                {i > 0 && <span aria-hidden="true" className="muted">→</span>}
+                <Link
+                  href={`/candidates?${new URLSearchParams({ job: job.id, stage: s.name, status: "active" })}`}
+                  className="stage-tab"
+                  title={`Review ${s.name} candidates one by one`}
+                >
+                  <span className="block text-[13px] font-semibold">{s.name}</span>
+                  <span className="muted block text-[11px]">{n} candidate{n === 1 ? "" : "s"}</span>
                 </Link>
-              </>
-            )}
-          </p>
-          {facts.length > 0 && (
-            <ul className="mt-2 flex flex-wrap gap-1.5 text-xs" aria-label="Job details">
-              {facts.map((f) => (
-                <li key={f} className="rounded-full border px-2 py-0.5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>{f}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {manage && (
-          <div className="flex gap-2">
-            <Link href={`/jobs/${job.id}/add-candidate`} className="btn">
-              Add candidate
+              </li>
+            );
+          })}
+          <li className="flex shrink-0 items-center gap-2 sm:ml-auto">
+            <Link href={`/jobs/${job.id}?view=archived`} className="stage-tab">
+              <span className="block text-[13px] font-semibold">Archived</span>
+              <span className="muted block text-[11px]">{archived.length} candidate{archived.length === 1 ? "" : "s"}</span>
             </Link>
-            <Link href={`/jobs/${job.id}/interview-plan`} className="btn btn-secondary">
-              Interview plan
-            </Link>
-            <Link href={`/jobs/${job.id}/scheduling`} className="btn btn-secondary">
-              Stage automation
-            </Link>
-            <Link href={`/jobs/${job.id}/edit`} className="btn btn-secondary">
-              Edit job
-            </Link>
-          </div>
-        )}
-      </div>
-
-      <nav aria-label="View" className="mt-6 flex flex-wrap items-center gap-4 text-sm">
-        <Link href={`/jobs/${job.id}`} aria-current={view === "overview" ? "page" : undefined} className={view === "overview" ? "font-semibold" : "link"}>
-          Overview
-        </Link>
-        <Link href={`/jobs/${job.id}?view=board`} aria-current={view === "board" ? "page" : undefined} className={view === "board" ? "font-semibold" : "link"}>
-          Pipeline
-        </Link>
-        <Link href={`/jobs/${job.id}?view=list`} aria-current={view === "list" ? "page" : undefined} className={view === "list" ? "font-semibold" : "link"}>
-          List ({rows.length})
-        </Link>
-        <Link href={`/jobs/${job.id}?view=archived`} aria-current={view === "archived" ? "page" : undefined} className={view === "archived" ? "font-semibold" : "link"}>
-          Archived ({archived.length})
-        </Link>
-        {view === "board" && closedCounts.length > 0 && (
-          <span className="muted">
-            Not shown: {closedCounts.map((c) => `${c.n} ${c.status}`).join(", ")}
-          </span>
-        )}
-      </nav>
+          </li>
+        </ol>
+      )}
 
       {overview ? (
-        <div className="mt-4 space-y-6">
+        <div className="space-y-6">
           <section aria-label="At a glance" className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
             {[
               { label: "Days open", value: daysSince(job.createdAt) },
@@ -380,7 +324,7 @@ export default async function JobPage({
           </section>
         </div>
       ) : view === "board" ? (
-        <div className="mt-4">
+        <div>
           {stages.length === 0 && active.length === 0 ? (
             <p className="muted text-sm">This job has no stages. Add some on the edit page.</p>
           ) : (
@@ -394,7 +338,7 @@ export default async function JobPage({
           )}
         </div>
       ) : view === "archived" ? (
-        <section className="card mt-4 !p-0" aria-labelledby="archived-title">
+        <section className="card !p-0" aria-labelledby="archived-title">
           <div className="card-header px-5 pt-5">
             <h2 id="archived-title" className="card-title">Archived</h2>
             <p className="card-note">
@@ -441,9 +385,9 @@ export default async function JobPage({
           )}
         </section>
       ) : rows.length === 0 ? (
-        <p className="muted mt-4 text-sm">No applications yet.</p>
+        <p className="card muted text-sm">No applications yet.</p>
       ) : (
-        <table className="table mt-4">
+        <table className="table">
           <thead>
             <tr>
               <th>Candidate</th>
