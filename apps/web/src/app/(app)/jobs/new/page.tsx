@@ -14,12 +14,12 @@ export default async function NewJobPage() {
     .where(eq(users.active, true))
     .orderBy(asc(users.name));
   return (
-    <>
+    <div className="mx-auto max-w-5xl">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">New job</h1>
       <JobForm action={createJobAction} people={people} job={{ title: "", department: null, team: null, location: null, region: null, headcount: null, description: null, status: "draft", recruiterId: user.role === "recruiter" ? user.id : null }} submitLabel="Create job" />
       <p className="muted mt-3 text-sm">
         New jobs start with the default stages. You can change them after creating the job.
       </p>
-    </>
+    </div>
   );
 }

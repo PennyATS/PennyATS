@@ -57,7 +57,7 @@ export default async function InterviewPlanPage({
         </p>
       )}
 
-      <div className="mt-6 max-w-3xl space-y-6">
+      <div className="mt-6 space-y-6">
         {stages.map((stage) => {
           const planned = templates.filter((t) => t.stageId === stage.id);
           return (

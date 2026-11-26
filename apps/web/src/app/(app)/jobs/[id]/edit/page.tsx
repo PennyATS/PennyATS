@@ -60,7 +60,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         submitLabel="Save"
       />
 
-      <section className="card mt-6 max-w-2xl" aria-labelledby="scorecard-title">
+      <section className="card mt-6" aria-labelledby="scorecard-title">
         <div className="card-header">
           <h2 id="scorecard-title" className="card-title">Scorecard</h2>
           <p className="card-note">
@@ -87,7 +87,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         </ActionForm>
       </section>
 
-      <section className="card mt-6 max-w-2xl" aria-labelledby="stages-title">
+      <section className="card mt-6" aria-labelledby="stages-title">
         <div className="card-header">
           <h2 id="stages-title" className="card-title">Pipeline stages</h2>
           <p className="card-note">
@@ -173,7 +173,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         </form>
       </section>
 
-      <section className="card mt-6 max-w-2xl" aria-labelledby="team-title">
+      <section className="card mt-6" aria-labelledby="team-title">
         <div className="card-header">
           <h2 id="team-title" className="card-title">Hiring team</h2>
           <p className="card-note">Interviewers only see jobs they are on the hiring team for.</p>
