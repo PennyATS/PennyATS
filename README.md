@@ -135,6 +135,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions. To report a se
 
 PennyATS is an early preview. The core applicant-tracking flow is built: accounts and roles, jobs, a careers page, applications, candidate review, pipeline stages, interview loops, scorecards, scheduling, email templates, privacy tools, reports and dashboards, and opt-in AI. The [GitHub project board](https://github.com/orgs/PennyATS/projects/1) is the source of truth for live status; the groups below explain the direction without promising a release date.
 
+For the longer-term direction (agent-ready API and MCP server, security, compliance, and careers-page parity) see [ROADMAP.md](ROADMAP.md).
+
 ### Recently shipped
 
 - **Candidate review:** [column filters](https://github.com/PennyATS/PennyATS/issues/67), [boolean search across resumes, notes, and phone screens](https://github.com/PennyATS/PennyATS/issues/70), [next / previous review arrows](https://github.com/PennyATS/PennyATS/issues/72), [tags](https://github.com/PennyATS/PennyATS/issues/69), [resume on the profile](https://github.com/PennyATS/PennyATS/issues/68), [standard rejection reasons](https://github.com/PennyATS/PennyATS/issues/71), and [phone screen notes with an Archived view](https://github.com/PennyATS/PennyATS/issues/73).
