@@ -28,6 +28,7 @@ test("CSV import previews rows and remains idempotent on rerun", async ({ page }
   await page.getByLabel("Email").fill("admin@example.com");
   await page.getByLabel("Password").fill("pennyats-demo");
   await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   await page.goto("/candidates/import");
   await expect(page.getByRole("heading", { name: "Import candidates" })).toBeVisible();
 
