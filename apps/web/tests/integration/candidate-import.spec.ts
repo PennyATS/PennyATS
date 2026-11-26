@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { applications, candidates, createDb, jobs, stages } from "@pennyats/db";
 import { expect, test } from "@playwright/test";
 
@@ -52,4 +52,19 @@ test("CSV import previews rows and remains idempotent on rerun", async ({ page }
   await expect(page.getByRole("status")).toContainText("Imported 0 applications. Skipped 2 duplicates. 1 rows failed.");
   expect(await db.select({ id: candidates.id }).from(candidates).where(eq(candidates.email, email))).toHaveLength(1);
   expect(await db.select({ id: applications.id }).from(applications).where(eq(applications.candidateId, found[0].id))).toHaveLength(1);
+
+  const [otherJob] = await db.select({ id: jobs.id }).from(jobs).where(ne(jobs.id, job.id)).limit(1);
+  if (!otherJob) throw new Error("Synthetic seed needs another job for generic CSV mapping.");
+  await page.getByLabel("Candidate CSV file").setInputFiles({
+    name: "generic.csv", mimeType: "text/csv", buffer: Buffer.from(`Person,Contact\n${name},${email}\n`),
+  });
+  await page.getByLabel("Full name").selectOption("Person");
+  await page.getByLabel("Email").selectOption("Contact");
+  await page.getByLabel("Job for all rows without a mapped job title").selectOption(otherJob.id);
+  await expect(page.getByText("1 ready · 0 repeated within file · 0 invalid")).toBeVisible();
+  await page.getByRole("button", { name: "Import ready rows" }).click();
+  await expect(page.getByRole("status")).toContainText("Imported 1 applications. Skipped 0 duplicates. 0 rows failed.");
+  const allApplications = await db.select({ jobId: applications.jobId }).from(applications).where(eq(applications.candidateId, found[0].id));
+  expect(allApplications.map((application) => application.jobId)).toEqual(expect.arrayContaining([job.id, otherJob.id]));
+  expect(allApplications).toHaveLength(2);
 });
