@@ -165,6 +165,8 @@ body {
   .rte-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .rte-sep { width: 1px; height: 1.25rem; margin: 0 0.25rem; background: var(--border); }
   .rte-content .ProseMirror { min-height: 16rem; padding: 0.875rem 1rem; font-size: 0.9375rem; outline: none; }
+  .stage-tab { display: block; min-width: 8rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--surface); padding: 0.4375rem 0.75rem; }
+  .stage-tab:hover { border-color: #9ac9ad; box-shadow: 0 0 0 1px #9ac9ad; }
   .tag { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 999px; padding: 0.125rem 0.5rem; background: #e0f1e6; color: #14533b; font-size: 0.75rem; font-weight: 500; }
   .tag-remove { color: #3a6b52; line-height: 1; padding: 0 0.125rem; border-radius: 999px; }
   .tag-remove:hover { color: #14533b; background: #c9e6d4; }

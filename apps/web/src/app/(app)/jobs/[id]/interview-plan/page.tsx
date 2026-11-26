@@ -46,12 +46,7 @@ export default async function InterviewPlanPage({
 
   return (
     <>
-      <p className="text-sm">
-        <Link href={`/jobs/${job.id}`} className="link">
-          Back to {job.title}
-        </Link>
-      </p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">Interview plan</h1>
+      <h2 className="text-xl font-semibold tracking-tight">Interview plan</h2>
       <p className="muted mt-1 max-w-2xl text-sm">
         The interviews for each stage of this job. When a candidate enters a stage, its interviews are created for them
         with the interviewers below. Changing the plan doesn&apos;t change interviews candidates already have.

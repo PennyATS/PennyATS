@@ -12,12 +12,7 @@ export default async function AddCandidatePage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <p className="text-sm">
-        <Link href={`/jobs/${job.id}`} className="link">
-          Back to {job.title}
-        </Link>
-      </p>
-      <h1 className="mb-1 mt-2 text-2xl font-semibold tracking-tight">Add candidate</h1>
+      <h2 className="mb-1 text-xl font-semibold tracking-tight">Add candidate</h2>
       <p className="muted mb-6 text-sm">
         If someone with this email already exists, they&apos;re added to this job instead of duplicated.
       </p>
