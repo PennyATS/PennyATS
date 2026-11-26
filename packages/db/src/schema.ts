@@ -441,6 +441,30 @@ export const applicationNotes = pgTable(
   (t) => [uniqueIndex("application_notes_application_kind_idx").on(t.applicationId, t.kind)],
 );
 
+/**
+ * In-app notifications. They point at an application or interview and store no candidate
+ * details; text is rendered from current data, and rows go when the application does.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** application, stage_changed, interview_assigned */
+    kind: text("kind").notNull(),
+    applicationId: uuid("application_id").references(() => applications.id, { onDelete: "cascade" }),
+    interviewId: uuid("interview_id").references(() => interviews.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    /** Non-personal context such as the stage name at the time. */
+    data: jsonb("data").$type<Record<string, string>>().notNull().default({}),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)],
+);
+
 /** Folders for organizing email templates. Deleting a folder leaves its templates unfiled. */
 export const emailTemplateFolders = pgTable(
   "email_template_folders",

@@ -15,6 +15,7 @@ import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { seesAllJobs } from "./permissions";
 import { isUuid, type CandidateInput } from "./validation";
+import { jobWatchers, notify } from "./notifications";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type Executor = Db | Tx;
@@ -123,13 +124,15 @@ export async function addApplication(
 
   if (!application) return { candidateId, applicationId: null, created: false };
 
-  if (firstStage) await createStageInterviews(ex, application.id, firstStage.id);
+  if (firstStage) await createStageInterviews(ex, application.id, firstStage.id, input.actorId);
   await logActivity(ex, {
     applicationId: application.id,
     actorId: input.actorId,
     type: input.actorId ? "added" : "applied",
     data: { source: candidate.source },
   });
+  const watchers = await jobWatchers(ex, input.jobId);
+  await notify(ex, input.actorId, watchers.map((userId) => ({ userId, kind: "application" as const, applicationId: application.id })));
   return { candidateId, applicationId: application.id, created: true };
 }
 
@@ -186,13 +189,16 @@ export async function moveApplication(user: SessionUser, applicationId: string, 
       .update(applications)
       .set({ stageId, stageChangedAt: new Date() })
       .where(eq(applications.id, app.id));
-    await createStageInterviews(tx, app.id, stageId);
+    await createStageInterviews(tx, app.id, stageId, user.id);
     await logActivity(tx, {
       applicationId: app.id,
       actorId: user.id,
       type: "stage_changed",
       data: { from: app.stageId, to: stageId },
     });
+    const [stage] = await tx.select({ name: stages.name }).from(stages).where(eq(stages.id, stageId));
+    const watchers = await jobWatchers(tx, app.jobId);
+    await notify(tx, user.id, watchers.map((userId) => ({ userId, kind: "stage_changed" as const, applicationId: app.id, data: { stage: stage?.name ?? "" } })));
   });
   return app;
 }
@@ -209,7 +215,13 @@ export async function currentStageName(stageId: string | null): Promise<string> 
  * planned interview's details and default interviewers. Safe to call again: interviews
  * already created from a template are skipped. Returns how many were created.
  */
-export async function createStageInterviews(ex: Executor, applicationId: string, stageId: string): Promise<number> {
+export async function createStageInterviews(
+  ex: Executor,
+  applicationId: string,
+  stageId: string,
+  /** Who triggered it, so they aren't notified about their own action. */
+  actorId: string | null = null,
+): Promise<number> {
   const plan = await ex
     .select()
     .from(interviewTemplates)
@@ -247,6 +259,7 @@ export async function createStageInterviews(ex: Executor, applicationId: string,
         .insert(interviewInterviewers)
         .values(assigned.map((p) => ({ interviewId: row.id, userId: p.userId })))
         .onConflictDoNothing();
+      await notify(ex, actorId, assigned.map((p) => ({ userId: p.userId, kind: "interview_assigned" as const, applicationId, interviewId: row.id })));
     }
   }
   return created;
