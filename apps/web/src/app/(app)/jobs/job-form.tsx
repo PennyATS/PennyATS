@@ -75,10 +75,10 @@ export async function JobForm({
   const aiDrafts = await isAiFeatureOn("jobDescriptions");
   const money = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
   return (
-    <ActionForm action={action} resetKey={version} className="card max-w-3xl space-y-6">
+    <ActionForm action={action} resetKey={version} className="card space-y-6">
       <Section title="Basics" note="Only the title is required. Everything else can be filled in later.">
         <Field label="Title" name="title" required defaultValue={job?.title} />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Field label="Department" name="department" defaultValue={job?.department} />
           <Field label="Team" name="team" defaultValue={job?.team} />
           <Select id="employmentType" label="Employment type" options={EMPLOYMENT_TYPES} defaultValue={job?.employmentType} />

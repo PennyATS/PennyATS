@@ -21,7 +21,7 @@ export default async function JobSchedulingPage({ params }: { params: Promise<{ 
       .orderBy(asc(emailTemplateFolders.name), asc(emailTemplates.name)),
   ]);
   const groups = Map.groupBy(templates, (t) => t.folder ?? "Unfiled");
-  return <div className="max-w-4xl">
+  return <div>
     <h2 className="text-xl font-semibold tracking-tight">Stage automation</h2>
     <p className="muted mt-1 text-sm">Choose what happens when a candidate enters each stage: an email from your <Link href="/templates" className="link">templates</Link>, a scheduling link, and interview reminders. Everything is off until you opt in. Each email is sent once per candidate and stage, even if they move back and forth.</p>
     {!smtpConfigured() && <p className="inset mt-5 text-sm">SMTP is not configured. Automatic emails are recorded on the candidate timeline as not sent, and can be resent once SMTP is set up; recruiters can still copy scheduling links manually. <Link href="/settings/email" className="link">Email settings</Link></p>}
