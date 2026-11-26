@@ -8,6 +8,7 @@ import { markAllReadAction, openNotificationAction } from "@/app/(app)/notificat
 import type { SessionUser } from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type IconName =
   | "home" | "jobs" | "candidates" | "templates" | "reports" | "settings" | "careers"
@@ -129,7 +130,7 @@ function Menu({
         <div
           role="menu"
           aria-label={label}
-          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-50 ${menuClassName} rounded-lg border border-[#dce6df] bg-white p-1.5 text-[#1d2c24] shadow-xl`}
+          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-50 ${menuClassName} rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1.5 text-[var(--text)] shadow-xl`}
         >
           {items?.map((item) => (
             <Link
@@ -137,12 +138,12 @@ function Menu({
               href={item.href}
               role="menuitem"
               aria-current={pathname === item.href ? "page" : undefined}
-              className="flex items-start gap-2.5 rounded-md px-3 py-2 text-sm outline-none hover:bg-[#e7f4eb] hover:text-[#14533b] focus-visible:bg-[#e7f4eb]"
+              className="flex items-start gap-2.5 rounded-md px-3 py-2 text-sm outline-none hover:bg-[var(--table-hover)] hover:text-[var(--accent)] focus-visible:bg-[var(--table-hover)]"
             >
-              {item.icon && <Icon name={item.icon} className="mt-0.5 size-4 shrink-0 text-[#617267]" />}
+              {item.icon && <Icon name={item.icon} className="mt-0.5 size-4 shrink-0 text-[var(--muted)]" />}
               <span>
                 <span className="block">{item.label}</span>
-                {item.note && <span className="block text-xs text-[#617267]">{item.note}</span>}
+                {item.note && <span className="block text-xs text-[var(--muted)]">{item.note}</span>}
               </span>
             </Link>
           ))}
@@ -358,13 +359,14 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
             align="right"
             badge={<span aria-hidden="true" className="order-first flex size-7 shrink-0 items-center justify-center rounded-full bg-[#d9eee2] text-[10px] font-bold text-[#14533b]">{initials}</span>}
           >
-            <div className="border-b border-[#e7eee9] px-3 pb-2 pt-1 text-xs text-[#617267]">
-              <span className="block font-semibold text-[#1d2c24]">{user.name}</span>
+            <div className="border-b border-[var(--border)] px-3 pb-2 pt-1 text-xs text-[var(--muted)]">
+              <span className="block font-semibold text-[var(--text)]">{user.name}</span>
               <span className="capitalize">{user.role}</span>
             </div>
             <form action={logoutAction}>
-              <button type="submit" role="menuitem" className="mt-1 w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#e7f4eb]">Sign out</button>
+              <button type="submit" role="menuitem" className="mt-1 w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--table-hover)]">Sign out</button>
             </form>
+            <ThemeToggle className="mt-1 w-full justify-center" />
           </Menu>
         </div>
 
@@ -403,17 +405,18 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
               <span className="truncate text-[#c8ddd2]">{user.name} · <span className="capitalize">{user.role}</span></span>
               <form action={logoutAction}><button type="submit" className="ml-3 whitespace-nowrap font-medium text-white hover:underline">Sign out</button></form>
             </div>
+            <ThemeToggle className="mt-3 w-full justify-center text-white" />
           </nav>
         </details>
       </div>
       {recent.length > 1 && (
-        <nav aria-label="Recently viewed" className="hidden border-t border-[#e3ebe5] bg-white px-5 lg:block">
-          <ol className="flex h-8 items-center gap-1.5 overflow-hidden text-[11px] text-[#617267]">
+        <nav aria-label="Recently viewed" className="hidden border-t border-[var(--border)] bg-[var(--surface)] px-5 lg:block">
+          <ol className="flex h-8 items-center gap-1.5 overflow-hidden text-[11px] text-[var(--muted)]">
             <li aria-hidden="true"><Icon name="history" className="size-3.5" /></li>
             {recent.slice(0, -1).reverse().map((r, i) => (
               <li key={r.href} className="flex min-w-0 items-center gap-1.5">
                 {i > 0 && <span aria-hidden="true">•</span>}
-                <Link href={r.href} className="truncate font-medium text-[#176b4d] hover:underline">{r.label}</Link>
+                <Link href={r.href} className="truncate font-medium text-[var(--accent)] hover:underline">{r.label}</Link>
               </li>
             ))}
           </ol>
