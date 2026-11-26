@@ -324,18 +324,20 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
   return (
     <header className="sticky top-0 z-40 border-b border-[#275343] bg-[#0d2e24] text-white shadow-[0_2px_12px_#08221920]">
       <div className="flex h-14 items-stretch gap-2 px-3 sm:px-5">
-        {/* Left (mirrored layout, see #49): user, add, search. */}
-        <div className="hidden shrink-0 items-center gap-2 lg:flex">
-          <Menu label={user.name.split(" ")[0] ?? user.name} variant="nav">
-            <div className="border-b border-[#e7eee9] px-3 pb-2 pt-1 text-xs text-[#617267]">
-              <span className="block font-semibold text-[#1d2c24]">{user.name}</span>
-              <span className="capitalize">{user.role}</span>
-            </div>
-            <form action={logoutAction}>
-              <button type="submit" role="menuitem" className="mt-1 w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#e7f4eb]">Sign out</button>
-            </form>
-          </Menu>
-          {addItems.length > 0 && <Menu label="Add" icon="plus" variant="button" items={addItems} />}
+        {/* Left: brand and nav folders (Ashby-style; reverses #49, see #89). */}
+        <Link href="/" aria-label={`${BRAND.name} home`} className="flex shrink-0 items-center gap-2.5 pr-2">
+          <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-sm bg-[#176b4d] text-[29px] font-bold leading-none tracking-[-0.08em] text-white shadow-[inset_0_1px_0_#ffffff30]">P</span>
+          <span className="text-sm font-bold tracking-tight text-white lg:hidden xl:inline">{BRAND.name}</span>
+        </Link>
+
+        <nav aria-label="Main navigation" className="hidden min-w-0 items-center gap-0.5 lg:flex">
+          {folders.map((folder) => (
+            <Menu key={folder.label} label={folder.label} icon={folder.icon} active={folder.match(pathname)} items={folder.items} />
+          ))}
+        </nav>
+
+        {/* Right: search, add, notifications, user. */}
+        <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
           <form role="search" onSubmit={search} className="relative">
             <label htmlFor="nav-search" className="sr-only">Search candidates</label>
             <Icon name="search" className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#9fbcad]" />
@@ -344,17 +346,41 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
               name="q"
               key={pathname}
               placeholder="Search candidates"
-              className="h-8 w-36 rounded-md border border-[#36614b] bg-white/10 pl-8 pr-2 text-xs text-white placeholder:text-[#9fbcad] focus:w-56 focus:bg-white/15 xl:w-56 xl:focus:w-64"
+              className="h-8 w-36 rounded-md border border-[#36614b] bg-white/10 pl-8 pr-2 text-xs text-white placeholder:text-[#9fbcad] focus:w-56 focus:bg-white/15 xl:w-48 xl:focus:w-64"
               style={{ transition: "width 150ms" }}
             />
           </form>
+          {addItems.length > 0 && <Menu label="Add" icon="plus" variant="button" items={addItems} align="right" />}
+          <NotificationsMenu inbox={notifications} />
+          <Menu
+            label={user.name.split(" ")[0] ?? user.name}
+            ariaLabel={`Account: ${user.name}`}
+            align="right"
+            badge={<span aria-hidden="true" className="order-first flex size-7 shrink-0 items-center justify-center rounded-full bg-[#d9eee2] text-[10px] font-bold text-[#14533b]">{initials}</span>}
+          >
+            <div className="border-b border-[#e7eee9] px-3 pb-2 pt-1 text-xs text-[#617267]">
+              <span className="block font-semibold text-[#1d2c24]">{user.name}</span>
+              <span className="capitalize">{user.role}</span>
+            </div>
+            <form action={logoutAction}>
+              <button type="submit" role="menuitem" className="mt-1 w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#e7f4eb]">Sign out</button>
+            </form>
+          </Menu>
         </div>
 
-        {/* Mobile: one menu with everything. */}
+        {/* Mobile: notifications and one menu with everything, on the right. */}
+        <Link
+          href="/notifications"
+          aria-label={`Notifications${notifications.unread ? `, ${notifications.unread} unread` : ""}`}
+          className="ml-auto flex items-center gap-1 px-2 lg:hidden"
+        >
+          <Icon name="bell" className="size-5" />
+          {notifications.unread > 0 && <span aria-hidden="true" className="rounded-full bg-[#f2b84b] px-1.5 text-[10px] font-bold text-[#0d2e24]">{notifications.unread}</span>}
+        </Link>
         <details key={`mobile-${pathname}`} className="group lg:hidden">
           <summary aria-label="Open navigation menu" className="flex h-full cursor-pointer list-none items-center gap-2 rounded-md px-2 [&::-webkit-details-marker]:hidden">
-            <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-[#d9eee2] text-[10px] font-bold text-[#14533b]">{initials}</span>
             <Icon name="menu" className="size-5" />
+            <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-[#d9eee2] text-[10px] font-bold text-[#14533b]">{initials}</span>
           </summary>
           <nav aria-label="Mobile navigation" className="absolute left-0 right-0 top-full max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-[#275343] bg-[#123a2e] p-3 shadow-xl">
             <form role="search" onSubmit={search} className="mb-3">
@@ -379,28 +405,6 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
             </div>
           </nav>
         </details>
-
-        <Link
-          href="/notifications"
-          aria-label={`Notifications${notifications.unread ? `, ${notifications.unread} unread` : ""}`}
-          className="flex items-center gap-1 px-2 lg:hidden"
-        >
-          <Icon name="bell" className="size-5" />
-          {notifications.unread > 0 && <span aria-hidden="true" className="rounded-full bg-[#f2b84b] px-1.5 text-[10px] font-bold text-[#0d2e24]">{notifications.unread}</span>}
-        </Link>
-
-        {/* Right: folders and brand. */}
-        <nav aria-label="Main navigation" className="ml-auto hidden min-w-0 items-center gap-0.5 lg:flex">
-          {folders.map((folder) => (
-            <Menu key={folder.label} label={folder.label} icon={folder.icon} active={folder.match(pathname)} items={folder.items} align="right" />
-          ))}
-          <NotificationsMenu inbox={notifications} />
-        </nav>
-
-        <Link href="/" aria-label={`${BRAND.name} home`} className="ml-auto flex shrink-0 items-center gap-3 pl-3 lg:ml-0">
-          <span className="text-sm font-bold tracking-tight text-white lg:hidden xl:inline">{BRAND.name}</span>
-          <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-sm bg-[#176b4d] text-[29px] font-bold leading-none tracking-[-0.08em] text-white shadow-[inset_0_1px_0_#ffffff30]">P</span>
-        </Link>
       </div>
       {recent.length > 1 && (
         <nav aria-label="Recently viewed" className="hidden border-t border-[#e3ebe5] bg-white px-5 lg:block">
