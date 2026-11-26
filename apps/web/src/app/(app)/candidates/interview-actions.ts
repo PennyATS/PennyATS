@@ -4,17 +4,18 @@ import { notify } from "@/lib/notifications";
 import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { candidateAvailabilityLinks, candidates, googleCalendarConnections, interviewBookingLinks, interviewInterviewers, interviews, jobTeam, users } from "@pennyats/db";
+import { candidateAvailabilityLinks, candidates, googleCalendarConnections, interviewBookingLinks, interviewInterviewers, interviews, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { requireUser, type SessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { bookingToken, bookingTokenHash } from "@/lib/booking";
 import { cancelGoogleInterview, googleCalendarConfigured, pullGoogleInterview, syncGoogleInterview } from "@/lib/google-calendar";
-import { createStageInterviews, currentStageName, getApplicationFor, logActivity } from "@/lib/hiring";
+import { createStageInterviews, getApplicationFor, logActivity } from "@/lib/hiring";
 import { overlappingInterviews, parseZonedScheduledAt } from "@/lib/interviews";
 import { canManageHiring } from "@/lib/permissions";
 import { queueInterviewReminders, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
 import { field, isHttpUrl, isUuid } from "@/lib/validation";
+import { activeInterviewers, addInterview } from "@/lib/pipeline";
 
 /** Load an interview the user may manage, with its application. */
 async function loadForManager(user: SessionUser, interviewId: string) {
@@ -33,19 +34,7 @@ function refresh(candidateId: string, jobId: string) {
 /** Only active users can be assigned; they join the job's hiring team so they can see it. */
 async function validInterviewers(jobId: string, form: FormData): Promise<string[]> {
   const ids = form.getAll("interviewerIds").filter((v): v is string => typeof v === "string" && isUuid(v));
-  if (ids.length === 0) return [];
-  const rows = await db()
-    .select({ id: users.id })
-    .from(users)
-    .where(and(inArray(users.id, [...new Set(ids)]), eq(users.active, true)));
-  const valid = rows.map((r) => r.id);
-  if (valid.length) {
-    await db()
-      .insert(jobTeam)
-      .values(valid.map((userId) => ({ jobId, userId })))
-      .onConflictDoNothing();
-  }
-  return valid;
+  return activeInterviewers(jobId, ids);
 }
 
 export async function saveManualScheduleAction(interviewId: string, _: FormState, form: FormData): Promise<FormState> {
@@ -253,31 +242,8 @@ export async function addInterviewAction(applicationId: string, _: FormState, fo
   if (!Number.isInteger(minutes) || minutes < 5 || minutes > 480) {
     return { error: "Length must be between 5 and 480 minutes." };
   }
-  const ids = await validInterviewers(app.jobId, form);
-  const stageName = await currentStageName(app.stageId);
-
-  await db().transaction(async (tx) => {
-    const [row] = await tx
-      .insert(interviews)
-      .values({
-        applicationId: app.id,
-        stageId: app.stageId,
-        name,
-        stageName,
-        durationMinutes: minutes,
-      })
-      .returning({ id: interviews.id });
-    if (ids.length) {
-      await tx.insert(interviewInterviewers).values(ids.map((userId) => ({ interviewId: row.id, userId })));
-      await notify(tx, user.id, ids.map((userId) => ({ userId, kind: "interview_assigned" as const, applicationId: app.id, interviewId: row.id })));
-    }
-    await logActivity(tx, {
-      applicationId: app.id,
-      actorId: user.id,
-      type: "interview_added",
-      data: { interview: name },
-    });
-  });
+  const interviewerIds = form.getAll("interviewerIds").filter((v): v is string => typeof v === "string" && isUuid(v));
+  await addInterview(user, app, { name, durationMinutes: minutes, interviewerIds });
   refresh(app.candidateId, app.jobId);
   return { message: "Interview added." };
 }

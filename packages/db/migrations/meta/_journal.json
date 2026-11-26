@@ -141,6 +141,13 @@
       "when": 1795651610650,
       "tag": "0019_flowery_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795734407109,
+      "tag": "0020_windy_gravity",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 Open source applicant tracking system for founders, founding recruiters, and small teams. Self-hosted, bring your own Postgres, bring your own AI API key. AI features are off by default.
 
-Status: milestone 6 (AI) done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form, privacy notice and consent, a kanban pipeline board per job with a job overview and pipeline health checks, an interview loop (interview plan per stage, interviews per candidate, scorecards tied to interviews), scorecards, candidate profiles with notes and an activity timeline, privacy tools (permanent delete, data export, retention purge, audit log), reports (funnel, time in stage, time to hire, sources, rejection reasons, interviewer activity), and opt-in AI (job description drafts, interview feedback summaries) with an admin settings page. No email or import yet. Polish and launch is next. The UI is deliberately bare until a theme is chosen.
+Status: milestone 6 (AI) done. Login with roles, invites, jobs with editable stages and hiring teams, a public careers page with apply form, privacy notice and consent, a kanban pipeline board per job with a job overview and pipeline health checks, an interview loop (interview plan per stage, interviews per candidate, scorecards tied to interviews), scorecards, candidate profiles with notes and an activity timeline, privacy tools (permanent delete, data export, retention purge, audit log), reports (funnel, time in stage, time to hire, sources, rejection reasons, interviewer activity),, opt-in AI (job description drafts, interview feedback summaries) with an admin settings page, and a public REST API (/api/v1) with scoped API keys, an OpenAPI document, and signed webhooks. No import yet. Polish and launch is next. The UI is deliberately bare until a theme is chosen.
 
 ## Stack
 
@@ -32,6 +32,9 @@ pnpm typecheck           # all packages
 pnpm build               # production build
 pnpm test                # unit tests (no database needed)
 pnpm privacy:purge       # delete candidates past the retention period (schedule it, e.g. daily cron)
+pnpm webhooks:deliver    # send due webhook deliveries and retries (schedule it, e.g. every 5 minutes)
+pnpm api:spec            # regenerate docs/api/openapi.json after changing the API
+pnpm test:integration    # API, webhook, and browser tests (needs TEST_DATABASE_URL: local Postgres, db name ending in _test)
 pnpm db:generate         # generate a migration from schema.ts
 pnpm db:migrate          # apply migrations (needs DATABASE_URL)
 pnpm db:seed             # demo data (needs DATABASE_URL)
@@ -69,6 +72,9 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Candidate list, search, and review: `lib/candidate-search.ts` turns URL filters into SQL (boolean query parsed by `lib/search-query.ts`) for both the candidates list and the profile's next / previous arrows, so they always agree. Links into a profile carry the list's query string. Phone screen notes live in `application_notes` (one per application and kind) and stay after a rejection; the job page's Archived view lists rejected and withdrawn applications. Rejection reasons come from the standard list in `lib/candidate-review.ts`; tags are normalized there too.
 - Notifications: `notify()` in `lib/notifications.ts` (new applications and stage moves go to the job's recruiter and hiring manager, or its recruiters/admins when neither is set; interview assignments go to the interviewer). Rows store ids, not candidate details, and cascade with the application. Pass the acting user so people aren't notified about their own actions.
 - Navigation lives in `components/top-nav.tsx` as dropdown folders in Ashby's layout (brand and folders left; search, Add, notifications, user right; #89); dashboards (Home, Executive, Jobs) share the `(app)/(home)` layout's Views rail; every job page shares `jobs/[id]/layout.tsx` (header, left rail, `?details=1` drawer). Charts are SVG components in `components/charts.tsx` with math in `lib/charts.ts`; use the fixed `SERIES_COLORS` order and give every chart a table toggle.
+- Public API (`/api/v1`, docs in `docs/api.md`): declare each endpoint once in `lib/api/routes.ts` with zod schemas from `lib/api/schemas.ts`, and build its handler with `apiHandler(routes.x, fn)`, which does key lookup, scope and permission checks, validation, rate limiting, errors, and the audit entry. Run `pnpm api:spec` and commit `docs/api/openapi.json`; a unit test fails on drift or on a route file missing from the table. Keys act as a user: run the same `lib/` functions the UI uses (`lib/pipeline.ts`, `lib/hiring.ts`, `lib/jobs.ts`) with the key's user so visibility rules apply, and never write hiring logic inside a route or action file. New scopes go in `lib/api/scopes.ts` with the #94 permission they map to. Every API test goes in `tests/integration/api.spec.ts` with an allowed and a denied call.
+- Webhooks: queue with `queueWebhookEvent(tx, ...)` inside the transaction that makes the change, then call `deliverDueWebhooks()` after commit. Payloads carry ids and stage names only, never names, contact details, or scorecard content. New events go in `lib/webhook-events.ts`.
+- Audit log rows have `actor_type` (user, api_key, agent, system) and `api_key_id`. API writes are logged by `apiHandler`; requests with `X-PennyATS-Agent` are agent activity.
 - Exports from a `"use server"` file are callable by anyone as endpoints. Put helpers in `lib/`, not in actions files.
 - Forms: React 19 resets a form after its action runs, snapping inputs back to stale defaults. For `ActionForm`, pass `resetKey` (the saved value) rather than keying the whole form, which would also wipe the "Saved." message. Plain forms: key the inputs.
 
@@ -84,7 +90,7 @@ Work to do lives in GitHub issues (https://github.com/PennyATS/PennyATS/issues) 
 
 ## Known gaps
 
-- Unit tests cover pure logic only (passwords, validation, roles, rate limiting). No database or browser tests yet.
+- Unit tests cover pure logic. Integration tests (`pnpm test:integration`) cover the public API, webhooks, and one browser hiring flow against a seeded database; most UI pages have no browser test yet.
 - The first-run `/setup` page has not been exercised in a browser (the dev database was seeded first).
 - Rate limiting (login, apply) is in memory, per server process.
 - Resume storage is local disk only; no S3-compatible option yet.

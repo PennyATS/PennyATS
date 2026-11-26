@@ -41,7 +41,17 @@ export async function savePrivacySettings(value: PrivacySettings, actorId: strin
   });
 }
 
-export type AuditAction = "candidate_deleted" | "candidate_exported" | "retention_purge" | "privacy_settings_changed";
+export type AuditAction =
+  | "candidate_deleted"
+  | "candidate_exported"
+  | "retention_purge"
+  | "privacy_settings_changed"
+  | "api_key_created"
+  | "api_key_revoked"
+  | "webhook_created"
+  | "webhook_changed"
+  | "webhook_deleted"
+  | "api_write";
 
 /**
  * Permanently delete candidates and everything attached to them: applications, stage
@@ -50,7 +60,13 @@ export type AuditAction = "candidate_deleted" | "candidate_exported" | "retentio
  */
 export async function deleteCandidates(
   ids: string[],
-  opts: { actorId: string | null; reason: string | null; action: "candidate_deleted" | "retention_purge" },
+  opts: {
+    actorId: string | null;
+    reason: string | null;
+    action: "candidate_deleted" | "retention_purge";
+    /** Set when the deletion came through the API. */
+    via?: { actorType: "api_key" | "agent"; apiKeyId: string; keyLabel: string };
+  },
 ): Promise<number> {
   if (ids.length === 0) return 0;
 
@@ -64,7 +80,9 @@ export async function deleteCandidates(
       await tx.insert(auditLog).values({
         action: opts.action,
         actorId: opts.actorId,
-        data: { count: rows.length, ...(opts.reason ? { reason: opts.reason } : {}) },
+        actorType: opts.via?.actorType ?? (opts.actorId ? "user" : "system"),
+        apiKeyId: opts.via?.apiKeyId ?? null,
+        data: { count: rows.length, ...(opts.reason ? { reason: opts.reason } : {}), ...(opts.via ? { key: opts.via.keyLabel } : {}) },
       });
     }
     return rows;
@@ -226,6 +244,11 @@ export async function exportCandidate(candidateId: string) {
   };
 }
 
-export async function logAudit(action: AuditAction, actorId: string | null, data: Record<string, unknown> = {}) {
-  await db().insert(auditLog).values({ action, actorId, data });
+export async function logAudit(
+  action: AuditAction,
+  actorId: string | null,
+  data: Record<string, unknown> = {},
+  via: { actorType?: "user" | "api_key" | "agent" | "system"; apiKeyId?: string | null } = {},
+) {
+  await db().insert(auditLog).values({ action, actorId, data, actorType: via.actorType ?? "user", apiKeyId: via.apiKeyId ?? null });
 }

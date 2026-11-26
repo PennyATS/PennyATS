@@ -36,6 +36,7 @@ These images use fictional candidates from the demo seed.
 - **Candidate profiles.** Contact details, resume download, every application, scorecards, notes, and an activity timeline. Mark candidates hired, rejected, or withdrawn.
 - **Reports.** Filter by job and period to see the hiring funnel, time in each stage, time to hire, which sources produce hires, rejection reasons, and how many scorecards each interviewer has submitted.
 - **Optional AI.** Bring your own Anthropic or OpenAI key (or a local model through an OpenAI-compatible server like Ollama) to draft job descriptions and summarize interview feedback. Off unless you add a key, and each feature can be switched off.
+- **REST API and webhooks.** A documented [public API](docs/api.md) for jobs, stages, candidates, applications, scorecards, notes, tags, interviews, reports, and email, with an [OpenAPI document](docs/api/openapi.json) generated from the code. Admins create scoped keys that act as one teammate and can never do more than that person, so interviewer keys only see their jobs and scorecards stay blind. Every API write is in the audit log. Signed webhooks for new applications, stage changes, and scorecards, with retries and a delivery log. No per-seat limits.
 - **Privacy tools.** A privacy notice and optional consent checkbox on the apply form, one-click export of everything stored about a candidate, permanent deletion, automatic deletion of rejected candidates after a retention period you choose, and an audit log that records each of these without keeping the deleted person's details.
 
 ## Quick start
@@ -99,6 +100,7 @@ Deleted data still exists in any database or file backups you keep, so expire th
 | `AI_REDACT_PII` | Defaults to `true`. Strips emails, phone numbers, and links before text is sent to a model. It's pattern-based and doesn't catch names. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional Google OAuth web client for interviewer free/busy and calendar invites. Add `${APP_URL}/api/google-calendar/callback` as an authorized redirect URI. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Optional SMTP delivery for scheduling links and reminders. Port 465 uses TLS; other ports must support STARTTLS. |
+| `API_RATE_LIMIT_PER_MINUTE` | Optional. Requests a minute allowed per API key. Defaults to 300. |
 
 ## Scheduling
 
@@ -110,6 +112,12 @@ With SMTP configured, admins can email team invites and password reset links. Th
 
 Run `pnpm calendar:sync` regularly to pull Google Calendar edits, cancellations, and RSVP changes into PennyATS. Google API credentials and each interviewer's calendar connection are required for live calendar features. Recruiters can also refresh a linked interview from its candidate profile.
 
+## API and webhooks
+
+Admins create API keys and webhooks under **Admin > API and webhooks**. See [docs/api.md](docs/api.md) for authentication, scopes, errors, pagination, the audit log, and verifying webhook signatures. The full reference is [docs/api/openapi.json](docs/api/openapi.json), also served by your instance at `/api/v1/openapi.json`.
+
+Webhooks are sent right away and retried by the running server. Also schedule `pnpm webhooks:deliver` (for example every 5 minutes with cron) so retries survive a restart.
+
 ## Development
 
 ```bash
@@ -117,6 +125,7 @@ pnpm typecheck     # all packages
 pnpm test          # unit tests (no database needed)
 pnpm build         # production build
 pnpm db:generate   # after changing packages/db/src/schema.ts; commit the migration
+pnpm api:spec      # after changing the API; regenerates docs/api/openapi.json
 ```
 
 ```
@@ -139,6 +148,7 @@ For the longer-term direction (agent-ready API and MCP server, security, complia
 
 ### Recently shipped
 
+- **Agent-ready platform:** [public REST API with scoped keys, an OpenAPI document, and signed webhooks](https://github.com/PennyATS/PennyATS/issues/115).
 - **Candidate review:** [column filters](https://github.com/PennyATS/PennyATS/issues/67), [boolean search across resumes, notes, and phone screens](https://github.com/PennyATS/PennyATS/issues/70), [next / previous review arrows](https://github.com/PennyATS/PennyATS/issues/72), [tags](https://github.com/PennyATS/PennyATS/issues/69), [resume on the profile](https://github.com/PennyATS/PennyATS/issues/68), [standard rejection reasons](https://github.com/PennyATS/PennyATS/issues/71), and [phone screen notes with an Archived view](https://github.com/PennyATS/PennyATS/issues/73).
 - **Jobs:** [compensation, hiring manager, and planning fields](https://github.com/PennyATS/PennyATS/issues/75), [job sub-navigation, stage tabs, and a details drawer](https://github.com/PennyATS/PennyATS/issues/79), [job overview and pipeline health](https://github.com/PennyATS/PennyATS/issues/33), [interview plans per job](https://github.com/PennyATS/PennyATS/issues/32), and [tidier job settings pages](https://github.com/PennyATS/PennyATS/issues/91).
 - **Dashboards and reports:** [Home, Executive, and Jobs dashboards](https://github.com/PennyATS/PennyATS/issues/78), [report charts with a graph / table toggle](https://github.com/PennyATS/PennyATS/issues/74), and [a fixed-order pipeline snapshot](https://github.com/PennyATS/PennyATS/issues/76).

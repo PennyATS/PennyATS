@@ -1,0 +1,5169 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PennyATS API",
+    "version": "1.0.0",
+    "description": "The public REST API for PennyATS. Generated from the code by `pnpm api:spec`; do not edit by hand.\n\nAuthenticate with `Authorization: Bearer <key>`. An admin creates keys in Settings > API. A key acts as one user and can never do more than that user; its scopes narrow it further. Interviewer keys only see jobs their user is on the hiring team for, and scorecards stay hidden until their user has submitted their own.\n\nLists are paginated with `limit` and `cursor`; follow `next_cursor` until it is null. Errors always look like `{\"error\": {\"code\", \"message\", \"details\"}}`.\n\nEvery write is recorded in the audit log with the key as actor. Send `X-PennyATS-Agent: <name>` from AI agents so their actions show as agent activity."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Relative to your PennyATS instance, e.g. https://ats.example.com/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Keys"
+    },
+    {
+      "name": "Jobs"
+    },
+    {
+      "name": "Stages"
+    },
+    {
+      "name": "Candidates"
+    },
+    {
+      "name": "Tags"
+    },
+    {
+      "name": "Notes"
+    },
+    {
+      "name": "Applications"
+    },
+    {
+      "name": "Scorecards"
+    },
+    {
+      "name": "Interviews"
+    },
+    {
+      "name": "Email"
+    },
+    {
+      "name": "Reports"
+    }
+  ],
+  "paths": {
+    "/me": {
+      "get": {
+        "operationId": "getMe",
+        "tags": [
+          "Keys"
+        ],
+        "summary": "The key and the user it acts as",
+        "description": "Any valid key can call this. Use it to check a key and see its scopes.\n\nNo scope needed.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs": {
+      "get": {
+        "operationId": "listJobs",
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "List jobs",
+        "description": "Newest first. Interviewer keys only see jobs their user is on the hiring team for.\n\nScope: `jobs:read`. Permission: `jobs.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "jobs:read"
+            ]
+          }
+        ],
+        "x-required-scope": "jobs:read",
+        "x-required-permission": "jobs.view",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 100.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The `next_cursor` from the previous page.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "open",
+                "closed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Job"
+                      }
+                    },
+                    "next_cursor": {
+                      "description": "Pass as `cursor` to get the next page. Null on the last page.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createJob",
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Create a job",
+        "description": "Create a job\n\nScope: `jobs:write`. Permission: `jobs.create`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "jobs:write"
+            ]
+          }
+        ],
+        "x-required-scope": "jobs:write",
+        "x-required-permission": "jobs.create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJob"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{id}": {
+      "get": {
+        "operationId": "getJob",
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Get a job",
+        "description": "Get a job\n\nScope: `jobs:read`. Permission: `jobs.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "jobs:read"
+            ]
+          }
+        ],
+        "x-required-scope": "jobs:read",
+        "x-required-permission": "jobs.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateJob",
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Update a job",
+        "description": "Update a job\n\nScope: `jobs:write`. Permission: `jobs.edit`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "jobs:write"
+            ]
+          }
+        ],
+        "x-required-scope": "jobs:write",
+        "x-required-permission": "jobs.edit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateJob"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{id}/stages": {
+      "get": {
+        "operationId": "listStages",
+        "tags": [
+          "Stages"
+        ],
+        "summary": "List a job's pipeline stages",
+        "description": "List a job's pipeline stages\n\nScope: `stages:read`. Permission: `jobs.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "stages:read"
+            ]
+          }
+        ],
+        "x-required-scope": "stages:read",
+        "x-required-permission": "jobs.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Stage"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createStage",
+        "tags": [
+          "Stages"
+        ],
+        "summary": "Add a stage at the end of a job's pipeline",
+        "description": "Add a stage at the end of a job's pipeline\n\nScope: `stages:write`. Permission: `jobs.edit`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "stages:write"
+            ]
+          }
+        ],
+        "x-required-scope": "stages:write",
+        "x-required-permission": "jobs.edit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/candidates": {
+      "get": {
+        "operationId": "listCandidates",
+        "tags": [
+          "Candidates"
+        ],
+        "summary": "Search candidates",
+        "description": "Same filters and boolean search as the Candidates page. Newest first.\n\nScope: `candidates:read`. Permission: `candidates.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "candidates:read"
+            ]
+          }
+        ],
+        "x-required-scope": "candidates:read",
+        "x-required-permission": "candidates.view",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 100.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The `next_cursor` from the previous page.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Boolean search over profile, tags, resume, notes, and history, as in the app (AND, OR, NOT, quotes).",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "description": "Stage name, case-insensitive, across jobs.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "hired",
+                "rejected",
+                "withdrawn"
+              ]
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "created_from",
+            "in": "query",
+            "required": false,
+            "description": "YYYY-MM-DD, inclusive.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "created_to",
+            "in": "query",
+            "required": false,
+            "description": "YYYY-MM-DD, inclusive.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Candidate"
+                      }
+                    },
+                    "next_cursor": {
+                      "description": "Pass as `cursor` to get the next page. Null on the last page.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCandidate",
+        "tags": [
+          "Candidates"
+        ],
+        "summary": "Add a candidate to a job",
+        "description": "Creates the candidate (or reuses one with the same email) and an application in the job's first stage. Fires `application.created`. Returns 409 when they already applied to that job.\n\nScope: `candidates:write`. Permission: `candidates.create`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "candidates:write"
+            ]
+          }
+        ],
+        "x-required-scope": "candidates:write",
+        "x-required-permission": "candidates.create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCandidate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "candidate": {
+                      "$ref": "#/components/schemas/CandidateDetail"
+                    },
+                    "application_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "created": {
+                      "type": "boolean",
+                      "description": "False when the email matched an existing candidate."
+                    }
+                  },
+                  "required": [
+                    "candidate",
+                    "application_id",
+                    "created"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/candidates/{id}": {
+      "get": {
+        "operationId": "getCandidate",
+        "tags": [
+          "Candidates"
+        ],
+        "summary": "Get a candidate with their applications",
+        "description": "Get a candidate with their applications\n\nScope: `candidates:read`. Permission: `candidates.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "candidates:read"
+            ]
+          }
+        ],
+        "x-required-scope": "candidates:read",
+        "x-required-permission": "candidates.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCandidate",
+        "tags": [
+          "Candidates"
+        ],
+        "summary": "Permanently delete a candidate",
+        "description": "Deletes the candidate and everything attached (applications, scorecards, notes, emails, resume). Cannot be undone. The audit log records that a deletion happened, never who was deleted.\n\nScope: `candidates:delete`. Permission: `privacy.delete`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "candidates:delete"
+            ]
+          }
+        ],
+        "x-required-scope": "candidates:delete",
+        "x-required-permission": "privacy.delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/candidates/{id}/tags": {
+      "get": {
+        "operationId": "listTags",
+        "tags": [
+          "Tags"
+        ],
+        "summary": "List a candidate's tags",
+        "description": "List a candidate's tags\n\nScope: `tags:read`. Permission: `candidates.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "tags:read"
+            ]
+          }
+        ],
+        "x-required-scope": "tags:read",
+        "x-required-permission": "candidates.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addTags",
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Add tags to a candidate",
+        "description": "Tags are normalized (lowercase, no #, spaces become hyphens) and de-duplicated.\n\nScope: `tags:write`. Permission: `candidates.edit`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "tags:write"
+            ]
+          }
+        ],
+        "x-required-scope": "tags:write",
+        "x-required-permission": "candidates.edit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tags": {
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 60
+                    }
+                  }
+                },
+                "required": [
+                  "tags"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/candidates/{id}/tags/{tag}": {
+      "delete": {
+        "operationId": "removeTag",
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Remove a tag from a candidate",
+        "description": "Remove a tag from a candidate\n\nScope: `tags:write`. Permission: `candidates.edit`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "tags:write"
+            ]
+          }
+        ],
+        "x-required-scope": "tags:write",
+        "x-required-permission": "candidates.edit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/candidates/{id}/notes": {
+      "get": {
+        "operationId": "listNotes",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "List a candidate's notes",
+        "description": "List a candidate's notes\n\nScope: `notes:read`. Permission: `notes.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "notes:read"
+            ]
+          }
+        ],
+        "x-required-scope": "notes:read",
+        "x-required-permission": "notes.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 100.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The `next_cursor` from the previous page.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Note"
+                      }
+                    },
+                    "next_cursor": {
+                      "description": "Pass as `cursor` to get the next page. Null on the last page.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Add a note to a candidate",
+        "description": "The note is written as the key's user.\n\nScope: `notes:write`. Permission: `notes.write`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "notes:write"
+            ]
+          }
+        ],
+        "x-required-scope": "notes:write",
+        "x-required-permission": "notes.write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications": {
+      "get": {
+        "operationId": "listApplications",
+        "tags": [
+          "Applications"
+        ],
+        "summary": "List applications",
+        "description": "Newest first.\n\nScope: `applications:read`. Permission: `applications.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "applications:read"
+            ]
+          }
+        ],
+        "x-required-scope": "applications:read",
+        "x-required-permission": "applications.view",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 100.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The `next_cursor` from the previous page.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stage_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "hired",
+                "rejected",
+                "withdrawn"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Application"
+                      }
+                    },
+                    "next_cursor": {
+                      "description": "Pass as `cursor` to get the next page. Null on the last page.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createApplication",
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Add an existing candidate to another job",
+        "description": "Starts in the job's first stage. Fires `application.created`. Returns 409 if they already applied.\n\nScope: `applications:write`. Permission: `applications.move`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "applications:write"
+            ]
+          }
+        ],
+        "x-required-scope": "applications:write",
+        "x-required-permission": "applications.move",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "candidate_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "job_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "candidate_id",
+                  "job_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{id}": {
+      "get": {
+        "operationId": "getApplication",
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Get an application",
+        "description": "Get an application\n\nScope: `applications:read`. Permission: `applications.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "applications:read"
+            ]
+          }
+        ],
+        "x-required-scope": "applications:read",
+        "x-required-permission": "applications.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{id}/move": {
+      "post": {
+        "operationId": "moveApplication",
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Move an application to another stage",
+        "description": "Same as moving a card on the pipeline board: logs stage history, creates the stage's planned interviews, sends the stage's automatic email if one is set, notifies the hiring team, and fires `application.stage_changed`.\n\nScope: `applications:write`. Permission: `applications.move`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "applications:write"
+            ]
+          }
+        ],
+        "x-required-scope": "applications:write",
+        "x-required-permission": "applications.move",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "stage_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "A stage of the application's job."
+                  }
+                },
+                "required": [
+                  "stage_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{id}/status": {
+      "post": {
+        "operationId": "setApplicationStatus",
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Hire, reject, withdraw, or reopen",
+        "description": "Rejections need a standard reason, the same list as the app.\n\nScope: `applications:write`. Permission: `applications.move`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "applications:write"
+            ]
+          }
+        ],
+        "x-required-scope": "applications:write",
+        "x-required-permission": "applications.move",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetStatus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{id}/scorecards": {
+      "get": {
+        "operationId": "listScorecards",
+        "tags": [
+          "Scorecards"
+        ],
+        "summary": "List scorecards on an application",
+        "description": "Interviewer keys see only their own user's scorecards until that user has submitted one on this application; `hidden_count` says how many are hidden.\n\nScope: `scorecards:read`. Permission: `scorecards.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "scorecards:read"
+            ]
+          }
+        ],
+        "x-required-scope": "scorecards:read",
+        "x-required-permission": "scorecards.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Scorecard"
+                      }
+                    },
+                    "hidden_count": {
+                      "type": "integer",
+                      "description": "Other people's scorecards hidden until the key's user submits their own, as in the app."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "hidden_count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitScorecard",
+        "tags": [
+          "Scorecards"
+        ],
+        "summary": "Submit a scorecard as the key's user",
+        "description": "For an interview, the key's user must be one of its interviewers (recruiters and admins may always submit). Fires `scorecard.submitted`.\n\nScope: `scorecards:write`. Permission: `scorecards.submit`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "scorecards:write"
+            ]
+          }
+        ],
+        "x-required-scope": "scorecards:write",
+        "x-required-permission": "scorecards.submit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitScorecard"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scorecard"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{id}/interviews": {
+      "get": {
+        "operationId": "listInterviews",
+        "tags": [
+          "Interviews"
+        ],
+        "summary": "List interviews on an application",
+        "description": "List interviews on an application\n\nScope: `interviews:read`. Permission: `interviews.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "interviews:read"
+            ]
+          }
+        ],
+        "x-required-scope": "interviews:read",
+        "x-required-permission": "interviews.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Interview"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createInterview",
+        "tags": [
+          "Interviews"
+        ],
+        "summary": "Add a one-off interview",
+        "description": "For interviews outside the job's interview plan. Planned interviews are created automatically on stage moves.\n\nScope: `interviews:write`. Permission: `interviews.schedule`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "interviews:write"
+            ]
+          }
+        ],
+        "x-required-scope": "interviews:write",
+        "x-required-permission": "interviews.schedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "duration_minutes": {
+                    "default": 45,
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 480
+                  },
+                  "interviewer_ids": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "Active users. They join the job's hiring team."
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Interview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{id}/email-drafts": {
+      "post": {
+        "operationId": "draftEmail",
+        "tags": [
+          "Email"
+        ],
+        "summary": "Draft an email from a template",
+        "description": "Renders the template with this application's merge fields. Nothing is sent or recorded.\n\nScope: `templates:read`. Permission: `templates.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "templates:read"
+            ]
+          }
+        ],
+        "x-required-scope": "templates:read",
+        "x-required-permission": "templates.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "template_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "template_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/{id}/emails": {
+      "post": {
+        "operationId": "sendEmail",
+        "tags": [
+          "Email"
+        ],
+        "summary": "Send a template email to the candidate",
+        "description": "Needs SMTP to be configured. The attempt is recorded on the candidate's timeline whatever the outcome.\n\nScope: `emails:send`. Permission: `email.send`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "emails:send"
+            ]
+          }
+        ],
+        "x-required-scope": "emails:send",
+        "x-required-permission": "email.send",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "template_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "template_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/email-templates": {
+      "get": {
+        "operationId": "listEmailTemplates",
+        "tags": [
+          "Email"
+        ],
+        "summary": "List email templates",
+        "description": "List email templates\n\nScope: `templates:read`. Permission: `templates.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "templates:read"
+            ]
+          }
+        ],
+        "x-required-scope": "templates:read",
+        "x-required-permission": "templates.view",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EmailTemplate"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/{table}": {
+      "get": {
+        "operationId": "getReport",
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Run a report",
+        "description": "The same tables as the Reports page and its CSV downloads.\n\nScope: `reports:read`. Permission: `reports.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "reports:read"
+            ]
+          }
+        ],
+        "x-required-scope": "reports:read",
+        "x-required-permission": "reports.view",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "funnel",
+                "jobs",
+                "trend",
+                "stages",
+                "sources",
+                "reasons",
+                "interviewers"
+              ]
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "query",
+            "required": false,
+            "description": "Limit to one job. Omit for all jobs.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "description": "Days back, or all time.",
+            "schema": {
+              "default": "90",
+              "type": "string",
+              "enum": [
+                "30",
+                "90",
+                "365",
+                "all"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "pats_<prefix>_<secret>",
+        "description": "API key from Settings > API."
+      }
+    },
+    "schemas": {
+      "Application": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "candidate_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "stage_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stage_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "hired",
+              "rejected",
+              "withdrawn"
+            ]
+          },
+          "rejection_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "applied_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          },
+          "stage_changed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          }
+        },
+        "required": [
+          "id",
+          "candidate_id",
+          "job_id",
+          "job_title",
+          "stage_id",
+          "stage_name",
+          "status",
+          "rejection_reason",
+          "applied_at",
+          "stage_changed_at"
+        ],
+        "additionalProperties": false,
+        "description": "One candidate's application to one job."
+      },
+      "Candidate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedin_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "has_resume": {
+            "type": "boolean"
+          },
+          "consented_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 timestamp in UTC."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "email",
+          "phone",
+          "linkedin_url",
+          "location",
+          "source",
+          "tags",
+          "has_resume",
+          "consented_at",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "description": "A person. Emails are stored lowercased and are unique."
+      },
+      "CandidateDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedin_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "has_resume": {
+            "type": "boolean"
+          },
+          "consented_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 timestamp in UTC."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Application"
+            },
+            "description": "Only applications on jobs the key's user can see."
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "email",
+          "phone",
+          "linkedin_url",
+          "location",
+          "source",
+          "tags",
+          "has_resume",
+          "consented_at",
+          "created_at",
+          "applications"
+        ],
+        "additionalProperties": false
+      },
+      "CreateCandidate": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The job to apply them to. They start in its first stage."
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 254
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reuses the existing candidate when the email is already known."
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "linkedin_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to API."
+          },
+          "tags": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40
+            }
+          }
+        },
+        "required": [
+          "job_id",
+          "full_name"
+        ],
+        "additionalProperties": false
+      },
+      "CreateJob": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "default": "draft",
+            "type": "string",
+            "enum": [
+              "draft",
+              "open",
+              "closed"
+            ]
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employment_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "full_time",
+                  "part_time",
+                  "contract",
+                  "internship",
+                  "temporary"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workplace_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "onsite",
+                  "hybrid",
+                  "remote"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hiring_manager_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recruiter_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false,
+        "description": "New jobs get the default pipeline stages."
+      },
+      "EmailDraft": {
+        "type": "object",
+        "properties": {
+          "application_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "template_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id",
+          "template_id",
+          "to",
+          "subject",
+          "text",
+          "html"
+        ],
+        "additionalProperties": false,
+        "description": "A rendered template. Nothing is sent or recorded."
+      },
+      "EmailResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "failed",
+              "skipped"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "error"
+        ],
+        "additionalProperties": false,
+        "description": "Every attempt is recorded on the candidate's timeline, including failed and skipped ones."
+      },
+      "EmailTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "subject",
+          "folder_id",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_request",
+                  "unauthorized",
+                  "missing_scope",
+                  "forbidden",
+                  "not_found",
+                  "conflict",
+                  "unprocessable",
+                  "rate_limited",
+                  "internal"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {}
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "description": "Every error response has this shape. `code` is stable; `message` is for people."
+      },
+      "Interview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "application_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "stage_name": {
+            "type": "string"
+          },
+          "duration_minutes": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "cancelled",
+              "to_schedule",
+              "scheduled",
+              "feedback_due",
+              "complete"
+            ]
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 timestamp in UTC."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meeting_location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "interviewer_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 timestamp in UTC."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 timestamp in UTC."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          }
+        },
+        "required": [
+          "id",
+          "application_id",
+          "name",
+          "stage_name",
+          "duration_minutes",
+          "status",
+          "scheduled_at",
+          "meeting_location",
+          "interviewer_ids",
+          "completed_at",
+          "cancelled_at",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "description": "Status is derived from the schedule and submitted scorecards."
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "open",
+              "closed"
+            ]
+          },
+          "department": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employment_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workplace_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidential": {
+            "type": "boolean"
+          },
+          "hiring_manager_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recruiter_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Stage"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "status",
+          "department",
+          "team",
+          "location",
+          "region",
+          "headcount",
+          "employment_type",
+          "workplace_type",
+          "description",
+          "confidential",
+          "hiring_manager_id",
+          "recruiter_id",
+          "stages",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "description": "A job. Compensation and internal notes are not exposed through the API yet."
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "prefix": {
+                "type": "string"
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO 8601 timestamp in UTC."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "prefix",
+              "scopes",
+              "expires_at"
+            ],
+            "additionalProperties": false
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "recruiter",
+                  "interviewer"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "email",
+              "role"
+            ],
+            "additionalProperties": false
+          },
+          "webhook_events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "application.created",
+                "application.stage_changed",
+                "scorecard.submitted"
+              ]
+            }
+          }
+        },
+        "required": [
+          "key",
+          "user",
+          "webhook_events"
+        ],
+        "additionalProperties": false,
+        "description": "The key making the request and the user it acts as."
+      },
+      "Note": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "candidate_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          }
+        },
+        "required": [
+          "id",
+          "candidate_id",
+          "author_id",
+          "author_name",
+          "body",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "Report": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "enum": [
+              "funnel",
+              "jobs",
+              "trend",
+              "stages",
+              "sources",
+              "reasons",
+              "interviewers"
+            ]
+          },
+          "head": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "table",
+          "head",
+          "rows"
+        ],
+        "additionalProperties": false,
+        "description": "The same table the Reports page and its CSV download show."
+      },
+      "Scorecard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "application_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "interview_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "stage_name": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string",
+            "enum": [
+              "strong_no",
+              "no",
+              "yes",
+              "strong_yes"
+            ]
+          },
+          "ratings": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            }
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC."
+          }
+        },
+        "required": [
+          "id",
+          "application_id",
+          "interview_id",
+          "author_id",
+          "author_name",
+          "stage_name",
+          "recommendation",
+          "ratings",
+          "summary",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "SetStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "hired",
+              "rejected",
+              "withdrawn"
+            ],
+            "description": "`active` reopens a closed application."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Required to reject: one of \"Does not meet minimum qualifications\", \"Not enough relevant experience\", \"Technical skills gap\", \"Did not pass assessment\", \"Communication\", \"Values or team alignment\", \"Overqualified\", \"Work authorization or eligibility\", \"Location or relocation mismatch\", \"Compensation mismatch\", \"Potentially fraudulent application\", \"Duplicate application\", \"Unresponsive\", \"Candidate withdrew interest\", \"Accepted another offer\", \"Hired another candidate\", \"Position filled\", \"Position closed or on hold\", \"Other\". Free text for withdrawn."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Optional note stored with a rejection reason."
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "Stage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "job_id",
+          "name",
+          "position"
+        ],
+        "additionalProperties": false,
+        "description": "A pipeline stage. Applications move through a job's stages in `position` order."
+      },
+      "SubmitScorecard": {
+        "type": "object",
+        "properties": {
+          "interview_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omit for a stage-level scorecard on the current stage."
+          },
+          "recommendation": {
+            "type": "string",
+            "enum": [
+              "strong_no",
+              "no",
+              "yes",
+              "strong_yes"
+            ]
+          },
+          "ratings": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            },
+            "description": "Attribute name to rating, 1 to 4. Names must be the interview's or job's scorecard attributes."
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "recommendation"
+        ],
+        "additionalProperties": false,
+        "description": "Submitting again for the same interview (or stage) edits the earlier scorecard."
+      },
+      "UpdateJob": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "open",
+              "closed"
+            ]
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employment_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "full_time",
+                  "part_time",
+                  "contract",
+                  "internship",
+                  "temporary"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workplace_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "onsite",
+                  "hybrid",
+                  "remote"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hiring_manager_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recruiter_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "Only the fields you send change."
+      }
+    }
+  },
+  "x-scopes": [
+    {
+      "scope": "jobs:read",
+      "description": "List and view jobs the key's user can see",
+      "permissions": [
+        "jobs.view"
+      ]
+    },
+    {
+      "scope": "jobs:write",
+      "description": "Create and edit jobs",
+      "permissions": [
+        "jobs.create",
+        "jobs.edit"
+      ]
+    },
+    {
+      "scope": "stages:read",
+      "description": "View a job's pipeline stages",
+      "permissions": [
+        "jobs.view"
+      ]
+    },
+    {
+      "scope": "stages:write",
+      "description": "Add pipeline stages",
+      "permissions": [
+        "jobs.edit"
+      ]
+    },
+    {
+      "scope": "candidates:read",
+      "description": "Search and view candidates",
+      "permissions": [
+        "candidates.view"
+      ]
+    },
+    {
+      "scope": "candidates:write",
+      "description": "Add candidates",
+      "permissions": [
+        "candidates.create"
+      ]
+    },
+    {
+      "scope": "candidates:delete",
+      "description": "Permanently delete candidates (admin keys only)",
+      "permissions": [
+        "privacy.delete"
+      ]
+    },
+    {
+      "scope": "applications:read",
+      "description": "List and view applications",
+      "permissions": [
+        "applications.view"
+      ]
+    },
+    {
+      "scope": "applications:write",
+      "description": "Add applications, move stages, hire, reject, withdraw, reopen",
+      "permissions": [
+        "applications.move"
+      ]
+    },
+    {
+      "scope": "scorecards:read",
+      "description": "Read scorecards (hidden until the key's user submits their own, as in the app)",
+      "permissions": [
+        "scorecards.view"
+      ]
+    },
+    {
+      "scope": "scorecards:write",
+      "description": "Submit scorecards as the key's user",
+      "permissions": [
+        "scorecards.submit"
+      ]
+    },
+    {
+      "scope": "notes:read",
+      "description": "Read candidate notes",
+      "permissions": [
+        "notes.view"
+      ]
+    },
+    {
+      "scope": "notes:write",
+      "description": "Add candidate notes",
+      "permissions": [
+        "notes.write"
+      ]
+    },
+    {
+      "scope": "tags:read",
+      "description": "Read candidate tags",
+      "permissions": [
+        "candidates.view"
+      ]
+    },
+    {
+      "scope": "tags:write",
+      "description": "Add and remove candidate tags",
+      "permissions": [
+        "candidates.edit"
+      ]
+    },
+    {
+      "scope": "interviews:read",
+      "description": "View interviews",
+      "permissions": [
+        "interviews.view"
+      ]
+    },
+    {
+      "scope": "interviews:write",
+      "description": "Add interviews",
+      "permissions": [
+        "interviews.schedule"
+      ]
+    },
+    {
+      "scope": "reports:read",
+      "description": "Run reports",
+      "permissions": [
+        "reports.view"
+      ]
+    },
+    {
+      "scope": "templates:read",
+      "description": "List email templates and draft emails from them",
+      "permissions": [
+        "templates.view"
+      ]
+    },
+    {
+      "scope": "emails:send",
+      "description": "Send template emails to candidates",
+      "permissions": [
+        "email.send"
+      ]
+    }
+  ],
+  "x-webhooks": [
+    {
+      "event": "application.created",
+      "description": "Someone applied, or a candidate was added to a job."
+    },
+    {
+      "event": "application.stage_changed",
+      "description": "An application moved to another stage."
+    },
+    {
+      "event": "scorecard.submitted",
+      "description": "A scorecard was submitted or edited."
+    }
+  ]
+}

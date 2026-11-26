@@ -61,25 +61,9 @@ export async function prepareTemplateEmail(input: {
   stageId?: string | null;
   triggerKey?: string | null;
 }): Promise<EmailAttempt> {
-  const [row] = await db()
-    .select({
-      candidateId: candidates.id, name: candidates.fullName, email: candidates.email,
-      jobTitle: jobs.title, stageName: stages.name,
-    })
-    .from(applications)
-    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
-    .innerJoin(jobs, eq(jobs.id, applications.jobId))
-    .leftJoin(stages, eq(stages.id, applications.stageId))
-    .where(eq(applications.id, input.applicationId));
-  const [template] = await db().select().from(emailTemplates).where(eq(emailTemplates.id, input.templateId));
-  if (!row || !template) return { status: "missing" };
-
-  const values = mergeValues({
-    candidateName: row.name, jobTitle: row.jobTitle, companyName: await getCompanyName(), stageName: row.stageName,
-  });
-  const subject = renderEmailTemplate(template.subject, values).replace(/\s+/g, " ").trim();
-  const text = renderEmailTemplate(template.body, values);
-  const html = renderEmailHtml(templateHtml(template), values);
+  const draft = await renderTemplateEmail(input.applicationId, input.templateId);
+  if (!draft) return { status: "missing" };
+  const { row, template, subject, text, html } = draft;
   const error = !row.email ? "Candidate has no email address." : !smtpConfigured() ? "SMTP is not configured." : null;
 
   const [record] = await db().insert(emails).values({
@@ -91,6 +75,30 @@ export async function prepareTemplateEmail(input: {
   if (error) return { status: "skipped", id: record.id, error };
   const message = { to: row.email!, subject, text, html: emailDocument(html) };
   return { status: "sending", id: record.id, deliver: () => deliver(record.id, message) };
+}
+
+/** Render a template with one application's merge fields, without sending or recording it. */
+export async function renderTemplateEmail(applicationId: string, templateId: string) {
+  const [row] = await db()
+    .select({
+      candidateId: candidates.id, name: candidates.fullName, email: candidates.email,
+      jobTitle: jobs.title, stageName: stages.name,
+    })
+    .from(applications)
+    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    .innerJoin(jobs, eq(jobs.id, applications.jobId))
+    .leftJoin(stages, eq(stages.id, applications.stageId))
+    .where(eq(applications.id, applicationId));
+  const [template] = await db().select().from(emailTemplates).where(eq(emailTemplates.id, templateId));
+  if (!row || !template) return null;
+
+  const values = mergeValues({
+    candidateName: row.name, jobTitle: row.jobTitle, companyName: await getCompanyName(), stageName: row.stageName,
+  });
+  const subject = renderEmailTemplate(template.subject, values).replace(/\s+/g, " ").trim();
+  const text = renderEmailTemplate(template.body, values);
+  const html = renderEmailHtml(templateHtml(template), values);
+  return { row, template, subject, text, html };
 }
 
 /**

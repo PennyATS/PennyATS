@@ -16,6 +16,7 @@ import type { SessionUser } from "./auth";
 import { seesAllJobs } from "./permissions";
 import { isUuid, type CandidateInput } from "./validation";
 import { jobWatchers, notify } from "./notifications";
+import { queueWebhookEvent } from "./webhooks";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type Executor = Db | Tx;
@@ -109,6 +110,20 @@ export async function addApplication(
     candidateId = created.id;
   }
 
+  const started = await startApplication(ex, { candidateId, jobId: input.jobId, actorId: input.actorId, source: candidate.source });
+  return { candidateId, ...started };
+}
+
+/**
+ * Put an existing candidate in a job's first stage: creates the stage's planned interviews,
+ * logs it, notifies the hiring team, and queues the application.created webhook.
+ * Returns created: false when they already have an application for this job.
+ */
+export async function startApplication(
+  ex: Executor,
+  input: { candidateId: string; jobId: string; actorId: string | null; source: string | null },
+): Promise<{ applicationId: string | null; created: boolean }> {
+  const { candidateId } = input;
   const [firstStage] = await ex
     .select({ id: stages.id })
     .from(stages)
@@ -122,18 +137,29 @@ export async function addApplication(
     .onConflictDoNothing()
     .returning({ id: applications.id });
 
-  if (!application) return { candidateId, applicationId: null, created: false };
+  if (!application) return { applicationId: null, created: false };
 
   if (firstStage) await createStageInterviews(ex, application.id, firstStage.id, input.actorId);
   await logActivity(ex, {
     applicationId: application.id,
     actorId: input.actorId,
     type: input.actorId ? "added" : "applied",
-    data: { source: candidate.source },
+    data: { source: input.source },
   });
   const watchers = await jobWatchers(ex, input.jobId);
   await notify(ex, input.actorId, watchers.map((userId) => ({ userId, kind: "application" as const, applicationId: application.id })));
-  return { candidateId, applicationId: application.id, created: true };
+  const [stage] = firstStage
+    ? await ex.select({ name: stages.name }).from(stages).where(eq(stages.id, firstStage.id))
+    : [];
+  await queueWebhookEvent(ex, "application.created", {
+    application_id: application.id,
+    candidate_id: candidateId,
+    job_id: input.jobId,
+    stage_id: firstStage?.id ?? null,
+    stage_name: stage?.name ?? null,
+    source: input.source,
+  }, candidateId);
+  return { applicationId: application.id, created: true };
 }
 
 /** Applications the user may act on, with job access checked. */
@@ -199,6 +225,14 @@ export async function moveApplication(user: SessionUser, applicationId: string, 
     const [stage] = await tx.select({ name: stages.name }).from(stages).where(eq(stages.id, stageId));
     const watchers = await jobWatchers(tx, app.jobId);
     await notify(tx, user.id, watchers.map((userId) => ({ userId, kind: "stage_changed" as const, applicationId: app.id, data: { stage: stage?.name ?? "" } })));
+    await queueWebhookEvent(tx, "application.stage_changed", {
+      application_id: app.id,
+      candidate_id: app.candidateId,
+      job_id: app.jobId,
+      from_stage_id: app.stageId,
+      to_stage_id: stageId,
+      to_stage_name: stage?.name ?? null,
+    }, app.candidateId);
   });
   return app;
 }

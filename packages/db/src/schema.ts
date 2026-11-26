@@ -568,10 +568,84 @@ export const auditLog = pgTable(
     action: text("action").notNull(),
     /** Null for automated runs such as a scheduled retention purge. */
     actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    /** user (signed in), api_key (a script using a key), agent (an AI agent such as the MCP server), system. */
+    actorType: text("actor_type").notNull().default("user"),
+    /** The API key that made the change, when it came through the API. */
+    apiKeyId: uuid("api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
     data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("audit_log_created_idx").on(t.createdAt)],
+);
+
+/* ---------- Public API and webhooks ---------- */
+
+/**
+ * Keys for the public REST API (/api/v1). A key acts as one user and can never do more than
+ * that user; scopes narrow it further. Only the SHA-256 of the full key is stored. The
+ * prefix is the visible, non-secret part used to tell keys apart.
+ */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    keyHash: text("key_hash").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    scopes: text("scopes").array().notNull().default([]),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("api_keys_prefix_idx").on(t.prefix), uniqueIndex("api_keys_hash_idx").on(t.keyHash)],
+);
+
+/** Outgoing webhook endpoints. The signing secret is encrypted with AUTH_SECRET, since HMAC needs it back. */
+export const webhooks = pgTable("webhooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  url: text("url").notNull(),
+  /** Event names, e.g. application.created. */
+  events: text("events").array().notNull().default([]),
+  secretEncrypted: text("secret_encrypted").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One event for one webhook, with its delivery state. Payloads hold ids and stage names
+ * only, never names or contact details. Rows go when the candidate they are about does.
+ */
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    webhookId: uuid("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    /** Same for every webhook that receives this event, so receivers can de-duplicate. */
+    eventId: uuid("event_id").notNull(),
+    event: text("event").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    candidateId: uuid("candidate_id").references(() => candidates.id, { onDelete: "cascade" }),
+    /** pending, delivered, or failed (gave up after the last retry). */
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    lastStatusCode: integer("last_status_code"),
+    lastError: text("last_error"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("webhook_deliveries_due_idx").on(t.status, t.nextAttemptAt),
+    index("webhook_deliveries_webhook_idx").on(t.webhookId, t.createdAt),
+  ],
 );
 
 /** Tracks whether the instance has been set up (first admin created). */

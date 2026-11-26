@@ -13,6 +13,8 @@
     "test": "pnpm -r test",
     "test:integration": "node scripts/run-integration.mjs",
     "privacy:purge": "pnpm --filter @pennyats/web privacy:purge",
+    "webhooks:deliver": "pnpm --filter @pennyats/web webhooks:deliver",
+    "api:spec": "pnpm --filter @pennyats/web api:spec",
     "calendar:sync": "pnpm --filter @pennyats/web calendar:sync",
     "scheduling:mail": "pnpm --filter @pennyats/web scheduling:mail",
     "scheduling:integration": "pnpm --filter @pennyats/web scheduling:integration"

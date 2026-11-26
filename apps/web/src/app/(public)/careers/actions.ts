@@ -5,6 +5,7 @@ import { jobs } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { db } from "@/lib/db";
 import { addApplication } from "@/lib/hiring";
+import { deliverDueWebhooks } from "@/lib/webhooks";
 import { getPrivacySettings } from "@/lib/privacy";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
@@ -58,6 +59,7 @@ export async function applyAction(jobId: string, _: FormState, form: FormData): 
     }),
   );
   if (result.created && result.applicationId) await sendStageEntryEmail(result.applicationId, null, null);
+  void deliverDueWebhooks();
   // Same reply whether or not they had already applied, so the form can't be used
   // to check whether someone is a candidate.
   return { message: THANKS };

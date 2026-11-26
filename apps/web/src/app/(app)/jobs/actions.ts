@@ -1,20 +1,19 @@
 "use server";
 
-import { and, asc, count, eq, inArray, like, max, or } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { DEFAULT_STAGES, applications, jobTeam, jobs, stages, users } from "@pennyats/db";
+import { applications, jobTeam, jobs, stages, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { jobDescriptionPrompt } from "@/lib/ai-rules";
-import { moveApplication } from "@/lib/hiring";
-import { sendStageEntryEmail } from "@/lib/candidate-email";
-import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
+import { moveStage } from "@/lib/pipeline";
 import { MAX_ATTRIBUTES, parseAttributes } from "@/lib/scorecards";
 import { canManageHiring } from "@/lib/permissions";
-import { field, isUuid, slugify } from "@/lib/validation";
+import { field, isUuid } from "@/lib/validation";
+import { addPeopleToTeam, appendStage, checkPeople, createJob } from "@/lib/jobs";
 import { parseJobDetails } from "@/lib/job-fields";
 
 const STATUSES = ["draft", "open", "closed"] as const;
@@ -47,33 +46,6 @@ function parseJob(form: FormData) {
   } as const;
 }
 
-/** "Senior Engineer" -> "senior-engineer", or "senior-engineer-2" if taken. */
-async function uniqueSlug(title: string): Promise<string> {
-  const base = slugify(title);
-  const taken = await db()
-    .select({ slug: jobs.slug })
-    .from(jobs)
-    .where(or(eq(jobs.slug, base), like(jobs.slug, `${base}-%`)));
-  const used = new Set(taken.map((r) => r.slug));
-  if (!used.has(base)) return base;
-  let n = 2;
-  while (used.has(`${base}-${n}`)) n += 1;
-  return `${base}-${n}`;
-}
-
-/** The hiring manager and recruiter must be active users; they join the hiring team so they can see the job. */
-async function checkPeople(value: { hiringManagerId: string | null; recruiterId: string | null }): Promise<string | null> {
-  const ids = [value.hiringManagerId, value.recruiterId].filter((id): id is string => Boolean(id));
-  if (ids.length === 0) return null;
-  const found = await db().select({ id: users.id }).from(users).where(and(inArray(users.id, ids), eq(users.active, true)));
-  return found.length === new Set(ids).size ? null : "Pick an active user for the hiring manager and recruiter.";
-}
-
-async function addPeopleToTeam(ex: Pick<ReturnType<typeof db>, "insert">, jobId: string, value: { hiringManagerId: string | null; recruiterId: string | null }) {
-  const ids = [...new Set([value.hiringManagerId, value.recruiterId].filter((id): id is string => Boolean(id)))];
-  if (ids.length) await ex.insert(jobTeam).values(ids.map((userId) => ({ jobId, userId }))).onConflictDoNothing();
-}
-
 export async function createJobAction(_: FormState, form: FormData): Promise<FormState> {
   const user = await requireUser(canManageHiring);
   const parsed = parseJob(form);
@@ -81,18 +53,7 @@ export async function createJobAction(_: FormState, form: FormData): Promise<For
   const peopleError = await checkPeople(parsed.value);
   if (peopleError) return { error: peopleError };
 
-  const slug = await uniqueSlug(parsed.value.title);
-  const jobId = await db().transaction(async (tx) => {
-    const [job] = await tx
-      .insert(jobs)
-      .values({ ...parsed.value, slug, createdBy: user.id })
-      .returning({ id: jobs.id });
-    await tx
-      .insert(stages)
-      .values(DEFAULT_STAGES.map((name, position) => ({ jobId: job.id, name, position })));
-    await addPeopleToTeam(tx, job.id, parsed.value);
-    return job.id;
-  });
+  const jobId = await createJob(parsed.value, user.id);
   redirect(`/jobs/${jobId}`);
 }
 
@@ -124,11 +85,7 @@ export async function addStageAction(jobId: string, form: FormData): Promise<voi
   await requireUser(canManageHiring);
   const name = field(form, "name", 100);
   if (!name) return;
-  const [{ top }] = await db()
-    .select({ top: max(stages.position) })
-    .from(stages)
-    .where(eq(stages.jobId, jobId));
-  await db().insert(stages).values({ jobId, name, position: (top ?? -1) + 1 });
+  await appendStage(jobId, name);
   stagePath(jobId);
 }
 
@@ -203,11 +160,8 @@ export async function removeTeamMemberAction(jobId: string, userId: string): Pro
 /** Called by the kanban board when a card is dropped or moved with the arrow buttons. */
 export async function moveCardAction(applicationId: string, stageId: string): Promise<{ ok: boolean }> {
   const user = await requireUser(canManageHiring);
-  const moved = await moveApplication(user, applicationId, stageId);
+  const moved = await moveStage(user, applicationId, stageId);
   if (!moved) return { ok: false };
-  if (moved.stageId) await suppressQueuedStageLinks(applicationId, moved.stageId);
-  await queueStageLinkOnEntry(applicationId, stageId);
-  await sendStageEntryEmail(applicationId, stageId, user.id);
   revalidatePath(`/jobs/${moved.jobId}`);
   revalidatePath(`/candidates/${moved.candidateId}`);
   return { ok: true };
