@@ -17,8 +17,8 @@ PennyATS aims to be a near one-to-one open source alternative to Ashby and Green
 
 ## 1. Agent-ready platform (crucial)
 
-- [#115](https://github.com/PennyATS/PennyATS/issues/115) Public REST API with OpenAPI spec, scoped API keys, and webhooks
-- [#116](https://github.com/PennyATS/PennyATS/issues/116) MCP server so Claude, ChatGPT, and Cursor can operate PennyATS (read-only mode, confirmation for destructive actions, audit logged)
+- [#115](https://github.com/PennyATS/PennyATS/issues/115) Public REST API with OpenAPI spec, scoped API keys, and webhooks. **Shipped** in [#127](https://github.com/PennyATS/PennyATS/pull/127): see [docs/api.md](docs/api.md).
+- [#116](https://github.com/PennyATS/PennyATS/issues/116) MCP server so Claude, ChatGPT, and Cursor can operate PennyATS (read-only mode, confirmation for destructive actions, audit logged). **Shipped**: see [docs/mcp.md](docs/mcp.md). Follow-up: OAuth on the HTTP endpoint for clients that can't send an API key header.
 - [#114](https://github.com/PennyATS/PennyATS/issues/114) Open, versioned data schema the ecosystem can build on
 - [#117](https://github.com/PennyATS/PennyATS/issues/117) Integration points for sourcing tools, schedulers, and AI assistants (relates to #26 and #43)
 

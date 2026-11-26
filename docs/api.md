@@ -3,7 +3,7 @@
 PennyATS has a public REST API under `/api/v1` so scripts, integrations, and AI agents can do the everyday hiring work people do in the app. There are no per-seat limits: any number of keys, for any number of tools.
 
 - **Reference:** [`docs/api/openapi.json`](api/openapi.json) (OpenAPI 3.1). Your instance also serves it at `/api/v1/openapi.json`. Load it into Swagger UI, Postman, or an agent framework.
-- **Agents:** the MCP server for Claude, ChatGPT, and Cursor is tracked in [#116](https://github.com/PennyATS/PennyATS/issues/116).
+- **Agents:** the [MCP server](mcp.md) lets Claude, ChatGPT, and Cursor use this API with a scoped key.
 
 The OpenAPI document is generated from the same zod schemas the endpoints validate requests with (`apps/web/src/lib/api/`). Run `pnpm api:spec` after changing the API. CI fails when the committed document and the code disagree.
 
