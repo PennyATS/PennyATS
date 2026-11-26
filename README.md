@@ -20,9 +20,9 @@ These images use fictional candidates from the demo seed.
 
 | Pipeline board | Candidate profile |
 | --- | --- |
-| [![Pipeline board with candidates in different interview stages](docs/media/pipeline-board.png)](docs/media/pipeline-board.png) | [![Candidate profile with an application, scorecard, notes, and activity](docs/media/candidate-profile.png)](docs/media/candidate-profile.png) |
+| [![Pipeline board with candidates in different interview stages](docs/media/pipeline-board.png)](docs/media/pipeline-board.png) | [![Candidate profile with contact details, application, and interview scheduling](docs/media/candidate-profile.png)](docs/media/candidate-profile.png) |
 | **Scorecard** | **Reports** |
-| [![Interview scorecard with ratings and a recommendation](docs/media/scorecard.png)](docs/media/scorecard.png) | [![Hiring reports with summary statistics and a funnel](docs/media/reports.png)](docs/media/reports.png) |
+| [![Interview scorecard with ratings and a recommendation](docs/media/scorecard.png)](docs/media/scorecard.png) | [![Hiring reports with summary statistics and job outcomes](docs/media/reports.png)](docs/media/reports.png) |
 
 ## What works today
 
