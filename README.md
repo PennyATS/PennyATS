@@ -37,6 +37,7 @@ These images use fictional candidates from the demo seed.
 - **Reports.** Filter by job and period to see the hiring funnel, time in each stage, time to hire, which sources produce hires, rejection reasons, and how many scorecards each interviewer has submitted.
 - **Optional AI.** Bring your own Anthropic or OpenAI key (or a local model through an OpenAI-compatible server like Ollama) to draft job descriptions and summarize interview feedback. Off unless you add a key, and each feature can be switched off.
 - **REST API and webhooks.** A documented [public API](docs/api.md) for jobs, stages, candidates, applications, scorecards, notes, tags, interviews, reports, and email, with an [OpenAPI document](docs/api/openapi.json) generated from the code. Admins create scoped keys that act as one teammate and can never do more than that person, so interviewer keys only see their jobs and scorecards stay blind. Every API write is in the audit log. Signed webhooks for new applications, stage changes, and scorecards, with retries and a delivery log. No per-seat limits.
+- **MCP server for AI assistants.** Connect Claude, ChatGPT, or Cursor with a scoped key to search candidates, read scorecards, run reports, draft emails, and (if you allow it) move candidates and add notes. Read-only by default, with confirmation required before rejecting, emailing, or deleting.
 - **Privacy tools.** A privacy notice and optional consent checkbox on the apply form, one-click export of everything stored about a candidate, permanent deletion, automatic deletion of rejected candidates after a retention period you choose, and an audit log that records each of these without keeping the deleted person's details.
 
 ## Quick start
@@ -116,6 +117,8 @@ Run `pnpm calendar:sync` regularly to pull Google Calendar edits, cancellations,
 
 Admins create API keys and webhooks under **Admin > API and webhooks**. See [docs/api.md](docs/api.md) for authentication, scopes, errors, pagination, the audit log, and verifying webhook signatures. The full reference is [docs/api/openapi.json](docs/api/openapi.json), also served by your instance at `/api/v1/openapi.json`.
 
+To let Claude, ChatGPT, or Cursor work in PennyATS, run the [MCP server](docs/mcp.md) in `packages/mcp`. It is read-only by default, asks for confirmation before rejecting, emailing, or deleting, redacts contact details, and shows up in the audit log as agent activity.
+
 Webhooks are sent right away and retried by the running server. Also schedule `pnpm webhooks:deliver` (for example every 5 minutes with cron) so retries survive a restart.
 
 ## Development
@@ -133,6 +136,7 @@ apps/web         Next.js app (UI, server actions, API routes)
 packages/db      Drizzle schema, migrations, seed, password hashing
 packages/ai      Provider interface (Anthropic, OpenAI), off unless configured
 packages/redact  PII redaction before AI calls
+packages/mcp     MCP server for AI assistants, using the public API
 docker           Production Dockerfile and Docker Compose
 ```
 
@@ -148,7 +152,7 @@ For the longer-term direction (agent-ready API and MCP server, security, complia
 
 ### Recently shipped
 
-- **Agent-ready platform:** [public REST API with scoped keys, an OpenAPI document, and signed webhooks](https://github.com/PennyATS/PennyATS/issues/115).
+- **Agent-ready platform:** [public REST API with scoped keys, an OpenAPI document, and signed webhooks](https://github.com/PennyATS/PennyATS/issues/115), and an [MCP server for Claude, ChatGPT, and Cursor](https://github.com/PennyATS/PennyATS/issues/116).
 - **Candidate review:** [column filters](https://github.com/PennyATS/PennyATS/issues/67), [boolean search across resumes, notes, and phone screens](https://github.com/PennyATS/PennyATS/issues/70), [next / previous review arrows](https://github.com/PennyATS/PennyATS/issues/72), [tags](https://github.com/PennyATS/PennyATS/issues/69), [resume on the profile](https://github.com/PennyATS/PennyATS/issues/68), [standard rejection reasons](https://github.com/PennyATS/PennyATS/issues/71), and [phone screen notes with an Archived view](https://github.com/PennyATS/PennyATS/issues/73).
 - **Jobs:** [compensation, hiring manager, and planning fields](https://github.com/PennyATS/PennyATS/issues/75), [job sub-navigation, stage tabs, and a details drawer](https://github.com/PennyATS/PennyATS/issues/79), [job overview and pipeline health](https://github.com/PennyATS/PennyATS/issues/33), [interview plans per job](https://github.com/PennyATS/PennyATS/issues/32), and [tidier job settings pages](https://github.com/PennyATS/PennyATS/issues/91).
 - **Dashboards and reports:** [Home, Executive, and Jobs dashboards](https://github.com/PennyATS/PennyATS/issues/78), [report charts with a graph / table toggle](https://github.com/PennyATS/PennyATS/issues/74), and [a fixed-order pipeline snapshot](https://github.com/PennyATS/PennyATS/issues/76).
