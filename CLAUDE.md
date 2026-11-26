@@ -100,6 +100,8 @@ Work to do lives in GitHub issues (https://github.com/PennyATS/PennyATS/issues) 
 
 ## Roadmap
 
+The long-term direction, with linked issues, lives in [ROADMAP.md](ROADMAP.md). Read it before planning work. The GitHub issues and project board are the live status.
+
 1. Foundation (done)
 2. Auth (roles: admin, recruiter, interviewer), jobs create and edit, public careers page, applications, candidate profile (done)
 3. Pipeline kanban and scorecards (done)

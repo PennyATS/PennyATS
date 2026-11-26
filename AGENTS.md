@@ -13,3 +13,7 @@ When ChatGPT Codex materially contributes to a commit, keep the human contributo
 `Co-authored-by: ChatGPT Codex <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>`
 
 Add the trailer only to commits containing ChatGPT Codex work. Preserve any other applicable co-author trailers. Do not rewrite existing commits solely to add attribution.
+
+## Roadmap
+
+Read [ROADMAP.md](ROADMAP.md) before planning or proposing work. It holds the long-term direction, including the agent-ready API and MCP server, security and compliance goals, and careers-page parity, with links to the GitHub issues. The issues and the GitHub project board are the live source of truth for status. When a request changes the direction, update ROADMAP.md in the same pull request.
