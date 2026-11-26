@@ -133,8 +133,8 @@ function addDays(date: string, days: number): string {
   return d.toISOString();
 }
 
-/** WHERE clause for the filters, limited to what the user may see. */
-async function whereFor(user: SessionUser, filters: CandidateFilters): Promise<SQL | null> {
+/** WHERE clause for the filters, limited to what the user may see. Null when they see nothing. Shared with the API. */
+export async function candidateWhere(user: SessionUser, filters: CandidateFilters): Promise<SQL | null> {
   const ids = await visibleJobIds(user);
   if (ids !== null && ids.length === 0) return null;
   const query = filters.q ? parseQuery(filters.q) : null;
@@ -184,7 +184,7 @@ export async function searchCandidates(
   filters: CandidateFilters,
   limit: number,
 ): Promise<CandidateListRow[]> {
-  const where = await whereFor(user, filters);
+  const where = await candidateWhere(user, filters);
   if (!where) return [];
   return db()
     .select({
@@ -211,7 +211,7 @@ export async function reviewNeighbors(
   filters: CandidateFilters,
   current: { id: string; createdAt: Date },
 ): Promise<{ prev: string | null; next: string | null; position: number | null; total: number }> {
-  const where = await whereFor(user, filters);
+  const where = await candidateWhere(user, filters);
   if (!where) return { prev: null, next: null, position: null, total: 0 };
   const rows = await db()
     .select({ id: candidates.id, createdAt: candidates.createdAt })

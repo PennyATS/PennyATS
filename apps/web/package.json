@@ -10,6 +10,8 @@
     "test": "tsx --test \"src/**/*.test.ts\"",
     "test:integration": "playwright test",
     "privacy:purge": "tsx scripts/privacy-purge.mts",
+    "webhooks:deliver": "tsx scripts/webhooks-deliver.mts",
+    "api:spec": "tsx scripts/api-spec.mts",
     "calendar:sync": "tsx scripts/calendar-sync.mts",
     "scheduling:mail": "tsx scripts/scheduling-mail.mts",
     "scheduling:integration": "tsx scripts/scheduling-integration.mts"
@@ -27,7 +29,8 @@
     "nodemailer": "^10.6.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sanitize-html": "^2.18.2"
+    "sanitize-html": "^2.18.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

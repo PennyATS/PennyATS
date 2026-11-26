@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { auditLog, users } from "@pennyats/db";
+import { apiKeys, auditLog, users } from "@pennyats/db";
 import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -13,7 +13,21 @@ const ACTION_LABELS: Record<string, string> = {
   candidate_exported: "Exported a candidate's data",
   retention_purge: "Retention purge",
   privacy_settings_changed: "Changed privacy settings",
+  api_key_created: "Created an API key",
+  api_key_revoked: "Revoked an API key",
+  webhook_created: "Added a webhook",
+  webhook_changed: "Turned a webhook on or off",
+  webhook_deleted: "Deleted a webhook",
+  api_write: "Change through the API",
 };
+
+/** Who did it: a person, a person's API key, or an AI agent using one. */
+function actorText(entry: { actor: string | null; actorType: string; keyName: string | null; data: Record<string, unknown> }) {
+  const key = entry.keyName ?? (typeof entry.data.key === "string" ? entry.data.key : "an API key");
+  if (entry.actorType === "agent") return `Agent ${typeof entry.data.agent === "string" ? `"${entry.data.agent}" ` : ""}via ${key}, as ${entry.actor ?? "a removed user"}`;
+  if (entry.actorType === "api_key") return `${key}, as ${entry.actor ?? "a removed user"}`;
+  return entry.actor ?? "Scheduled job";
+}
 
 export default async function PrivacySettingsPage() {
   await requireUser(canManageUsers);
@@ -21,9 +35,17 @@ export default async function PrivacySettingsPage() {
   const [expired, log] = await Promise.all([
     settings.retentionMonths ? expiredCandidateIds(settings.retentionMonths) : Promise.resolve([]),
     db()
-      .select({ action: auditLog.action, data: auditLog.data, createdAt: auditLog.createdAt, actor: users.name })
+      .select({
+        action: auditLog.action,
+        data: auditLog.data,
+        createdAt: auditLog.createdAt,
+        actor: users.name,
+        actorType: auditLog.actorType,
+        keyName: apiKeys.name,
+      })
       .from(auditLog)
       .leftJoin(users, eq(users.id, auditLog.actorId))
+      .leftJoin(apiKeys, eq(apiKeys.id, auditLog.apiKeyId))
       .orderBy(desc(auditLog.createdAt))
       .limit(25),
   ]);
@@ -130,10 +152,13 @@ export default async function PrivacySettingsPage() {
               <tr key={i}>
                 <td>{entry.createdAt.toLocaleString()}</td>
                 <td>{ACTION_LABELS[entry.action] ?? entry.action}</td>
-                <td>{entry.actor ?? "Scheduled job"}</td>
+                <td>{actorText(entry)}</td>
                 <td className="muted">
                   {typeof entry.data.count === "number" && `${entry.data.count} deleted. `}
                   {typeof entry.data.reason === "string" && entry.data.reason}
+                  {entry.action === "api_write" && `${String(entry.data.method)} ${String(entry.data.route)}`}
+                  {typeof entry.data.name === "string" && entry.action.startsWith("api_key") && `${entry.data.name} `}
+                  {typeof entry.data.url === "string" && entry.data.url}
                 </td>
               </tr>
             ))}

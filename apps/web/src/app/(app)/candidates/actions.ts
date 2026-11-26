@@ -3,26 +3,21 @@
 import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { applicationNotes, applications, candidates, emails, emailTemplates, jobs, notes, schedulingDeliveries, scorecards } from "@pennyats/db";
+import { applicationNotes, candidates, emails, emailTemplates, jobs, schedulingDeliveries, scorecards } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { feedbackPrompt } from "@/lib/ai-rules";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { prepareTemplateEmail, retryEmail, sendStageEntryEmail } from "@/lib/candidate-email";
-import {
-  addApplication,
-  canSeeCandidate,
-  getApplicationFor,
-  logActivity,
-  moveApplication,
-} from "@/lib/hiring";
+import { addApplication, getApplicationFor } from "@/lib/hiring";
+import { addNote, addTags, moveStage, removeTag, setApplicationStatus } from "@/lib/pipeline";
+import { deliverDueWebhooks } from "@/lib/webhooks";
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
 import { deleteCandidates } from "@/lib/privacy";
-import { queueStageLinkOnEntry, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
 import { smtpConfigured } from "@/lib/smtp";
 import { extensionOf, storage } from "@/lib/storage";
-import { mergeTags, normalizeTag, parseTags, rejectionReasonText } from "@/lib/candidate-review";
+import { normalizeTag, parseTags, rejectionReasonText } from "@/lib/candidate-review";
 import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
 
 /** Recruiter adds someone by hand (sourced, referral, etc.). Email is optional here. */
@@ -55,6 +50,7 @@ export async function addCandidateAction(jobId: string, _: FormState, form: Form
     return { error: "This candidate already has an application for this job." };
   }
   if (result.applicationId) await sendStageEntryEmail(result.applicationId, null, user.id);
+  void deliverDueWebhooks();
   redirect(`/candidates/${result.candidateId}`);
 }
 
@@ -65,14 +61,8 @@ function refresh(candidateId: string, jobId: string) {
 
 export async function moveStageAction(applicationId: string, form: FormData): Promise<void> {
   const user = await requireUser(canManageHiring);
-  const moved = await moveApplication(user, applicationId, field(form, "stageId", 64) ?? "");
-  if (moved) {
-    if (moved.stageId) await suppressQueuedStageLinks(applicationId, moved.stageId);
-    const stageId = field(form, "stageId", 64) ?? "";
-    await queueStageLinkOnEntry(applicationId, stageId);
-    await sendStageEntryEmail(applicationId, stageId, user.id);
-    refresh(moved.candidateId, moved.jobId);
-  }
+  const moved = await moveStage(user, applicationId, field(form, "stageId", 64) ?? "");
+  if (moved) refresh(moved.candidateId, moved.jobId);
 }
 
 /** Explicit retry only after SMTP reports failure; never replay an uncertain sending claim. */
@@ -126,8 +116,6 @@ export async function setStatusAction(
   form: FormData,
 ): Promise<void> {
   const user = await requireUser(canManageHiring);
-  const app = await getApplicationFor(user, applicationId);
-  if (!app || app.status === status) return;
   // Rejections use the standard list, with an optional note; withdrawals keep a free-text note.
   const reason =
     status === "rejected"
@@ -135,21 +123,8 @@ export async function setStatusAction(
       : status === "active"
         ? null
         : field(form, "reason", 500);
-  if (status === "rejected" && !reason) return;
-
-  await db().transaction(async (tx) => {
-    await tx
-      .update(applications)
-      .set({ status, rejectionReason: status === "rejected" ? reason : null })
-      .where(eq(applications.id, app.id));
-    await logActivity(tx, {
-      applicationId: app.id,
-      actorId: user.id,
-      type: status === "active" ? "reopened" : status,
-      data: reason ? { reason } : {},
-    });
-  });
-  refresh(app.candidateId, app.jobId);
+  const app = await setApplicationStatus(user, applicationId, status, reason);
+  if (app) refresh(app.candidateId, app.jobId);
 }
 
 /** Add tags ("#swe, #bayarea"). Recruiters and admins only. */
@@ -158,20 +133,15 @@ export async function addTagsAction(candidateId: string, form: FormData): Promis
   if (!isUuid(candidateId)) return;
   const added = parseTags(field(form, "tags", 500) ?? "");
   if (added.length === 0) return;
-  const [row] = await db().select({ tags: candidates.tags }).from(candidates).where(eq(candidates.id, candidateId));
-  if (!row) return;
-  await db().update(candidates).set({ tags: mergeTags(row.tags, added) }).where(eq(candidates.id, candidateId));
+  if (!(await addTags(candidateId, added))) return;
   revalidatePath(`/candidates/${candidateId}`);
   revalidatePath("/candidates");
 }
 
 export async function removeTagAction(candidateId: string, tag: string): Promise<void> {
   await requireUser(canManageHiring);
-  const normalized = normalizeTag(tag);
-  if (!isUuid(candidateId) || !normalized) return;
-  const [row] = await db().select({ tags: candidates.tags }).from(candidates).where(eq(candidates.id, candidateId));
-  if (!row) return;
-  await db().update(candidates).set({ tags: row.tags.filter((t) => normalizeTag(t) !== normalized) }).where(eq(candidates.id, candidateId));
+  if (!isUuid(candidateId) || !normalizeTag(tag)) return;
+  if (!(await removeTag(candidateId, tag))) return;
   revalidatePath(`/candidates/${candidateId}`);
   revalidatePath("/candidates");
 }
@@ -227,8 +197,7 @@ export async function addNoteAction(candidateId: string, form: FormData): Promis
   const user = await requireUser();
   const body = field(form, "body", 10_000);
   if (!body || !isUuid(candidateId)) return;
-  if (!(await canSeeCandidate(user, candidateId))) return;
-  await db().insert(notes).values({ candidateId, authorId: user.id, body });
+  if (!(await addNote(user, candidateId, body))) return;
   revalidatePath(`/candidates/${candidateId}`);
 }
 

@@ -302,6 +302,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
               { href: "/settings/privacy", label: "Privacy", icon: "settings" as const },
               { href: "/settings/ai", label: "AI", icon: "settings" as const },
               { href: "/settings/email", label: "Email", icon: "settings" as const },
+              { href: "/settings/api", label: "API and webhooks", icon: "settings" as const },
             ]
           : []),
       ],

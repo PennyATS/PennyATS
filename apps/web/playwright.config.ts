@@ -16,6 +16,8 @@ if (
 
 const baseURL = "http://127.0.0.1:3100";
 process.env.DATABASE_URL = testDatabaseUrl;
+// Tests seal webhook secrets the server must open, so both sides use the same AUTH_SECRET.
+process.env.AUTH_SECRET ||= "pennyats-integration-test-secret";
 
 export default defineConfig({
   testDir: "./tests/integration",
@@ -42,6 +44,11 @@ export default defineConfig({
       APP_URL: baseURL,
       AI_PROVIDER: "",
       AI_API_KEY: "",
+      AUTH_SECRET: process.env.AUTH_SECRET,
+      // Never send real mail from tests, even if the local .env configures SMTP.
+      SMTP_HOST: "",
+      // Retry failed webhook deliveries after 300ms instead of 30s.
+      WEBHOOK_RETRY_BASE_MS: "300",
     },
   },
 });
