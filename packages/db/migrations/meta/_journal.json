@@ -134,6 +134,13 @@
       "when": 1795650738191,
       "tag": "0018_sparkling_turbo",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795651610650,
+      "tag": "0019_flowery_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

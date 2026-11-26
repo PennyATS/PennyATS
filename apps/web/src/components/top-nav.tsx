@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logoutAction } from "@/app/(auth)/actions";
+import { markAllReadAction, openNotificationAction } from "@/app/(app)/notifications/actions";
 import type { SessionUser } from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
 import { canManageHiring, canManageUsers } from "@/lib/permissions";
 
 type IconName =
   | "home" | "jobs" | "candidates" | "templates" | "reports" | "settings" | "careers"
-  | "chevron" | "menu" | "plus" | "search" | "dashboard" | "history";
+  | "chevron" | "menu" | "plus" | "search" | "dashboard" | "history" | "bell";
 
 function Icon({ name, className = "size-4" }: { name: IconName; className?: string }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -27,6 +28,7 @@ function Icon({ name, className = "size-4" }: { name: IconName; className?: stri
     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
     dashboard: <><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>,
     history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
+    bell: <><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8" /><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0" /></>,
   };
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -50,6 +52,9 @@ function Menu({
   align = "left",
   variant = "nav",
   children,
+  badge,
+  ariaLabel,
+  menuClassName = "min-w-52",
 }: {
   label: string;
   icon?: IconName;
@@ -58,6 +63,11 @@ function Menu({
   align?: "left" | "right";
   variant?: "nav" | "button";
   children?: React.ReactNode;
+  /** Shown after the label, e.g. an unread count. */
+  badge?: React.ReactNode;
+  /** Accessible name when it differs from the visible label. */
+  ariaLabel?: string;
+  menuClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -106,18 +116,20 @@ function Menu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
         className={triggerClass}
       >
-        {icon && <Icon name={icon} className={`size-[15px] shrink-0 ${variant === "nav" ? "hidden xl:block" : ""}`} />}
+        {icon && <Icon name={icon} className={`size-[15px] shrink-0 ${variant === "nav" && label ? "hidden xl:block" : ""}`} />}
         {label}
-        <Icon name="chevron" className={`size-3 transition-transform ${open ? "rotate-180" : ""}`} />
+        {badge}
+        {label && <Icon name="chevron" className={`size-3 transition-transform ${open ? "rotate-180" : ""}`} />}
       </button>
       {open && (
         <div
           role="menu"
           aria-label={label}
-          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-50 min-w-52 rounded-lg border border-[#dce6df] bg-white p-1.5 text-[#1d2c24] shadow-xl`}
+          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-50 ${menuClassName} rounded-lg border border-[#dce6df] bg-white p-1.5 text-[#1d2c24] shadow-xl`}
         >
           {items?.map((item) => (
             <Link
@@ -164,7 +176,67 @@ function useRecent(pathname: string) {
   return recent;
 }
 
-export function TopNav({ user }: { user: Pick<SessionUser, "name" | "role"> }) {
+type Inbox = { unread: number; rows: { id: string; text: string; read: boolean; at: string }[] };
+
+function ago(iso: string): string {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`;
+  return `${Math.round(mins / 1440)}d ago`;
+}
+
+function NotificationsMenu({ inbox }: { inbox: Inbox }) {
+  return (
+    <Menu
+      label=""
+      icon="bell"
+      ariaLabel={`Notifications${inbox.unread ? `, ${inbox.unread} unread` : ""}`}
+      align="right"
+      menuClassName="w-80"
+      badge={
+        inbox.unread > 0 ? (
+          <span aria-hidden="true" className="-ml-1 rounded-full bg-[#f2b84b] px-1.5 text-[10px] font-bold leading-4 text-[#0d2e24]">
+            {inbox.unread > 99 ? "99+" : inbox.unread}
+          </span>
+        ) : null
+      }
+    >
+      <div className="flex items-center justify-between border-b border-[#e7eee9] px-3 pb-2 pt-1">
+        <span className="text-sm font-semibold">Notifications</span>
+        {inbox.unread > 0 && (
+          <form action={markAllReadAction}>
+            <button type="submit" role="menuitem" className="text-xs font-medium text-[#176b4d] hover:underline">Mark all read</button>
+          </form>
+        )}
+      </div>
+      {inbox.rows.length === 0 ? (
+        <p className="px-3 py-6 text-center text-sm text-[#617267]">No notifications yet.</p>
+      ) : (
+        <ul className="max-h-96 overflow-y-auto py-1">
+          {inbox.rows.map((n) => (
+            <li key={n.id}>
+              <form action={openNotificationAction.bind(null, n.id)}>
+                <button type="submit" role="menuitem" className="flex w-full gap-2.5 rounded-md px-3 py-2 text-left text-[13px] outline-none hover:bg-[#e7f4eb] focus-visible:bg-[#e7f4eb]">
+                  <span aria-hidden="true" className={`mt-1.5 size-1.5 shrink-0 rounded-full ${n.read ? "" : "bg-[#176b4d]"}`} />
+                  <span className="min-w-0">
+                    <span className={n.read ? "text-[#4d6153]" : "font-medium"}>{n.text}</span>
+                    <span className="block text-[11px] text-[#617267]">{ago(n.at)}</span>
+                  </span>
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Link href="/notifications" role="menuitem" className="block border-t border-[#e7eee9] px-3 pb-1 pt-2 text-center text-xs font-medium text-[#176b4d] hover:underline">
+        See all notifications
+      </Link>
+    </Menu>
+  );
+}
+
+export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name" | "role">; notifications: Inbox }) {
   const pathname = usePathname();
   const router = useRouter();
   const canHire = canManageHiring(user.role);
@@ -308,11 +380,21 @@ export function TopNav({ user }: { user: Pick<SessionUser, "name" | "role"> }) {
           </nav>
         </details>
 
+        <Link
+          href="/notifications"
+          aria-label={`Notifications${notifications.unread ? `, ${notifications.unread} unread` : ""}`}
+          className="flex items-center gap-1 px-2 lg:hidden"
+        >
+          <Icon name="bell" className="size-5" />
+          {notifications.unread > 0 && <span aria-hidden="true" className="rounded-full bg-[#f2b84b] px-1.5 text-[10px] font-bold text-[#0d2e24]">{notifications.unread}</span>}
+        </Link>
+
         {/* Right: folders and brand. */}
         <nav aria-label="Main navigation" className="ml-auto hidden min-w-0 items-center gap-0.5 lg:flex">
           {folders.map((folder) => (
             <Menu key={folder.label} label={folder.label} icon={folder.icon} active={folder.match(pathname)} items={folder.items} align="right" />
           ))}
+          <NotificationsMenu inbox={notifications} />
         </nav>
 
         <Link href="/" aria-label={`${BRAND.name} home`} className="ml-auto flex shrink-0 items-center gap-3 pl-3 lg:ml-0">

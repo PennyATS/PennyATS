@@ -1,5 +1,6 @@
 "use server";
 
+import { notify } from "@/lib/notifications";
 import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -225,10 +226,15 @@ export async function setInterviewersAction(interviewId: string, _: FormState, f
   const ids = await validInterviewers(found.app.jobId, form);
 
   await db().transaction(async (tx) => {
+    const before = await tx.select({ userId: interviewInterviewers.userId }).from(interviewInterviewers)
+      .where(eq(interviewInterviewers.interviewId, interviewId));
     await tx.delete(interviewInterviewers).where(eq(interviewInterviewers.interviewId, interviewId));
     if (ids.length) {
       await tx.insert(interviewInterviewers).values(ids.map((userId) => ({ interviewId, userId })));
     }
+    // Only people newly added hear about it.
+    const added = ids.filter((id) => !before.some((b) => b.userId === id));
+    await notify(tx, user.id, added.map((userId) => ({ userId, kind: "interview_assigned" as const, applicationId: found.app.id, interviewId })));
   });
   if (found.interview.scheduledAt) await syncGoogleInterview(interviewId);
   if (found.interview.scheduledAt) await queueInterviewReminders(interviewId);
@@ -263,6 +269,7 @@ export async function addInterviewAction(applicationId: string, _: FormState, fo
       .returning({ id: interviews.id });
     if (ids.length) {
       await tx.insert(interviewInterviewers).values(ids.map((userId) => ({ interviewId: row.id, userId })));
+      await notify(tx, user.id, ids.map((userId) => ({ userId, kind: "interview_assigned" as const, applicationId: app.id, interviewId: row.id })));
     }
     await logActivity(tx, {
       applicationId: app.id,
