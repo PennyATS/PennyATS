@@ -487,3 +487,16 @@ test("confidential jobs: only the hiring team sees them, and team changes apply 
     expect((await call(recruiter, "getJob", { params: { id: jobId } })).status).toBe(404);
   });
 });
+
+test("API output carries no pay or phone screen notes (#97)", async ({ request }) => {
+  const call = apiClient(request, coverage);
+  const list = await call(admin, "listJobs", { query: { limit: "5" } });
+  const job = await call(admin, "getJob", { params: { id: list.body.data[0].id } });
+  const keys = JSON.stringify(Object.keys(job.body));
+  expect(keys).not.toMatch(/comp|equity|salary/i);
+  const app = await call(admin, "listApplications", { query: { job_id: list.body.data[0].id, limit: "1" } });
+  if (app.body.data?.[0]) {
+    const one = await call(admin, "getApplication", { params: { id: app.body.data[0].id } });
+    expect(JSON.stringify(one.body)).not.toMatch(/phone_screen/i);
+  }
+});

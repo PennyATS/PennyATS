@@ -29,6 +29,7 @@ Already planned: permission model and role presets ([#94](https://github.com/Pen
 - #94 permission model: **shipped**. Every check is `can(user, permission)` from `apps/web/src/lib/permissions.ts`, shared by the UI, the API, and the MCP server, with a role x permission snapshot test.
 - #95 role presets: **shipped**. Admin, Head of Talent, Talent Acquisition Manager, Recruiter, Recruiting Coordinator, Hiring Manager, Interviewer, and Executive, stored in a `roles` table, described on the Users page, with one demo user each.
 - #96 job-level access: **shipped**. Hiring team roles (hiring manager, recruiter, coordinator, interviewer, viewer) grant permissions on that job only; confidential jobs are visible only to their team and to Admin and Head of Talent; "My jobs" filters on the jobs list and jobs dashboard.
+- #97 sensitive data: **shipped**. Pay needs `jobs.view_compensation` (and `jobs.edit_compensation` to change it), phone screen notes have separate read and write permissions (also applied to search), scorecard breakdowns need `scorecards.view_all`, and executives get aggregates only.
 
 Added:
 

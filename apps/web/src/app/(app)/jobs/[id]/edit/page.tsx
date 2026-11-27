@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { asc, count, eq, inArray } from "drizzle-orm";
-import { roleLabel, TEAM_ROLE_PRESETS, TEAM_ROLES } from "@/lib/permissions";
+import { roleLabel, TEAM_ROLE_PRESETS, TEAM_ROLES, can } from "@/lib/permissions";
 import { applications, jobTeam, users, roles } from "@pennyats/db";
 import { requireJobAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -55,6 +55,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
     <>
       <h2 className="mb-6 text-xl font-semibold tracking-tight">Edit job</h2>
       <JobForm
+        pay={can(user, "jobs.edit_compensation", { jobId: job.id }) ? "edit" : can(user, "jobs.view_compensation", { jobId: job.id }) ? "view" : "hidden"}
         version={job.updatedAt.toISOString()}
         action={updateJobAction.bind(null, job.id)}
         job={job}

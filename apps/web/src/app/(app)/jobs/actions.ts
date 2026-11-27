@@ -20,6 +20,13 @@ import { parseJobDetails } from "@/lib/job-fields";
 const STATUSES = ["draft", "open", "closed"] as const;
 type JobStatus = (typeof STATUSES)[number];
 
+/** Compensation fields, which need jobs.edit_compensation to change (#97). */
+const PAY_FIELDS = ["compCurrency", "compPeriod", "compMin", "compMid", "compMax", "compPublic", "equityNote"] as const;
+
+function stripPay(value: Partial<Record<(typeof PAY_FIELDS)[number], unknown>>) {
+  for (const key of PAY_FIELDS) delete value[key];
+}
+
 function parseJob(form: FormData) {
   const title = field(form, "title", 200);
   const status = form.get("status");
@@ -51,6 +58,7 @@ export async function createJobAction(_: FormState, form: FormData): Promise<For
   const user = await requireUser("jobs.create");
   const parsed = parseJob(form);
   if ("error" in parsed) return { error: parsed.error };
+  if (!can(user, "jobs.edit_compensation")) stripPay(parsed.value);
   const peopleError = await checkPeople(parsed.value);
   if (peopleError) return { error: peopleError };
 
@@ -63,9 +71,7 @@ export async function updateJobAction(jobId: string, _: FormState, form: FormDat
   const parsed = parseJob(form);
   if ("error" in parsed) return { error: parsed.error };
   // People who may edit a job but not its pay (Hiring Manager) leave compensation as it was.
-  if (!can(user, "jobs.edit_compensation")) {
-    for (const key of ["compCurrency", "compPeriod", "compMin", "compMid", "compMax", "compPublic"] as const) delete parsed.value[key];
-  }
+  if (!can(user, "jobs.edit_compensation", { jobId })) stripPay(parsed.value);
   const peopleError = await checkPeople(parsed.value);
   if (peopleError) return { error: peopleError };
   // The slug stays the same on edit so careers page links keep working.
