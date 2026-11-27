@@ -1,0 +1,34 @@
+# One-click deploy to Render (#131). The "Deploy to Render" button in the README reads this file.
+# It creates a Postgres database, a web service built from docker/Dockerfile.platform, a disk for
+# resume uploads, and a random AUTH_SECRET. APP_URL comes from Render's generated address.
+# Guide: docs/deploy-one-click.md
+services:
+  - type: web
+    name: pennyats
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile.platform
+    dockerContext: .
+    # Persistent disks need a paid instance type.
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: uploads
+      mountPath: /data/uploads
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pennyats-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: STORAGE_DIR
+        value: /data/uploads
+      - key: AI_REDACT_PII
+        value: "true"
+
+databases:
+  - name: pennyats-db
+    databaseName: pennyats
+    user: pennyats
+    plan: basic-256mb

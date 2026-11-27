@@ -117,6 +117,76 @@ jobs:
         if: always()
         run: $COMPOSE down -v
 
+  platform:
+    name: One-click deploy image smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: pennyats
+          POSTGRES_PASSWORD: pennyats
+          POSTGRES_DB: pennyats
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pennyats -d pennyats"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB: postgres://pennyats:pennyats@127.0.0.1:5432/pennyats
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the one-click image
+        run: docker build -f docker/Dockerfile.platform -t pennyats-platform .
+
+      - name: Refuses to start without a generated secret
+        run: |
+          if docker run --rm --network host -e DATABASE_URL=$DB -e APP_URL=http://localhost:3000 pennyats-platform; then exit 1; fi
+          if docker run --rm --network host -e DATABASE_URL=$DB -e APP_URL=http://localhost:3000 \
+            -e AUTH_SECRET=changeme-changeme-changeme-changeme pennyats-platform; then exit 1; fi
+
+      - name: Start like a host would (root-owned volume, generated address)
+        run: |
+          sudo mkdir -p /srv/pennyats-uploads
+          echo "SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          echo 'RUN=docker run -d --name app --network host -e DATABASE_URL=postgres://pennyats:pennyats@127.0.0.1:5432/pennyats -e RENDER_EXTERNAL_URL=http://localhost:3000 -v /srv/pennyats-uploads:/data/uploads' >> "$GITHUB_ENV"
+
+      - name: First deploy migrates and reaches setup
+        run: |
+          $RUN -e AUTH_SECRET="$SECRET" pennyats-platform
+          for attempt in {1..60}; do
+            if curl -fsS http://localhost:3000/api/health >/dev/null 2>&1 \
+              && curl -fsS http://localhost:3000/setup | grep -q "Set up your workspace"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs app
+          exit 1
+
+      - name: Uploads persist across a redeploy
+        run: |
+          docker exec -u node app sh -c 'echo ok > "$STORAGE_DIR/persist-check"'
+          docker rm -f app
+          $RUN -e AUTH_SECRET="$SECRET" pennyats-platform
+          for attempt in {1..60}; do
+            if curl -fsS http://localhost:3000/api/health >/dev/null 2>&1; then
+              docker exec -u node app sh -c 'test "$(cat "$STORAGE_DIR/persist-check")" = ok && touch "$STORAGE_DIR/write-check"'
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs app
+          exit 1
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker logs app || true
+
   integration:
     name: Browser and database integration
     runs-on: ubuntu-latest

@@ -41,6 +41,14 @@ These images use fictional candidates from the demo seed.
 - **Open data format.** Export everything (jobs, candidates, applications with stage history, interviews, scorecards, notes) as [documented, versioned JSON](docs/schema/README.md) with published JSON Schema, and import it into another instance. Your data is never locked in.
 - **Privacy tools.** A privacy notice and optional consent checkbox on the apply form, one-click export of everything stored about a candidate, permanent deletion, automatic deletion of rejected candidates after a retention period you choose, and an audit log that records each of these without keeping the deleted person's details.
 
+## Put it online
+
+No terminal needed. The button creates the app, a Postgres database, storage for resumes, and a random secret, then you open the link and create your admin account. Step-by-step guide, with updates and backups: [docs/deploy-one-click.md](docs/deploy-one-click.md).
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/PennyATS/PennyATS)
+
+Railway: the template button is not published yet; the guide has the manual steps.
+
 ## Quick start
 
 ### Docker Compose
