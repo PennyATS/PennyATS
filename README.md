@@ -30,6 +30,7 @@ These images use fictional candidates from the demo seed.
 - **Jobs.** Create and edit jobs as draft, open, or closed. Each job has its own pipeline stages (rename, reorder, add, remove) and hiring team.
 - **Careers page.** Open jobs are listed at `/careers` with an apply form and resume upload. Includes basic spam protection, JobPosting structured data for search, and [docs for serving careers on your own domain or subpath](docs/careers.md).
 - **Applications.** Candidates are matched by email, so someone applying to a second role keeps one profile. Recruiters can add candidates by hand, move them between stages, reject with a reason, or mark them withdrawn.
+- **CSV import.** Map Greenhouse-style or generic candidate CSV columns, preview rows, and import current applications without duplicating a candidate or application. See the [migration guide](docs/why-pennyats.md#moving-from-another-ats) for the supported fields and limits.
 - **Pipeline board.** A kanban view per job. Drag candidates between stages, or use the arrow buttons from the keyboard. Cards show days in stage and scorecard results.
 - **Interview loop.** Plan the interviews for each stage of a job (who runs them, what they cover, and instructions). Candidates get those interviews automatically when they enter the stage, with a status from "to schedule" to "complete", and the job overview flags interviewers whose feedback is overdue.
 - **Scorecards.** Each job has its own list of attributes, rated 1 to 4, plus an overall recommendation from Strong no to Strong yes. Interviewers can't see anyone else's scorecard until they've submitted their own, so earlier feedback doesn't sway them.
@@ -202,7 +203,6 @@ For the longer-term direction (agent-ready API and MCP server, security, complia
 ### Later on the roadmap
 
 - [Candidate and team email, invitations, and password resets by email](https://github.com/PennyATS/PennyATS/issues/19).
-- [CSV import from Greenhouse and other applicant tracking systems](https://github.com/PennyATS/PennyATS/issues/20).
 
 ### Proposals still to scope
 
