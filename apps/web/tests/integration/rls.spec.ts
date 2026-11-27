@@ -143,7 +143,24 @@ test("recruiter and coordinator: every job except confidential ones; coordinator
   await as(coordinator, async (sql) => {
     expect((await sql`select count(*)::int as n from applications where job_id = ${otherJob}`)[0].n).toBeGreaterThan(0);
     expect((await sql`select count(*)::int as n from scorecards`)[0].n).toBe(0);
-    expect((await sql`select count(*)::int as n from application_notes`)[0].n).toBeGreaterThan(0);
+    const notes = (await sql`select count(*)::int as n from application_notes`)[0].n;
+    if (notes === 0) {
+      // Diagnostics for CI: evaluate the policy helpers as the owner with the same settings.
+      const owner = postgres(process.env.TEST_DATABASE_URL!, { max: 1, onnotice: () => {} });
+      const why = await owner
+        .begin(async (o) => {
+          await o`select set_config('pennyats.actor_id', ${coordinator.actorId}, true), set_config('pennyats.flags', ${COORDINATOR.join(",")}, true)`;
+          return o`select a.job_id, pennyats_flag('phone_screen_read') as flag, current_setting('pennyats.flags', true) as flags,
+              pennyats_can_see_job(a.job_id) as job, pennyats_can_see_application(n.application_id) as app,
+              pennyats_can_read_phone_screens(n.application_id) as read, (select count(*) from application_notes)::int as total
+            from application_notes n join applications a on a.id = n.application_id limit 3`;
+        })
+        .catch((e: Error) => e.message);
+      await owner.end();
+      const total = [1];
+      console.log("application_notes diagnostics", JSON.stringify(why), total.length);
+    }
+    expect(notes).toBeGreaterThan(0);
   });
 });
 

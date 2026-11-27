@@ -127,7 +127,7 @@ jobs:
           exit 1
 
       - name: Reset again
-        run: $COMPOSE run --rm --no-deps demo-reset pnpm demo:reset
+        run: $COMPOSE run --rm --no-deps demo-reset sh -c "pnpm demo:reset && pnpm db:app-role"
 
       - name: demo:reset refuses a database it did not create
         run: |
