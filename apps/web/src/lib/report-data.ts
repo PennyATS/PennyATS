@@ -1,5 +1,6 @@
 import { and, asc, count, eq, gte, inArray, type SQL } from "drizzle-orm";
 import { activity, applications, candidates, careersFunnelEvents, jobs, scorecards, stages, users } from "@pennyats/db";
+import { withScorecardFacts } from "./db-context";
 import { tallyCareersFunnel } from "./careers-funnel";
 import { db } from "./db";
 import { periodStart, type Period, type ReportApp, type ReportInput } from "./reports";
@@ -58,12 +59,15 @@ export async function loadReportInput(jobId: string | null, period: Period, scop
       .select({ id: stages.id, jobId: stages.jobId, name: stages.name, position: stages.position })
       .from(stages)
       .where(ids ? inArray(stages.jobId, ids) : undefined),
-    db()
-      .select({ author: users.name, recommendation: scorecards.recommendation })
-      .from(scorecards)
-      .innerJoin(applications, eq(applications.id, scorecards.applicationId))
-      .innerJoin(users, eq(users.id, scorecards.authorId))
-      .where(appFilter),
+    // Reports show recommendation counts per interviewer, never scorecard content (#119).
+    withScorecardFacts(() =>
+      db()
+        .select({ author: users.name, recommendation: scorecards.recommendation })
+        .from(scorecards)
+        .innerJoin(applications, eq(applications.id, scorecards.applicationId))
+        .innerJoin(users, eq(users.id, scorecards.authorId))
+        .where(appFilter),
+    ),
     db()
       .select({ kind: careersFunnelEvents.kind, count: count() })
       .from(careersFunnelEvents)

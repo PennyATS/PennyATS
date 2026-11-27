@@ -28,8 +28,12 @@ services:
       STORAGE_DIR: /app/apps/web/.data/uploads
       # Scripts run in this container (such as pnpm webhooks:deliver) open stored secrets too.
       AUTH_SECRET: ${AUTH_SECRET:-}
+      # Password for the restricted role the app connects as (row-level security, docs/rls.md).
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-${POSTGRES_PASSWORD:-pennyats}}
     volumes:
       - pennyats_uploads:/app/apps/web/.data/uploads
+    # Apply migrations as the owner, then create or update the app's restricted role.
+    command: ["sh", "-c", "pnpm db:migrate && pnpm db:app-role"]
     depends_on:
       db:
         condition: service_healthy
@@ -42,6 +46,8 @@ services:
       target: app
     environment:
       DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://pennyats:${POSTGRES_PASSWORD:-pennyats}@db:5432/pennyats}
+      # The app connects as pennyats_app, which cannot bypass row-level security (#119).
+      APP_DATABASE_URL: ${COMPOSE_APP_DATABASE_URL:-postgres://pennyats_app:${APP_DB_PASSWORD:-${POSTGRES_PASSWORD:-pennyats}}@db:5432/pennyats}
       APP_URL: ${APP_URL:-http://localhost:3000}
       # Required. Encrypts stored calendar tokens and webhook secrets; the app refuses to start
       # without a random value of 32+ characters. Generate one with: openssl rand -base64 32

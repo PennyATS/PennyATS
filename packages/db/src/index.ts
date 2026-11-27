@@ -6,6 +6,7 @@ export * from "./schema";
 export * from "./password";
 export * from "./defaults";
 export * from "./roles";
+export * from "./rls";
 export { schema };
 
 export function createDb(url = process.env.DATABASE_URL) {
@@ -19,3 +20,4 @@ export function createDb(url = process.env.DATABASE_URL) {
 }
 
 export type Db = ReturnType<typeof createDb>;
+export { default as postgres } from "postgres";

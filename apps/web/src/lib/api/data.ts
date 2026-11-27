@@ -2,7 +2,8 @@
  * Queries and serializers for the public API. Every query applies the same visibility rules
  * as the app (visibleJobIds, canSeeJob, canSeeCandidate, the blind scorecard rule).
  */
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL, count } from "drizzle-orm";
+import { withScorecardFacts } from "../db-context";
 import {
   applications,
   candidates,
@@ -280,7 +281,12 @@ export async function listScorecards(user: SessionUser, applicationId: string) {
   const mine = rows.filter((r) => r.card.authorId === user.id);
   const showAll = canSeeOthersScorecards({ managesHiring: can(user, "scorecards.view_all"), hasSubmitted: mine.length > 0 });
   const visible = showAll ? rows : mine;
-  return { data: visible.map((r) => serializeScorecard(r.card, r.author)), hidden_count: rows.length - visible.length };
+  // With row-level security (#119) the database already leaves out cards this user may not
+  // read, so count them separately.
+  const [{ total }] = await withScorecardFacts(() =>
+    db().select({ total: count() }).from(scorecards).where(eq(scorecards.applicationId, applicationId)),
+  );
+  return { data: visible.map((r) => serializeScorecard(r.card, r.author)), hidden_count: Math.max(total - visible.length, 0) };
 }
 
 /* ---------- Interviews ---------- */
@@ -300,10 +306,13 @@ async function loadInterviews(where: SQL | undefined, opts: { limit?: number; ne
   const ids = rows.map((r) => r.interview.id);
   const [people, submitted] = await Promise.all([
     db().select().from(interviewInterviewers).where(inArray(interviewInterviewers.interviewId, ids)),
-    db()
-      .select({ interviewId: scorecards.interviewId, authorId: scorecards.authorId })
-      .from(scorecards)
-      .where(inArray(scorecards.interviewId, ids)),
+    // Who has submitted feedback (not what they wrote), to derive each interview's status.
+    withScorecardFacts(() =>
+      db()
+        .select({ interviewId: scorecards.interviewId, authorId: scorecards.authorId })
+        .from(scorecards)
+        .where(inArray(scorecards.interviewId, ids)),
+    ),
   ]);
   return rows.map(({ interview: i, jobId, candidateId }) => {
     const interviewerIds = people.filter((p) => p.interviewId === i.id).map((p) => p.userId);

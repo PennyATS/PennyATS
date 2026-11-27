@@ -10,6 +10,7 @@
     "db:generate": "pnpm --filter @pennyats/db generate",
     "db:migrate": "pnpm --filter @pennyats/db migrate",
     "db:seed": "pnpm --filter @pennyats/db seed",
+    "db:app-role": "pnpm --filter @pennyats/db app-role",
     "demo:reset": "pnpm --filter @pennyats/db demo:reset",
     "test": "pnpm -r test",
     "test:integration": "node scripts/run-integration.mjs",

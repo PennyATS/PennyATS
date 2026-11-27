@@ -27,6 +27,8 @@ services:
       DEMO_RESET_CONFIRM: ${DEMO_RESET_CONFIRM:-pennyats}
       DEMO_RESET_HOURS: ${DEMO_RESET_HOURS:-6}
       STORAGE_DIR: /app/apps/web/.data/uploads
+      # The reset recreates the schema, so the app's restricted role needs its grants again (docs/rls.md).
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-${POSTGRES_PASSWORD:-pennyats}}
     volumes:
       - pennyats_uploads:/app/apps/web/.data/uploads
     depends_on:
@@ -36,5 +38,5 @@ services:
     command:
       - sh
       - -c
-      - while true; do pnpm demo:reset || echo "demo:reset failed"; sleep $$(( $${DEMO_RESET_HOURS} * 3600 )); done
+      - while true; do (pnpm demo:reset && pnpm db:app-role) || echo "demo:reset failed"; sleep $$(( $${DEMO_RESET_HOURS} * 3600 )); done
     restart: unless-stopped

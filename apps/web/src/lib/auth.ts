@@ -5,6 +5,7 @@ import { cache } from "react";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { applications, interviews, roles, sessions, users } from "@pennyats/db";
 import { db } from "./db";
+import { bindActor } from "./db-context";
 import { canSeeCandidate, canSeeJob, loadJobPermissions } from "./hiring";
 import { isUuid } from "./validation";
 import { can, isRole, permissionsForRole, type Permission, type Role } from "./permissions";
@@ -70,7 +71,10 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date()), eq(users.active, true)));
   // Only the system role presets exist today; an unknown key gets no access rather than a guess.
   if (!row || !isRole(row.role)) return null;
-  return { ...row, role: row.role, permissions: permissionsForRole(row.role), jobPermissions: await loadJobPermissions(row.id) };
+  const user = { ...row, role: row.role, permissions: permissionsForRole(row.role), jobPermissions: await loadJobPermissions(row.id) };
+  // Row-level security (#119): later queries in this request run as this user.
+  bindActor(user);
+  return user;
 });
 
 /**

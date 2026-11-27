@@ -27,8 +27,16 @@ if (
   process.exit(1);
 }
 
+// The app runs as a restricted role so row-level security applies to every test (#119).
+const appPassword = "pennyats-app-test";
+const appUrl = new URL(testDatabaseUrl);
+appUrl.username = "pennyats_app";
+appUrl.password = appPassword;
+
 const env = {
   ...process.env,
+  APP_DB_PASSWORD: appPassword,
+  APP_DATABASE_URL: appUrl.toString(),
   DATABASE_URL: testDatabaseUrl,
   APP_URL: "http://127.0.0.1:3100",
   AI_PROVIDER: "",
@@ -41,6 +49,7 @@ for (const args of [
   ["--filter", "@pennyats/db", "exec", "tsx", "src/check-role-migration.ts"],
   ["db:migrate"],
   ["db:seed"],
+  ["db:app-role"],
   ["--filter", "@pennyats/web", "test:integration"],
 ]) {
   const result = spawnSync(pnpm, args, {

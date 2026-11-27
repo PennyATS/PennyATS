@@ -41,6 +41,8 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       DATABASE_URL: testDatabaseUrl,
+      // Set by scripts/run-integration.mjs: the app connects as the restricted role (#119).
+      APP_DATABASE_URL: process.env.APP_DATABASE_URL ?? "",
       APP_URL: baseURL,
       AI_PROVIDER: "",
       AI_API_KEY: "",
