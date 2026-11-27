@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1/application.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "candidate_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "job_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "stage_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "hired",
+        "rejected",
+        "withdrawn"
+      ]
+    },
+    "rejection_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "applied_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stage_changed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "applied, added, stage_changed, rejected, withdrawn, hired, reopened, scorecard_submitted, interview_added, interview_scheduled, interview_completed, interview_cancelled. Readers must accept types they don't know."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 254,
+                "description": "A person's email address, lowercase. Listed in `people`."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for the candidate's own actions and automated changes."
+          },
+          "data": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "For stage_changed: `from` and `to` stage ids. Stage history in reports is rebuilt from these events."
+          }
+        },
+        "required": [
+          "type",
+          "at",
+          "actor_email",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Oldest first."
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "phone_screen."
+          },
+          "body": {
+            "type": "string"
+          },
+          "author_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 254,
+                "description": "A person's email address, lowercase. Listed in `people`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "kind",
+          "body",
+          "author_email",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "id",
+    "candidate_id",
+    "job_id",
+    "stage_id",
+    "status",
+    "rejection_reason",
+    "applied_at",
+    "stage_changed_at",
+    "events",
+    "notes"
+  ],
+  "additionalProperties": false,
+  "x-pennyats-schema-version": "1.0.0"
+}

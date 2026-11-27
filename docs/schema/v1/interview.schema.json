@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1/interview.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "application_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "stage_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "name": {
+      "type": "string"
+    },
+    "stage_name": {
+      "type": "string"
+    },
+    "duration_minutes": {
+      "type": "integer"
+    },
+    "attributes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "instructions": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scheduled_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scheduled_time_zone": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "meeting_location": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "interviewer_emails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 254,
+        "description": "A person's email address, lowercase. Listed in `people`."
+      }
+    },
+    "completed_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cancelled_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "application_id",
+    "stage_id",
+    "name",
+    "stage_name",
+    "duration_minutes",
+    "attributes",
+    "instructions",
+    "scheduled_at",
+    "scheduled_time_zone",
+    "meeting_location",
+    "interviewer_emails",
+    "completed_at",
+    "cancelled_at",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "x-pennyats-schema-version": "1.0.0"
+}

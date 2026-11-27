@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1/stage.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "position": {
+      "type": "integer",
+      "description": "Order in the pipeline, starting at 0."
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "position"
+  ],
+  "additionalProperties": false,
+  "x-pennyats-schema-version": "1.0.0"
+}

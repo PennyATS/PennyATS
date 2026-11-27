@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1/job.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL name on the careers page. Unique."
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "open",
+        "closed"
+      ]
+    },
+    "department": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "team": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "location": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "region": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "headcount": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "employment_type": {
+      "description": "full_time, part_time, contract, internship, or temporary.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workplace_type": {
+      "description": "onsite, hybrid, or remote.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requisition_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "compensation": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "period": {
+          "description": "year or hour.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mid": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "public": {
+          "type": "boolean",
+          "description": "Shown on the careers page."
+        }
+      },
+      "required": [
+        "currency",
+        "period",
+        "min",
+        "mid",
+        "max",
+        "public"
+      ],
+      "additionalProperties": false
+    },
+    "equity_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "target_start_date": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "priority": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidential": {
+      "type": "boolean",
+      "description": "Hidden from the public careers page."
+    },
+    "internal_notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scorecard_attributes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hiring_manager_email": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "A person's email address, lowercase. Listed in `people`."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recruiter_email": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "A person's email address, lowercase. Listed in `people`."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hiring_team_emails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 254,
+        "description": "A person's email address, lowercase. Listed in `people`."
+      }
+    },
+    "created_by_email": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "A person's email address, lowercase. Listed in `people`."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "$ref": "./stage.schema.json"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "slug",
+    "title",
+    "status",
+    "department",
+    "team",
+    "location",
+    "region",
+    "headcount",
+    "description",
+    "employment_type",
+    "workplace_type",
+    "requisition_id",
+    "compensation",
+    "equity_note",
+    "target_start_date",
+    "priority",
+    "confidential",
+    "internal_notes",
+    "scorecard_attributes",
+    "hiring_manager_email",
+    "recruiter_email",
+    "hiring_team_emails",
+    "created_by_email",
+    "stages",
+    "created_at",
+    "updated_at"
+  ],
+  "additionalProperties": false,
+  "x-pennyats-schema-version": "1.0.0"
+}

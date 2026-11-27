@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1/candidate.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "description": "Lowercase. Unique when present.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "phone": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "linkedin_url": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "location": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "resume_name": {
+      "description": "Original file name. The file itself is not in the export.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resume_text": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "consented_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When they agreed to the privacy notice, if one was required."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "full_name",
+    "email",
+    "phone",
+    "linkedin_url",
+    "location",
+    "source",
+    "tags",
+    "resume_name",
+    "resume_text",
+    "consented_at",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "x-pennyats-schema-version": "1.0.0"
+}

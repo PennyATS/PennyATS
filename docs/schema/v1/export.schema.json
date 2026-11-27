@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1/export.schema.json",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "pennyats-export"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$",
+      "description": "Semver. Readers accept any 1.x document."
+    },
+    "exported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "people": {
+      "type": "array",
+      "items": {
+        "$ref": "./person.schema.json"
+      },
+      "description": "Everyone referenced by email elsewhere in the document. No passwords."
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "$ref": "./job.schema.json"
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "./candidate.schema.json"
+      }
+    },
+    "applications": {
+      "type": "array",
+      "items": {
+        "$ref": "./application.schema.json"
+      }
+    },
+    "interviews": {
+      "type": "array",
+      "items": {
+        "$ref": "./interview.schema.json"
+      }
+    },
+    "scorecards": {
+      "type": "array",
+      "items": {
+        "$ref": "./scorecard.schema.json"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "$ref": "./note.schema.json"
+      }
+    }
+  },
+  "required": [
+    "format",
+    "schema_version",
+    "exported_at",
+    "people",
+    "jobs",
+    "candidates",
+    "applications",
+    "interviews",
+    "scorecards",
+    "notes"
+  ],
+  "additionalProperties": false,
+  "x-pennyats-schema-version": "1.0.0"
+}

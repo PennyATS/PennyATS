@@ -15,6 +15,9 @@
     "privacy:purge": "pnpm --filter @pennyats/web privacy:purge",
     "webhooks:deliver": "pnpm --filter @pennyats/web webhooks:deliver",
     "api:spec": "pnpm --filter @pennyats/web api:spec",
+    "schema:generate": "pnpm --filter @pennyats/schema generate",
+    "data:export": "pnpm --silent --filter @pennyats/schema data:export",
+    "data:import": "pnpm --filter @pennyats/schema data:import",
     "calendar:sync": "pnpm --filter @pennyats/web calendar:sync",
     "scheduling:mail": "pnpm --filter @pennyats/web scheduling:mail",
     "scheduling:integration": "pnpm --filter @pennyats/web scheduling:integration"

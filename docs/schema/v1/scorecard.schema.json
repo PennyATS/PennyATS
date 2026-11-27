@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1/scorecard.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "application_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "interview_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "author_email": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 254,
+      "description": "A person's email address, lowercase. Listed in `people`."
+    },
+    "stage_name": {
+      "type": "string"
+    },
+    "recommendation": {
+      "type": "string",
+      "enum": [
+        "strong_no",
+        "no",
+        "yes",
+        "strong_yes"
+      ]
+    },
+    "ratings": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4
+      },
+      "description": "Attribute name to rating, 1 to 4."
+    },
+    "summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "application_id",
+    "interview_id",
+    "author_email",
+    "stage_name",
+    "recommendation",
+    "ratings",
+    "summary",
+    "created_at",
+    "updated_at"
+  ],
+  "additionalProperties": false,
+  "x-pennyats-schema-version": "1.0.0"
+}
