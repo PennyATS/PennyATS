@@ -151,6 +151,34 @@ export default async function ReportsPage({
         )
       )}
 
+      {tables.apply && (
+        <Section
+          title="Careers apply funnel"
+          note="Public job page views, people who started the apply form, and successful submits. Anonymous counts only."
+          csvHref={csv("apply")}
+        >
+          <ChartToggle
+            id="apply"
+            graph={<BarChart rows={tables.apply.rows.map(([label, count]) => ({ label: String(label), value: Number(count) }))} />}
+            table={
+              <table className="table">
+                <tbody>
+                  {tables.apply.rows.map(([label, count, percent]) => (
+                    <tr key={String(label)}>
+                      <td className="w-48">{label}</td>
+                      <td className="w-16 text-right">{count}</td>
+                      <td>
+                        <Bar percent={Number(percent)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            }
+          />
+        </Section>
+      )}
+
       {tables.trend && (
         <Section title="Applications and hires over time" note="Per month. Hires are counted in the month they were marked hired." csvHref={csv("trend")}>
           <ChartToggle

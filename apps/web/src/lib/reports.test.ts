@@ -155,10 +155,17 @@ test("periods default to 90 days and 'all' means no start date", () => {
 });
 
 test("reportTables builds the funnel for one job and the per-job table for all", () => {
-  const base = { jobs: [{ id: "j", title: "Engineer", location: "Remote", status: "open" }], apps: APPS, events: EVENTS, stages: STAGES };
+  const base = {
+    jobs: [{ id: "j", title: "Engineer", location: "Remote", status: "open" }],
+    apps: APPS,
+    events: EVENTS,
+    stages: STAGES,
+    applyFunnel: { views: 50, starts: 20, submits: 5 },
+  };
   const one = reportTables({ ...base, jobId: "j", cards: [] });
   assert.deepEqual(one.funnel?.rows, [["Applied", 3, 100], ["Screen", 2, 67], ["Onsite", 1, 33], ["Hired", 1, 33]]);
   assert.equal(one.jobs, undefined);
+  assert.deepEqual(one.apply?.rows, [["Views", 50, 100], ["Starts", 20, 40], ["Submits", 5, 10]]);
 
   const all = reportTables({ ...base, jobId: null, cards: [{ author: "Sam", recommendation: "yes" }, { author: "Sam", recommendation: "no" }] });
   assert.equal(all.funnel, undefined);
@@ -166,6 +173,7 @@ test("reportTables builds the funnel for one job and the per-job table for all",
   assert.deepEqual(all.jobIds, ["j"]);
   assert.deepEqual(all.interviewers?.rows, [["Sam", 2, 0, 1, 1, 0]]);
   assert.deepEqual(all.stages?.rows[0], ["Applied", 2, 3, 3]);
+  assert.deepEqual(all.apply?.rows, [["Views", 50, 100], ["Starts", 20, 40], ["Submits", 5, 10]]);
 });
 
 test("monthlyTrend counts applications and hires per month without gaps", () => {

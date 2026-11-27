@@ -70,9 +70,14 @@ Deploy PennyATS on its own hostname (`https://jobs.acme.com`), set `APP_URL` to 
 
 You can iframe `/careers` or a job page from the company site. Prefer reverse proxy or standalone instead: iframes hurt SEO (JobPosting on an embedded URL is attributed to the framed origin), and cookie/SameSite rules can complicate apply flows. If you must embed for a temporary landing page, still keep a crawlable, non-framed URL for each job.
 
+## Apply completion funnel
+
+Each public job page records anonymous counts: **views** (page load), **starts** (first focus on the apply form), and **submits** (successful application). No candidate details are stored. Admins and recruiters see the funnel on **Reports** (table `apply`, also available through the API and MCP).
+
 ## Checklist
 
 1. Set `APP_URL` to the public `https://` origin candidates will use.
 2. Open a job (status Open, not confidential) and confirm `/careers/{slug}` loads over that origin.
 3. Validate JobPosting JSON-LD with the Rich Results Test.
 4. Confirm the apply form posts successfully (resume size limits still apply; see the form help text).
+5. After a few test applies, confirm **Reports → Careers apply funnel** shows views, starts, and submits.

@@ -13,6 +13,7 @@ import { clientIp } from "@/lib/request";
 import { extensionOf, storage } from "@/lib/storage";
 import { checkResume, parseCandidate } from "@/lib/validation";
 import { sendStageEntryEmail } from "@/lib/candidate-email";
+import { recordCareersFunnelEvent } from "@/lib/careers-funnel";
 
 const applyLimiter = createRateLimiter({ limit: isDemoMode() ? DEMO_LIMITS.applyPerHour : 5, windowMs: 60 * 60 * 1000 });
 
@@ -61,6 +62,8 @@ export async function applyAction(jobId: string, _: FormState, form: FormData): 
   );
   if (result.created && result.applicationId) await sendStageEntryEmail(result.applicationId, null, null);
   void deliverDueWebhooks();
+  // Count every real submit (including a repeat apply for the same email) for the careers funnel.
+  void recordCareersFunnelEvent(job.id, "submit");
   // Same reply whether or not they had already applied, so the form can't be used
   // to check whether someone is a candidate.
   return { message: THANKS };

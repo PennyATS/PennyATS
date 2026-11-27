@@ -1,5 +1,6 @@
-import { and, asc, eq, gte, inArray, type SQL } from "drizzle-orm";
-import { activity, applications, candidates, jobs, scorecards, stages, users } from "@pennyats/db";
+import { and, asc, count, eq, gte, inArray, type SQL } from "drizzle-orm";
+import { activity, applications, candidates, careersFunnelEvents, jobs, scorecards, stages, users } from "@pennyats/db";
+import { tallyCareersFunnel } from "./careers-funnel";
 import { db } from "./db";
 import { periodStart, type Period, type ReportApp, type ReportInput } from "./reports";
 
@@ -11,8 +12,12 @@ export async function loadReportInput(jobId: string | null, period: Period): Pro
     jobId ? eq(applications.jobId, jobId) : undefined,
     start ? gte(applications.appliedAt, start) : undefined,
   );
+  const funnelFilter: SQL | undefined = and(
+    jobId ? eq(careersFunnelEvents.jobId, jobId) : undefined,
+    start ? gte(careersFunnelEvents.createdAt, start) : undefined,
+  );
 
-  const [allJobs, appRows, eventRows, stageRows, cardRows] = await Promise.all([
+  const [allJobs, appRows, eventRows, stageRows, cardRows, funnelRows] = await Promise.all([
     db()
       .select({ id: jobs.id, title: jobs.title, location: jobs.location, status: jobs.status })
       .from(jobs)
@@ -50,6 +55,11 @@ export async function loadReportInput(jobId: string | null, period: Period): Pro
       .innerJoin(applications, eq(applications.id, scorecards.applicationId))
       .innerJoin(users, eq(users.id, scorecards.authorId))
       .where(appFilter),
+    db()
+      .select({ kind: careersFunnelEvents.kind, count: count() })
+      .from(careersFunnelEvents)
+      .where(funnelFilter)
+      .groupBy(careersFunnelEvents.kind),
   ]);
 
   return {
@@ -59,5 +69,6 @@ export async function loadReportInput(jobId: string | null, period: Period): Pro
     events: eventRows,
     stages: stageRows,
     cards: cardRows,
+    applyFunnel: tallyCareersFunnel(funnelRows.map((r) => ({ kind: r.kind, count: Number(r.count) }))),
   };
 }

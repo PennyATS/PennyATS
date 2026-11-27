@@ -242,6 +242,27 @@ export const applications = pgTable(
   ],
 );
 
+/**
+ * Anonymous careers-page completion funnel (job page views, apply starts, submits).
+ * No candidate details — counters only. Cascades when the job is deleted.
+ */
+export const careersFunnelEvents = pgTable(
+  "careers_funnel_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    /** view | start | submit */
+    kind: text("kind").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("careers_funnel_events_job_created_idx").on(t.jobId, t.createdAt),
+    index("careers_funnel_events_kind_created_idx").on(t.kind, t.createdAt),
+  ],
+);
+
 /* ---------- Interview loop ---------- */
 
 /** The interview plan: interviews a job runs in each stage. */

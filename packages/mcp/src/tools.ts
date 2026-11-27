@@ -32,7 +32,7 @@ const confirm = z
   .optional()
   .describe("Must be true to actually do this. Call once without it to get a preview, show it to the person, and only confirm after they agree.");
 
-const REPORT_TABLES = ["funnel", "jobs", "trend", "stages", "sources", "reasons", "interviewers"] as const;
+const REPORT_TABLES = ["funnel", "jobs", "trend", "stages", "sources", "reasons", "interviewers", "apply"] as const;
 
 /** Rows as objects keyed by the table's column names, which is easier for a model to read. */
 function tableRows(report: { head: string[]; rows: unknown[][] }) {
@@ -174,7 +174,7 @@ export const TOOLS: ToolDef[] = [
     title: "Run a report",
     kind: "read",
     description:
-      "Hiring reports, the same as the Reports page. funnel: how many reached each stage. jobs: per-job applicants, active, hires, days to hire. trend: applications and hires by month. stages: average and median days in each stage. sources: applicants, advanced, and hires by source. reasons: rejection reasons. interviewers: scorecards submitted per interviewer.",
+      "Hiring reports, the same as the Reports page. funnel: how many reached each stage. jobs: per-job applicants, active, hires, days to hire. trend: applications and hires by month. stages: average and median days in each stage. sources: applicants, advanced, and hires by source. reasons: rejection reasons. interviewers: scorecards submitted per interviewer. apply: careers page views, apply starts, and submits.",
     input: {
       report: z.enum(REPORT_TABLES),
       job_id: id("job").optional().describe("Limit to one job. Some reports (funnel, stages) need one."),

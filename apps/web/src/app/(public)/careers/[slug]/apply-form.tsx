@@ -1,12 +1,34 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { Field, SubmitButton, type FormAction } from "@/components/form";
 
 type Notice = { text: string | null; url: string | null; requireConsent: boolean };
 
-export function ApplyForm({ action, notice, maxResume }: { action: FormAction; notice: Notice; maxResume: string }) {
+export function ApplyForm({
+  action,
+  notice,
+  maxResume,
+  jobId,
+}: {
+  action: FormAction;
+  notice: Notice;
+  maxResume: string;
+  jobId: string;
+}) {
   const [state, formAction] = useActionState(action, undefined);
+  const started = useRef(false);
+
+  function markStart() {
+    if (started.current) return;
+    started.current = true;
+    void fetch("/api/careers/funnel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId, kind: "start" }),
+      keepalive: true,
+    });
+  }
 
   if (state?.message) {
     return (
@@ -17,7 +39,7 @@ export function ApplyForm({ action, notice, maxResume }: { action: FormAction; n
   }
 
   return (
-    <form action={formAction} className="card space-y-4">
+    <form action={formAction} className="card space-y-4" onFocus={markStart}>
       <Field label="Full name" name="fullName" autoComplete="name" required />
       <Field label="Email" name="email" type="email" autoComplete="email" required />
       <Field label="Phone" name="phone" type="tel" autoComplete="tel" />

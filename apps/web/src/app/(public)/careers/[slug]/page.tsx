@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { jobs } from "@pennyats/db";
 import { getCompanyName } from "@/lib/candidate-email";
+import { recordCareersFunnelEvent } from "@/lib/careers-funnel";
 import { db } from "@/lib/db";
 import { getPrivacySettings } from "@/lib/privacy";
 import { EMPLOYMENT_TYPES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
@@ -33,6 +35,11 @@ export default async function CareerJobPage({ params }: { params: Promise<{ slug
   const appUrl = (process.env.APP_URL ?? "").replace(/\/$/, "") || "http://localhost:3000";
   const jsonLd = jobPostingJsonLd(job, { companyName: await getCompanyName(), appUrl });
 
+  // Count the page view after the response is sent so tracking never delays the apply form.
+  after(() => {
+    void recordCareersFunnelEvent(job.id, "view");
+  });
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
@@ -62,6 +69,7 @@ export default async function CareerJobPage({ params }: { params: Promise<{ slug
         action={applyAction.bind(null, job.id)}
         notice={{ text: privacy.noticeText, url: privacy.noticeUrl, requireConsent: privacy.requireConsent }}
         maxResume={resumeSizeLabel()}
+        jobId={job.id}
       />
     </>
   );

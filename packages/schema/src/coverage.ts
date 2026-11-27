@@ -218,4 +218,5 @@ export const NOT_IN_V1: Record<string, string> = {
   scheduling_deliveries: "Outgoing mail queue.",
   notifications: "Per-user inbox state.",
   webhook_deliveries: "Delivery log.",
+  careers_funnel_events: "Anonymous careers apply-funnel counters for this instance, not hiring records.",
 };
