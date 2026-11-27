@@ -93,6 +93,13 @@ export default async function ApiSettingsPage() {
             </select>
           </div>
           <div>
+            <label className="label" htmlFor="key-source">
+              Source for candidates it adds
+            </label>
+            <input id="key-source" name="source" className="input" maxLength={100} placeholder="e.g. Gem, LinkedIn Recruiter" />
+            <p className="muted mt-1 text-xs">Shows in the sources report. Leave blank for &quot;API&quot;.</p>
+          </div>
+          <div>
             <label className="label" htmlFor="key-expiry">
               Expires
             </label>
@@ -135,6 +142,7 @@ export default async function ApiSettingsPage() {
                 <th>Key</th>
                 <th>Acts as</th>
                 <th>Scopes</th>
+                <th>Source</th>
                 <th>Last used</th>
                 <th>Expires</th>
                 <th>Status</th>
@@ -156,6 +164,7 @@ export default async function ApiSettingsPage() {
                       {user} <span className="muted">({role})</span>
                     </td>
                     <td className="text-xs">{key.scopes.join(", ")}</td>
+                    <td>{key.source ?? <span className="muted">API</span>}</td>
                     <td>{key.lastUsedAt ? <LocalTime iso={key.lastUsedAt.toISOString()} /> : <span className="muted">Never</span>}</td>
                     <td>{key.expiresAt ? <LocalTime iso={key.expiresAt.toISOString()} withTime={false} /> : "Never"}</td>
                     <td>{state === "ok" ? "Active" : state === "revoked" ? "Revoked" : "Expired"}</td>

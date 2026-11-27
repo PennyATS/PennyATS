@@ -39,6 +39,11 @@ export function keyLabel(prefix: string): string {
   return `pats_${prefix}_…`;
 }
 
+/** Kept in an application's history when an integration adds it, so any candidate can be traced to its key. */
+export function apiAttribution(key: { prefix: string; name: string }): Record<string, string> {
+  return { via: "api", key: keyLabel(key.prefix), integration: key.name };
+}
+
 /** Bearer token from an Authorization header, or null. */
 export function bearerToken(header: string | null): string | null {
   if (!header) return null;
@@ -51,6 +56,8 @@ export type ApiKeyRecord = {
   name: string;
   prefix: string;
   scopes: string[];
+  /** Source for candidates this key adds, unless the request names one. */
+  source: string | null;
   expiresAt: Date | null;
   revokedAt: Date | null;
   lastUsedAt: Date | null;

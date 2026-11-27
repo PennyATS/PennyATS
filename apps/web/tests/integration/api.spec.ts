@@ -301,6 +301,42 @@ test("public API: keys, scopes, visibility, privacy, and audit", async ({ reques
     expect(listed.body.data.some((i: { id: string }) => i.id === created.body.id)).toBe(true);
     await denied("listInterviews", { params: { id: applicationId } });
 
+    // Scheduling, the way a scheduling tool would.
+    const waiting = await call(recruiter, "listAllInterviews", { query: { status: "to_schedule", job_id: jobId } });
+    expect(waiting.body.data.map((i: { id: string }) => i.id)).toContain(created.body.id);
+    expect(waiting.body.data.every((i: { status: string }) => i.status === "to_schedule")).toBe(true);
+    await denied("listAllInterviews");
+    expect((await call(interviewer, "getInterview", { params: { id: created.body.id } })).body.job_id).toBe(jobId);
+    await denied("getInterview", { params: { id: created.body.id } });
+
+    const at = new Date(Date.now() + 9 * 24 * 60 * 60 * 1000);
+    at.setUTCHours(17, 0, 0, 0);
+    const booked = await call(recruiter, "updateInterview", {
+      params: { id: created.body.id },
+      body: { scheduled_at: at.toISOString(), time_zone: "America/New_York", meeting_location: "https://meet.example.com/abc" },
+    });
+    expect(booked.body.status).toBe("scheduled");
+    expect(booked.body.scheduled_at).toBe(at.toISOString());
+    // The same interviewer can't be double-booked.
+    const other = await call(recruiter, "createInterview", {
+      params: { id: applicationId },
+      body: { name: "Second panel", interviewer_ids: [people.interviewer.id] },
+    });
+    const clash = await call(recruiter, "updateInterview", {
+      params: { id: other.body.id },
+      body: { scheduled_at: new Date(at.getTime() + 15 * 60_000).toISOString(), time_zone: "America/New_York" },
+    });
+    expect(clash.status).toBe(409);
+    expect((await call(recruiter, "updateInterview", { params: { id: other.body.id }, body: { scheduled_at: "2020-01-01T00:00:00Z", time_zone: "UTC" } })).status).toBe(400);
+    expect((await call(recruiter, "updateInterview", { params: { id: other.body.id }, body: { scheduled_at: at.toISOString() } })).status).toBe(400);
+    expect((await call(recruiter, "updateInterview", { params: { id: other.body.id }, body: { scheduled_at: at.toISOString(), time_zone: "Mars/Olympus" } })).status).toBe(400);
+    const cancelled = await call(recruiter, "updateInterview", { params: { id: other.body.id }, body: { state: "cancel" } });
+    expect(cancelled.body.status).toBe("cancelled");
+    expect((await call(overscoped, "updateInterview", { params: { id: other.body.id }, body: { state: "restore" } })).body.error.code).toBe("forbidden");
+    await denied("updateInterview", { params: { id: other.body.id }, body: { state: "restore" } });
+    const scheduledLog = await db.select().from(activity).where(and(eq(activity.applicationId, applicationId), eq(activity.type, "interview_scheduled")));
+    expect(scheduledLog).toHaveLength(1);
+
     const card = await call(interviewer, "submitScorecard", {
       params: { id: applicationId },
       body: { interview_id: created.body.id, recommendation: "strong_yes" },
@@ -372,6 +408,39 @@ test("public API: keys, scopes, visibility, privacy, and audit", async ({ reques
       expect(text).not.toContain(email);
       expect(text).not.toContain(`API Candidate ${suffix}`);
     }
+  });
+
+  await test.step("integration attribution: the key's source and the key in the history", async () => {
+    const sourcer = await key(people.recruiter.id, ["candidates:write", "candidates:read"], { name: "Example sourcer", source: "Example Sourcing Tool" });
+    const added = await call(sourcer.key, "createCandidate", { body: { job_id: jobId, full_name: `Sourced ${suffix}` } });
+    expect(added.body.candidate.source).toBe("Example Sourcing Tool");
+    const [entry] = await db.select().from(activity).where(eq(activity.applicationId, added.body.application_id));
+    expect(entry.data).toMatchObject({ source: "Example Sourcing Tool", via: "api", integration: "Example sourcer" });
+    expect(String(entry.data.key)).toMatch(/^pats_[0-9a-f]{8}_/);
+    const own = await call(sourcer.key, "createCandidate", { body: { job_id: jobId, full_name: `Referred ${suffix}`, source: "Referral" } });
+    expect(own.body.candidate.source).toBe("Referral");
+    const me = await call(sourcer.key, "me");
+    expect(me.body.key.source).toBe("Example Sourcing Tool");
+    const sources = await call(admin, "getReport", { params: { table: "sources" }, query: { job_id: jobId, period: "all" } });
+    expect(sources.body.rows.map((r: unknown[]) => r[0])).toContain("Example Sourcing Tool");
+  });
+
+  await test.step("paging never skips rows that share a timestamp", async () => {
+    // One statement, so all three get the same now() to the microsecond, as rows from one
+    // transaction (a bulk insert or an import) do. The cursor only carries milliseconds.
+    const tag = `tie-${suffix}`;
+    const tied = await db
+      .insert(candidates)
+      .values([1, 2, 3].map((n) => ({ fullName: `Tie ${n} ${suffix}`, tags: [tag] })))
+      .returning({ id: candidates.id, createdAt: candidates.createdAt });
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await call(admin, "listCandidates", { query: { tag, limit: "1", ...(cursor ? { cursor } : {}) } });
+      seen.push(...page.body.data.map((c: { id: string }) => c.id));
+      cursor = page.body.next_cursor ?? undefined;
+    } while (cursor && seen.length < 10);
+    expect(seen.sort()).toEqual(tied.map((t) => t.id).sort());
   });
 
   await test.step("every endpoint was called with an allowed and a denied key", async () => {

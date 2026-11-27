@@ -118,6 +118,8 @@ Run `pnpm calendar:sync` regularly to pull Google Calendar edits, cancellations,
 
 Admins create API keys and webhooks under **Admin > API and webhooks**. See [docs/api.md](docs/api.md) for authentication, scopes, errors, pagination, the audit log, and verifying webhook signatures. The full reference is [docs/api/openapi.json](docs/api/openapi.json), also served by your instance at `/api/v1/openapi.json`.
 
+To connect a sourcing tool, a scheduler, or an AI assistant, start with [docs/integrations.md](docs/integrations.md); working reference integrations are in [`examples/`](examples).
+
 To let Claude, ChatGPT, or Cursor work in PennyATS, run the [MCP server](docs/mcp.md) in `packages/mcp`. It is read-only by default, asks for confirmation before rejecting, emailing, or deleting, redacts contact details, and shows up in the audit log as agent activity.
 
 Webhooks are sent right away and retried by the running server. Also schedule `pnpm webhooks:deliver` (for example every 5 minutes with cron) so retries survive a restart.
@@ -142,6 +144,7 @@ packages/ai      Provider interface (Anthropic, OpenAI), off unless configured
 packages/redact  PII redaction before AI calls
 packages/mcp     MCP server for AI assistants, using the public API
 packages/schema  Open data format: JSON Schema, workspace export and import
+examples         Reference integrations: sourcing tool, scheduler, AI assistant
 docker           Production Dockerfile and Docker Compose
 ```
 
@@ -157,7 +160,7 @@ For the longer-term direction (agent-ready API and MCP server, security, complia
 
 ### Recently shipped
 
-- **Agent-ready platform:** [public REST API with scoped keys, an OpenAPI document, and signed webhooks](https://github.com/PennyATS/PennyATS/issues/115), an [MCP server for Claude, ChatGPT, and Cursor](https://github.com/PennyATS/PennyATS/issues/116), and an [open, versioned data format with export and import](https://github.com/PennyATS/PennyATS/issues/114).
+- **Agent-ready platform:** [public REST API with scoped keys, an OpenAPI document, and signed webhooks](https://github.com/PennyATS/PennyATS/issues/115), an [MCP server for Claude, ChatGPT, and Cursor](https://github.com/PennyATS/PennyATS/issues/116), an [open, versioned data format with export and import](https://github.com/PennyATS/PennyATS/issues/114), and [integration points with reference integrations for sourcing, scheduling, and AI assistants](https://github.com/PennyATS/PennyATS/issues/117).
 - **Candidate review:** [column filters](https://github.com/PennyATS/PennyATS/issues/67), [boolean search across resumes, notes, and phone screens](https://github.com/PennyATS/PennyATS/issues/70), [next / previous review arrows](https://github.com/PennyATS/PennyATS/issues/72), [tags](https://github.com/PennyATS/PennyATS/issues/69), [resume on the profile](https://github.com/PennyATS/PennyATS/issues/68), [standard rejection reasons](https://github.com/PennyATS/PennyATS/issues/71), and [phone screen notes with an Archived view](https://github.com/PennyATS/PennyATS/issues/73).
 - **Jobs:** [compensation, hiring manager, and planning fields](https://github.com/PennyATS/PennyATS/issues/75), [job sub-navigation, stage tabs, and a details drawer](https://github.com/PennyATS/PennyATS/issues/79), [job overview and pipeline health](https://github.com/PennyATS/PennyATS/issues/33), [interview plans per job](https://github.com/PennyATS/PennyATS/issues/32), and [tidier job settings pages](https://github.com/PennyATS/PennyATS/issues/91).
 - **Dashboards and reports:** [Home, Executive, and Jobs dashboards](https://github.com/PennyATS/PennyATS/issues/78), [report charts with a graph / table toggle](https://github.com/PennyATS/PennyATS/issues/74), and [a fixed-order pipeline snapshot](https://github.com/PennyATS/PennyATS/issues/76).

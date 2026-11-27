@@ -190,7 +190,7 @@ export const CreateCandidate = named(
     phone: optionalText(50),
     linkedin_url: optionalText(500),
     location: optionalText(200),
-    source: optionalText(100).describe("Defaults to API."),
+    source: optionalText(100).describe("Where they came from, for the sources report. Defaults to the key's source label, then API."),
     tags: z.array(z.string().max(40)).max(30).optional(),
   }),
 );
@@ -279,6 +279,8 @@ export const Interview = named(
   z.object({
     id: Id,
     application_id: Id,
+    candidate_id: Id,
+    job_id: Id,
     name: z.string(),
     stage_name: z.string(),
     duration_minutes: z.number().int(),
@@ -293,6 +295,29 @@ export const Interview = named(
   "Status is derived from the schedule and submitted scorecards.",
 );
 export const InterviewList = z.object({ data: z.array(Interview) });
+export const InterviewPage = page(Interview);
+export const InterviewStatus = z.enum(["cancelled", "to_schedule", "scheduled", "feedback_due", "complete"]);
+export const InterviewsQuery = PageQuery.extend({
+  job_id: Id.optional(),
+  application_id: Id.optional(),
+  status: InterviewStatus.optional().describe("Derived status. A page can hold fewer than `limit` items when filtering by it; keep following `next_cursor`."),
+});
+export const UpdateInterview = named(
+  "UpdateInterview",
+  z
+    .strictObject({
+      scheduled_at: z.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("When it starts, with a UTC offset, e.g. 2026-12-03T17:00:00Z. Must be in the future."),
+      time_zone: z.string().max(100).optional().describe("IANA time zone the time was chosen in, e.g. America/New_York. Required with scheduled_at."),
+      meeting_location: z.string().max(500).nullable().optional().describe("Room, address, or an http(s) meeting link."),
+      state: z.enum(["complete", "cancel", "restore"]).optional().describe("Mark held, cancel, or restore a cancelled interview."),
+    })
+    .refine((v) => v.scheduled_at !== undefined || v.state !== undefined, "Send scheduled_at (with time_zone) or state.")
+    .refine((v) => v.scheduled_at === undefined || Boolean(v.time_zone), { message: "time_zone is required with scheduled_at.", path: ["time_zone"] }),
+  "Schedule or reschedule (checked against the interviewers' other interviews), or change its state. Same as the candidate profile.",
+);
 export const CreateInterview = z.strictObject({
   name: text(120),
   duration_minutes: z.number().int().min(5).max(480).default(45),
@@ -349,7 +374,14 @@ export const EmailResult = named(
 export const Me = named(
   "Me",
   z.object({
-    key: z.object({ id: Id, name: z.string(), prefix: z.string(), scopes: z.array(z.string()), expires_at: Timestamp.nullable() }),
+    key: z.object({
+      id: Id,
+      name: z.string(),
+      prefix: z.string(),
+      scopes: z.array(z.string()),
+      source: z.string().nullable().describe("Source given to candidates this key adds, unless the request sets one."),
+      expires_at: Timestamp.nullable(),
+    }),
     user: z.object({ id: Id, name: z.string(), email: z.string(), role: z.enum(["admin", "recruiter", "interviewer"]) }),
     webhook_events: z.array(z.enum(WEBHOOK_EVENT_NAMES)),
   }),

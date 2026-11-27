@@ -3148,6 +3148,377 @@
         }
       }
     },
+    "/interviews": {
+      "get": {
+        "operationId": "listAllInterviews",
+        "tags": [
+          "Interviews"
+        ],
+        "summary": "List interviews across jobs",
+        "description": "Newest first, on jobs the key's user can see. Filter by `status=to_schedule` to find interviews a scheduling tool should book.\n\nScope: `interviews:read`. Permission: `interviews.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "interviews:read"
+            ]
+          }
+        ],
+        "x-required-scope": "interviews:read",
+        "x-required-permission": "interviews.view",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 100.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The `next_cursor` from the previous page.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Derived status. A page can hold fewer than `limit` items when filtering by it; keep following `next_cursor`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cancelled",
+                "to_schedule",
+                "scheduled",
+                "feedback_due",
+                "complete"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Interview"
+                      }
+                    },
+                    "next_cursor": {
+                      "description": "Pass as `cursor` to get the next page. Null on the last page.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interviews/{id}": {
+      "get": {
+        "operationId": "getInterview",
+        "tags": [
+          "Interviews"
+        ],
+        "summary": "Get an interview",
+        "description": "Get an interview\n\nScope: `interviews:read`. Permission: `interviews.view`.",
+        "security": [
+          {
+            "apiKey": [
+              "interviews:read"
+            ]
+          }
+        ],
+        "x-required-scope": "interviews:read",
+        "x-required-permission": "interviews.view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Interview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateInterview",
+        "tags": [
+          "Interviews"
+        ],
+        "summary": "Schedule, reschedule, complete, cancel, or restore an interview",
+        "description": "Scheduling checks the interviewers' other PennyATS interviews (409 on a clash), logs it on the timeline, syncs Google Calendar when connected, and queues reminders, the same as scheduling from the candidate profile.\n\nScope: `interviews:write`. Permission: `interviews.schedule`. Recorded in the audit log.",
+        "security": [
+          {
+            "apiKey": [
+              "interviews:write"
+            ]
+          }
+        ],
+        "x-required-scope": "interviews:write",
+        "x-required-permission": "interviews.schedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInterview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Interview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request didn't match the schema. `details` lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown, expired, or revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks the scope (`missing_scope`), or its user lacks the permission (`forbidden`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the key's user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Valid request that the app's rules don't allow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests for this key. Wait for `Retry-After` seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/applications/{id}/email-drafts": {
       "post": {
         "operationId": "draftEmail",
@@ -3950,7 +4321,7 @@
                 "type": "null"
               }
             ],
-            "description": "Defaults to API."
+            "description": "Where they came from, for the sources report. Defaults to the key's source label, then API."
           },
           "tags": {
             "maxItems": 30,
@@ -4268,6 +4639,14 @@
             "type": "string",
             "format": "uuid"
           },
+          "candidate_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
           "name": {
             "type": "string"
           },
@@ -4345,6 +4724,8 @@
         "required": [
           "id",
           "application_id",
+          "candidate_id",
+          "job_id",
           "name",
           "stage_name",
           "duration_minutes",
@@ -4519,6 +4900,13 @@
                   "type": "string"
                 }
               },
+              "source": {
+                "description": "Source given to candidates this key adds, unless the request sets one.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "expires_at": {
                 "anyOf": [
                   {
@@ -4537,6 +4925,7 @@
               "name",
               "prefix",
               "scopes",
+              "source",
               "expires_at"
             ],
             "additionalProperties": false
@@ -4866,6 +5255,44 @@
         "additionalProperties": false,
         "description": "Submitting again for the same interview (or stage) edits the earlier scorecard."
       },
+      "UpdateInterview": {
+        "type": "object",
+        "properties": {
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it starts, with a UTC offset, e.g. 2026-12-03T17:00:00Z. Must be in the future."
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "IANA time zone the time was chosen in, e.g. America/New_York. Required with scheduled_at."
+          },
+          "meeting_location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Room, address, or an http(s) meeting link."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "cancel",
+              "restore"
+            ],
+            "description": "Mark held, cancel, or restore a cancelled interview."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Schedule or reschedule (checked against the interviewers' other interviews), or change its state. Same as the candidate profile."
+      },
       "UpdateJob": {
         "type": "object",
         "properties": {
@@ -5125,7 +5552,7 @@
     },
     {
       "scope": "interviews:write",
-      "description": "Add interviews",
+      "description": "Add, schedule, complete, cancel, and restore interviews",
       "permissions": [
         "interviews.schedule"
       ]

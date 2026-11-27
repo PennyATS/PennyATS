@@ -2,7 +2,7 @@
  * Queries and serializers for the public API. Every query applies the same visibility rules
  * as the app (visibleJobIds, canSeeJob, canSeeCandidate, the blind scorecard rule).
  */
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import {
   applications,
   candidates,
@@ -46,8 +46,20 @@ export function decodeCursor(cursor: string | undefined): { at: string; id: stri
 }
 
 /** WHERE (time, id) < cursor, for a newest-first keyset page. */
-export function before(timeCol: SQL, idCol: AnyPgColumn, cursor: { at: string; id: string } | null) {
-  return cursor ? sql`(${timeCol}, ${idCol}) < (${cursor.at}::timestamptz, ${cursor.id}::uuid)` : undefined;
+/*
+ * Postgres keeps microseconds, but a cursor carries JavaScript's milliseconds. Paging compares and
+ * orders on the time truncated to milliseconds, or rows that share a timestamp (everything written
+ * in one transaction, like a seed or an import) could be skipped between pages.
+ */
+const ms = (timeCol: SQL | AnyPgColumn) => sql`date_trunc('milliseconds', ${timeCol})`;
+
+export function before(timeCol: SQL | AnyPgColumn, idCol: AnyPgColumn, cursor: { at: string; id: string } | null) {
+  return cursor ? sql`(${ms(timeCol)}, ${idCol}) < (${cursor.at}::timestamptz, ${cursor.id}::uuid)` : undefined;
+}
+
+/** ORDER BY for a newest-first keyset page; pair with `before`. */
+export function newestFirst(timeCol: AnyPgColumn, idCol: AnyPgColumn) {
+  return [desc(ms(timeCol)), desc(idCol)] as const;
 }
 
 /** Trim the extra row fetched to detect another page and build next_cursor. */
@@ -188,7 +200,7 @@ export async function listApplications(
         before(sql`${applications.appliedAt}`, applications.id, cursor),
       ),
     )
-    .orderBy(desc(applications.appliedAt), desc(applications.id))
+    .orderBy(...newestFirst(applications.appliedAt, applications.id))
     .limit(filters.limit + 1);
   const page = pageOf(rows, filters.limit, (r) => ({ at: r.appliedAt, id: r.id }));
   return { data: page.data.map(serializeApplication), next_cursor: page.next_cursor };
@@ -222,7 +234,7 @@ export async function listNotes(user: SessionUser, candidateId: string, limit: n
     .from(notes)
     .innerJoin(users, eq(users.id, notes.authorId))
     .where(and(eq(notes.candidateId, candidateId), before(sql`${notes.createdAt}`, notes.id, cursor)))
-    .orderBy(desc(notes.createdAt), desc(notes.id))
+    .orderBy(...newestFirst(notes.createdAt, notes.id))
     .limit(limit + 1);
   const page = pageOf(rows, limit, (r) => ({ at: r.note.createdAt, id: r.note.id }));
   return { data: page.data.map((r) => serializeNote(r.note, r.author)), next_cursor: page.next_cursor };
@@ -273,14 +285,19 @@ export async function listScorecards(user: SessionUser, applicationId: string) {
 
 /* ---------- Interviews ---------- */
 
-export async function listInterviews(applicationId: string, onlyId?: string) {
-  const rows = await db()
-    .select()
+/** Interviews matching `where`, with job and candidate ids and the derived status. */
+async function loadInterviews(where: SQL | undefined, opts: { limit?: number; newestFirst?: boolean } = {}) {
+  let query = db()
+    .select({ interview: interviews, jobId: applications.jobId, candidateId: applications.candidateId })
     .from(interviews)
-    .where(and(eq(interviews.applicationId, applicationId), onlyId ? eq(interviews.id, onlyId) : undefined))
-    .orderBy(asc(interviews.createdAt));
+    .innerJoin(applications, eq(applications.id, interviews.applicationId))
+    .where(where)
+    .orderBy(...(opts.newestFirst ? newestFirst(interviews.createdAt, interviews.id) : [asc(interviews.createdAt), asc(interviews.id)]))
+    .$dynamic();
+  if (opts.limit) query = query.limit(opts.limit);
+  const rows = await query;
   if (rows.length === 0) return [];
-  const ids = rows.map((r) => r.id);
+  const ids = rows.map((r) => r.interview.id);
   const [people, submitted] = await Promise.all([
     db().select().from(interviewInterviewers).where(inArray(interviewInterviewers.interviewId, ids)),
     db()
@@ -288,7 +305,7 @@ export async function listInterviews(applicationId: string, onlyId?: string) {
       .from(scorecards)
       .where(inArray(scorecards.interviewId, ids)),
   ]);
-  return rows.map((i) => {
+  return rows.map(({ interview: i, jobId, candidateId }) => {
     const interviewerIds = people.filter((p) => p.interviewId === i.id).map((p) => p.userId);
     const status = interviewStatus({
       scheduledAt: i.scheduledAt,
@@ -300,6 +317,8 @@ export async function listInterviews(applicationId: string, onlyId?: string) {
     return {
       id: i.id,
       application_id: i.applicationId,
+      candidate_id: candidateId,
+      job_id: jobId,
       name: i.name,
       stage_name: i.stageName,
       duration_minutes: i.durationMinutes,
@@ -312,6 +331,52 @@ export async function listInterviews(applicationId: string, onlyId?: string) {
       created_at: iso(i.createdAt),
     };
   });
+}
+
+/** Interviews on one application (the caller has checked access), oldest first. */
+export async function listInterviews(applicationId: string, onlyId?: string) {
+  return loadInterviews(and(eq(interviews.applicationId, applicationId), onlyId ? eq(interviews.id, onlyId) : undefined));
+}
+
+/** One interview the user may see, or a 404. */
+export async function loadInterview(user: SessionUser, interviewId: string) {
+  const [row] = await loadInterviews(eq(interviews.id, interviewId));
+  if (!row || !(await canSeeJob(user, row.job_id))) throw notFound("Interview");
+  return row;
+}
+
+/** Interviews across visible jobs, newest first, filtered by job, application, or derived status. */
+export async function queryInterviews(
+  user: SessionUser,
+  filters: { job_id?: string; application_id?: string; status?: string; limit: number; cursor?: string },
+) {
+  const ids = await visibleJobIds(user);
+  if (ids !== null && ids.length === 0) return { data: [], next_cursor: null };
+  const cursor = decodeCursor(filters.cursor);
+  // Narrow in SQL where the status allows it; the exact derived status is applied after.
+  const prefilter =
+    filters.status === "cancelled"
+      ? isNotNull(interviews.cancelledAt)
+      : filters.status === "to_schedule"
+        ? and(isNull(interviews.cancelledAt), isNull(interviews.completedAt), isNull(interviews.scheduledAt))
+        : filters.status
+          ? isNull(interviews.cancelledAt)
+          : undefined;
+  const rows = await loadInterviews(
+    and(
+      ids ? inArray(applications.jobId, ids) : undefined,
+      filters.job_id ? eq(applications.jobId, filters.job_id) : undefined,
+      filters.application_id ? eq(interviews.applicationId, filters.application_id) : undefined,
+      prefilter,
+      before(sql`${interviews.createdAt}`, interviews.id, cursor),
+    ),
+    { limit: filters.limit + 1, newestFirst: true },
+  );
+  const page = pageOf(rows, filters.limit, (r) => ({ at: new Date(r.created_at), id: r.id }));
+  return {
+    data: filters.status ? page.data.filter((r) => r.status === filters.status) : page.data,
+    next_cursor: page.next_cursor,
+  };
 }
 
 /* ---------- Templates ---------- */

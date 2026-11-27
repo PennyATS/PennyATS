@@ -1,30 +1,25 @@
 "use server";
 
 import { notify } from "@/lib/notifications";
-import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { candidateAvailabilityLinks, candidates, googleCalendarConnections, interviewBookingLinks, interviewInterviewers, interviews, users } from "@pennyats/db";
+import { candidateAvailabilityLinks, candidates, googleCalendarConnections, interviewBookingLinks, interviewInterviewers } from "@pennyats/db";
 import type { FormState } from "@/components/form";
-import { requireUser, type SessionUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { bookingToken, bookingTokenHash } from "@/lib/booking";
 import { cancelGoogleInterview, googleCalendarConfigured, pullGoogleInterview, syncGoogleInterview } from "@/lib/google-calendar";
-import { createStageInterviews, getApplicationFor, logActivity } from "@/lib/hiring";
-import { overlappingInterviews, parseZonedScheduledAt } from "@/lib/interviews";
+import { createStageInterviews, getApplicationFor } from "@/lib/hiring";
+import { parseZonedScheduledAt } from "@/lib/interviews";
 import { canManageHiring } from "@/lib/permissions";
 import { queueInterviewReminders, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
-import { field, isHttpUrl, isUuid } from "@/lib/validation";
+import { field, isUuid } from "@/lib/validation";
 import { activeInterviewers, addInterview } from "@/lib/pipeline";
+import { loadInterviewFor, scheduleInterview, setInterviewState } from "@/lib/interview-ops";
 
 /** Load an interview the user may manage, with its application. */
-async function loadForManager(user: SessionUser, interviewId: string) {
-  if (!isUuid(interviewId)) return null;
-  const [row] = await db().select().from(interviews).where(eq(interviews.id, interviewId));
-  if (!row) return null;
-  const app = await getApplicationFor(user, row.applicationId);
-  return app ? { interview: row, app } : null;
-}
+const loadForManager = loadInterviewFor;
 
 function refresh(candidateId: string, jobId: string) {
   revalidatePath(`/candidates/${candidateId}`);
@@ -48,47 +43,12 @@ export async function saveManualScheduleAction(interviewId: string, _: FormState
   if (!timeZone) return { error: "Choose a time zone." };
   const parsed = parseZonedScheduledAt(String(form.get("scheduledLocal") ?? ""), timeZone);
   if (!parsed.ok) return { error: parsed.error };
-  if (parsed.value <= new Date()) return { error: "Choose a future time." };
-  const meetingLocation = field(form, "meetingLocation", 500);
-  if (meetingLocation && /^(https?:|[a-z]+:)/i.test(meetingLocation) && !isHttpUrl(meetingLocation)) {
-    return { error: "Meeting links must start with http:// or https://." };
-  }
-  const assigned = await db().select({ userId: interviewInterviewers.userId })
-    .from(interviewInterviewers).where(eq(interviewInterviewers.interviewId, interviewId));
-  const ids = assigned.map((row) => row.userId).sort();
-
-  const result = await db().transaction(async (tx) => {
-    // Serialize saves for shared interviewers so two manual schedules cannot take the same slot.
-    for (const id of ids) await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${id})::bigint)`);
-    const others = ids.length ? await tx
-      .select({ interviewId: interviews.id, interviewerId: interviewInterviewers.userId,
-        interviewerName: users.name, scheduledAt: interviews.scheduledAt,
-        durationMinutes: interviews.durationMinutes })
-      .from(interviewInterviewers)
-      .innerJoin(interviews, eq(interviews.id, interviewInterviewers.interviewId))
-      .innerJoin(users, eq(users.id, interviewInterviewers.userId))
-      .where(and(inArray(interviewInterviewers.userId, ids), isNotNull(interviews.scheduledAt), isNull(interviews.cancelledAt)))
-      : [];
-    const conflicts = overlappingInterviews(parsed.value, found.interview.durationMinutes, interviewId,
-      others.filter((row): row is typeof row & { scheduledAt: Date } => row.scheduledAt !== null));
-    if (conflicts.length) return { error: `${conflicts[0].interviewerName} has another PennyATS interview at that time. Choose an open slot.` };
-    await tx.update(interviews).set({
-      scheduledAt: parsed.value,
-      scheduledTimeZone: timeZone,
-      meetingLocation,
-    }).where(eq(interviews.id, interviewId));
-    await logActivity(tx, {
-      applicationId: found.app.id,
-      actorId: user.id,
-      type: "interview_scheduled",
-      data: { interview: found.interview.name, at: parsed.value.toISOString(),
-        previousAt: found.interview.scheduledAt?.toISOString() ?? null, timeZone, meetingLocation },
-    });
-    return { error: null };
+  const result = await scheduleInterview(user, interviewId, {
+    at: parsed.value,
+    timeZone,
+    meetingLocation: field(form, "meetingLocation", 500),
   });
-  if (result.error) return { error: result.error };
-  await syncGoogleInterview(interviewId);
-  await queueInterviewReminders(interviewId);
+  if (!result.ok) return { error: result.error };
   refresh(found.app.candidateId, found.app.jobId);
   redirect(`/candidates/${found.app.candidateId}`);
 }
@@ -101,25 +61,7 @@ export async function setInterviewStateAction(
   const user = await requireUser(canManageHiring);
   const found = await loadForManager(user, interviewId);
   if (!found) return;
-  const now = new Date();
-  const set =
-    change === "complete" ? { completedAt: now } : change === "cancel" ? { cancelledAt: now } : { cancelledAt: null };
-
-  await db().transaction(async (tx) => {
-    await tx.update(interviews).set(set).where(eq(interviews.id, interviewId));
-    if (change !== "restore") {
-      await logActivity(tx, {
-        applicationId: found.app.id,
-        actorId: user.id,
-        type: change === "complete" ? "interview_completed" : "interview_cancelled",
-        data: { interview: found.interview.name },
-      });
-    }
-  });
-  if (change === "cancel") await cancelGoogleInterview(interviewId);
-  if (change === "restore") await syncGoogleInterview(interviewId);
-  if (change !== "complete") await queueInterviewReminders(interviewId);
-  refresh(found.app.candidateId, found.app.jobId);
+  if (await setInterviewState(user, interviewId, change)) refresh(found.app.candidateId, found.app.jobId);
 }
 
 export async function retryCalendarSyncAction(interviewId: string): Promise<void> {

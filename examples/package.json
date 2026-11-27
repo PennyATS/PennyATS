@@ -1,0 +1,21 @@
+{
+  "name": "@pennyats/examples",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Reference integrations for PennyATS: a sourcing tool, a scheduler, and an AI assistant. See docs/integrations.md.",
+  "type": "module",
+  "scripts": {
+    "sourcing": "tsx sourcing/push-prospects.ts",
+    "scheduler": "tsx scheduler/scheduler.ts",
+    "triage": "tsx ai-assistant/triage.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
