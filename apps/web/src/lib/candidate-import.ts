@@ -10,7 +10,7 @@ export const importFields = [
 export type ImportField = (typeof importFields)[number];
 export type ImportMapping = Record<ImportField, string>;
 export type ImportJob = { id: string; title: string };
-export type ImportStage = { id: string; jobId: string; name: string };
+export type ImportStage = { id: string; jobId: string; name: string; position: number };
 export type ImportRow = {
   number: number;
   fullName: string;
@@ -149,6 +149,7 @@ export function planCandidateImport(input: {
     const job = jobMatches.length === 1 ? jobMatches[0] : null;
     const stageValue = get("stage");
     const stageMatches = stageValue && job ? stages.filter((stage) => stage.jobId === job.id && key(stage.name) === key(stageValue)) : [];
+    const firstStage = job ? stages.filter((stage) => stage.jobId === job.id).sort((a, b) => a.position - b.position)[0] : null;
     const statusValue = key(get("status"));
     const status = statusValue || "active";
     const dateValue = get("appliedAt");
@@ -168,8 +169,8 @@ export function planCandidateImport(input: {
     planned.push({
       number, fullName, email, phone: get("phone") || null, linkedinUrl: linkedinUrl || null,
       location: get("location") || null, source: get("source") || "Imported CSV",
-      jobId: job!.id, jobTitle: job!.title, stageId: stageMatches[0]?.id ?? null,
-      stageName: stageMatches[0]?.name ?? null,
+      jobId: job!.id, jobTitle: job!.title, stageId: (stageMatches[0] ?? firstStage)?.id ?? null,
+      stageName: (stageMatches[0] ?? firstStage)?.name ?? null,
       status: status as ImportRow["status"], appliedAt: appliedDate(dateValue),
     });
   }

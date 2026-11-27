@@ -92,4 +92,4 @@ Every change gets a `CHANGELOG.md` entry. The schema version is in `packages/sch
 
 - Validate files against `v1/export.schema.json` with any JSON Schema 2020-12 validator.
 - In TypeScript inside this repository, `@pennyats/schema` exports the zod schemas and types (`ExportDocument`, `Candidate`, `Application`, …), `parseExport()`, `exportWorkspace()`, and `importWorkspace()`.
-- To bring in data from another applicant tracking system, convert it into this format and run `pnpm data:import`. CSV import from Greenhouse and others ([#20](https://github.com/PennyATS/PennyATS/issues/20)) is planned to work this way.
+- To bring in data from another applicant tracking system, convert it into this format and run `pnpm data:import`. The candidate CSV importer ([#20](https://github.com/PennyATS/PennyATS/issues/20)) converts mapped Greenhouse-style or generic rows into this format and uses the same workspace importer.

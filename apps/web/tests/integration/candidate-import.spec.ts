@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq, ne } from "drizzle-orm";
-import { applications, candidates, createDb, jobs, stages } from "@pennyats/db";
+import { applications, auditLog, candidates, createDb, jobs, stages } from "@pennyats/db";
 import { expect, test } from "@playwright/test";
 
 const db = createDb(process.env.TEST_DATABASE_URL);
@@ -47,6 +47,8 @@ test("CSV import previews rows and remains idempotent on rerun", async ({ page }
   expect(imported[0].jobId).toBe(job.id);
   expect(imported[0].stageId).toBe(stage.id);
   expect(imported[0].appliedAt.toISOString()).toBe("2024-04-02T16:30:00.000Z");
+  const imports = await db.select({ data: auditLog.data }).from(auditLog).where(eq(auditLog.action, "workspace_imported"));
+  expect(imports.some(({ data }) => data.via === "csv" && data.created_applications === 1)).toBe(true);
 
   await page.getByRole("button", { name: "Import ready rows" }).click();
   await expect(page.getByRole("status")).toContainText("Imported 0 applications. Skipped 2 duplicates. 1 rows failed.");

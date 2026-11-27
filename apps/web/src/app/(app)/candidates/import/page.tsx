@@ -10,7 +10,7 @@ export default async function ImportCandidatesPage() {
   await requireUser(canManageHiring);
   const [jobList, stageList] = await Promise.all([
     db().select({ id: jobs.id, title: jobs.title }).from(jobs).orderBy(asc(jobs.title)),
-    db().select({ id: stages.id, jobId: stages.jobId, name: stages.name }).from(stages),
+    db().select({ id: stages.id, jobId: stages.jobId, name: stages.name, position: stages.position }).from(stages),
   ]);
   return (
     <div className="mx-auto max-w-5xl space-y-5">
