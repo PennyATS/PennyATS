@@ -2,12 +2,11 @@ import Link from "next/link";
 import { ActionForm, Field, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { loadJob } from "@/lib/loaders";
-import { canManageHiring } from "@/lib/permissions";
 import { addCandidateAction } from "../../../candidates/actions";
 
 export default async function AddCandidatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("candidates.create");
   const { job } = await loadJob(user, id);
 
   return (

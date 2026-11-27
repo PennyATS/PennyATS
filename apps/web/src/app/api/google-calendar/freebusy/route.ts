@@ -5,13 +5,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { googleFreeBusy } from "@/lib/google-calendar";
 import { getApplicationFor } from "@/lib/hiring";
-import { canManageHiring } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  if (!canManageHiring(user.role)) return NextResponse.json({ error: "Not allowed." }, { status: 403 });
+  if (!can(user, "interviews.schedule")) return NextResponse.json({ error: "Not allowed." }, { status: 403 });
   const interviewId = request.nextUrl.searchParams.get("interviewId") ?? "";
   const start = new Date(request.nextUrl.searchParams.get("start") ?? "");
   const end = new Date(request.nextUrl.searchParams.get("end") ?? "");

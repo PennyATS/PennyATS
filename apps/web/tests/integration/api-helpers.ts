@@ -4,7 +4,8 @@ import { apiKeys, createDb, jobTeam, users } from "@pennyats/db";
 import { expect, type APIRequestContext } from "@playwright/test";
 import { generateApiKey } from "../../src/lib/api/keys";
 import { routes, type ApiRoute, type RouteName } from "../../src/lib/api/routes";
-import { SCOPES, scopesForRole, type Scope } from "../../src/lib/api/scopes";
+import { SCOPES, scopesFor, type Scope } from "../../src/lib/api/scopes";
+import type { Role } from "../../src/lib/permissions";
 
 export const db = createDb(process.env.TEST_DATABASE_URL);
 
@@ -50,7 +51,8 @@ export async function deleteKeys(ids: string[]) {
 }
 
 export const ALL_SCOPES: readonly Scope[] = SCOPES;
-export { scopesForRole };
+/** Every scope a key can usefully hold for this role. */
+export const scopesForRole = (role: Role): Scope[] => scopesFor({ role });
 
 /** Every scope except the one(s) given, for "denied" calls that only lack the route's scope. */
 export function allBut(...scopes: Scope[]): Scope[] {

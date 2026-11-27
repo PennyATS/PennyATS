@@ -5,7 +5,6 @@ import { ActionForm, Field, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
-import { canManageHiring } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 import { createTemplateAction, deleteTemplateAction, updateTemplateAction } from "./actions";
 
@@ -18,7 +17,7 @@ export default async function InterviewPlanPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.plan");
   const { job, stages } = await loadJob(user, id);
 
   const templates = await db()

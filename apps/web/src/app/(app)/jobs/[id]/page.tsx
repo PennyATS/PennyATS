@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
 import { daysSince, jobHealth, weeklyApplicants } from "@/lib/job-health";
 import { isOverdue, missingFeedback } from "@/lib/interviews";
-import { canManageHiring } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { loadReportInput } from "@/lib/report-data";
 import { reportTables } from "@/lib/reports";
 import { RECOMMENDATION_LABELS, summarize, type Recommendation } from "@/lib/scorecards";
@@ -26,7 +26,7 @@ export default async function JobPage({
   const requested = (await searchParams).view;
   const view = requested === "board" || requested === "list" || requested === "archived" ? requested : "overview";
   const user = await requireUser();
-  const manage = canManageHiring(user.role);
+  const manage = can(user, "applications.move");
   const { job, stages } = await loadJob(user, id);
   const stageName = new Map(stages.map((s) => [s.id, s.name]));
 

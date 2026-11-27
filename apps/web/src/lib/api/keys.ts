@@ -12,7 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { apiKeys, users } from "@pennyats/db";
 import type { SessionUser } from "../auth";
 import { db } from "../db";
-import { isRole } from "../permissions";
+import { isRole, permissionsForRole } from "../permissions";
 
 const KEY_PATTERN = /^pats_([A-Za-z0-9]{8})_([A-Za-z0-9_-]{43})$/;
 
@@ -102,6 +102,6 @@ export async function lookupApiKey(token: string, now: Date = new Date()): Promi
   return {
     ok: true,
     key,
-    user: { id: row.user.id, email: row.user.email, name: row.user.name, role: row.user.role },
+    user: { id: row.user.id, email: row.user.email, name: row.user.name, role: row.user.role, permissions: permissionsForRole(row.user.role) },
   };
 }

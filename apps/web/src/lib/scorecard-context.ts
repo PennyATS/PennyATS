@@ -4,7 +4,7 @@ import type { SessionUser } from "./auth";
 import { db } from "./db";
 import { currentStageName, getApplicationFor } from "./hiring";
 import { scorecardAttributes } from "./interviews";
-import { canManageHiring } from "./permissions";
+import { can } from "./permissions";
 import { isUuid } from "./validation";
 
 /**
@@ -34,7 +34,7 @@ export async function loadScorecardContext(user: SessionUser, applicationId: str
       .select({ userId: interviewInterviewers.userId })
       .from(interviewInterviewers)
       .where(and(eq(interviewInterviewers.interviewId, interview.id), eq(interviewInterviewers.userId, user.id)));
-    if (!assigned && !canManageHiring(user.role)) return null;
+    if (!assigned && !can(user, "scorecards.view_all")) return null;
 
     const [existing] = await db()
       .select()

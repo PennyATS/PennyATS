@@ -13,7 +13,7 @@ import { prepareTemplateEmail, retryEmail, sendStageEntryEmail } from "@/lib/can
 import { addApplication, getApplicationFor } from "@/lib/hiring";
 import { addNote, addTags, moveStage, removeTag, setApplicationStatus } from "@/lib/pipeline";
 import { deliverDueWebhooks } from "@/lib/webhooks";
-import { canManageHiring, canManageUsers } from "@/lib/permissions";
+import { statusPermission } from "@/lib/permissions";
 import { deleteCandidates } from "@/lib/privacy";
 import { smtpConfigured } from "@/lib/smtp";
 import { extensionOf, storage } from "@/lib/storage";
@@ -22,7 +22,7 @@ import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
 
 /** Recruiter adds someone by hand (sourced, referral, etc.). Email is optional here. */
 export async function addCandidateAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("candidates.create");
   if (!isUuid(jobId)) return { error: "Job not found." };
   const [job] = await db().select({ id: jobs.id }).from(jobs).where(eq(jobs.id, jobId));
   if (!job) return { error: "Job not found." };
@@ -60,14 +60,14 @@ function refresh(candidateId: string, jobId: string) {
 }
 
 export async function moveStageAction(applicationId: string, form: FormData): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("applications.move");
   const moved = await moveStage(user, applicationId, field(form, "stageId", 64) ?? "");
   if (moved) refresh(moved.candidateId, moved.jobId);
 }
 
 /** Explicit retry only after SMTP reports failure; never replay an uncertain sending claim. */
 export async function retrySchedulingDeliveryAction(deliveryId: string): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   if (!isUuid(deliveryId)) return;
   const [delivery] = await db().select().from(schedulingDeliveries)
     .where(eq(schedulingDeliveries.id, deliveryId));
@@ -81,7 +81,7 @@ export async function retrySchedulingDeliveryAction(deliveryId: string): Promise
 }
 
 export async function sendCandidateEmailAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("email.send");
   const applicationId = String(form.get("applicationId") ?? "");
   const templateId = String(form.get("templateId") ?? "");
   if (!isUuid(candidateId) || !isUuid(applicationId) || !isUuid(templateId)) return { error: "Choose a job and template." };
@@ -99,7 +99,7 @@ export async function sendCandidateEmailAction(candidateId: string, _: FormState
 
 /** Resend an email that failed or was skipped (for example, before SMTP was set up). */
 export async function resendEmailAction(emailId: string, candidateId: string): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("email.send");
   if (!isUuid(emailId) || !isUuid(candidateId)) return;
   const [row] = await db().select({ applicationId: emails.applicationId, candidateId: emails.candidateId })
     .from(emails).where(eq(emails.id, emailId));
@@ -115,7 +115,7 @@ export async function setStatusAction(
   status: "hired" | "rejected" | "withdrawn" | "active",
   form: FormData,
 ): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser(statusPermission(status));
   // Rejections use the standard list, with an optional note; withdrawals keep a free-text note.
   const reason =
     status === "rejected"
@@ -129,7 +129,7 @@ export async function setStatusAction(
 
 /** Add tags ("#swe, #bayarea"). Recruiters and admins only. */
 export async function addTagsAction(candidateId: string, form: FormData): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("candidates.edit");
   if (!isUuid(candidateId)) return;
   const added = parseTags(field(form, "tags", 500) ?? "");
   if (added.length === 0) return;
@@ -139,7 +139,7 @@ export async function addTagsAction(candidateId: string, form: FormData): Promis
 }
 
 export async function removeTagAction(candidateId: string, tag: string): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("candidates.edit");
   if (!isUuid(candidateId) || !normalizeTag(tag)) return;
   if (!(await removeTag(candidateId, tag))) return;
   revalidatePath(`/candidates/${candidateId}`);
@@ -148,7 +148,7 @@ export async function removeTagAction(candidateId: string, tag: string): Promise
 
 /** Upload or replace a resume from the profile. Plain-text files also fill the searchable resume text. */
 export async function uploadResumeAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser(canManageHiring);
+  await requireUser("candidates.edit");
   if (!isUuid(candidateId)) return { error: "Candidate not found." };
   const file = form.get("resume");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a file to upload." };
@@ -172,7 +172,7 @@ export async function uploadResumeAction(candidateId: string, _: FormState, form
 
 /** Save the recruiter's phone screen notes on one application. Saving again edits them. */
 export async function savePhoneScreenAction(applicationId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("notes.phone_screen.write");
   const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;
   if (!app) return { error: "Application not found." };
   const body = field(form, "body", 20_000) ?? "";
@@ -203,7 +203,7 @@ export async function addNoteAction(candidateId: string, form: FormData): Promis
 
 /** Permanently delete a candidate, e.g. for a deletion request. Admin only; needs the confirm box. */
 export async function deleteCandidateAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("privacy.delete");
   if (form.get("confirm") !== "on") return { error: "Tick the box to confirm permanent deletion." };
   if (!isUuid(candidateId)) return { error: "Candidate not found." };
   const count = await deleteCandidates([candidateId], {
@@ -218,7 +218,7 @@ export async function deleteCandidateAction(candidateId: string, _: FormState, f
 
 /** AI summary of the scorecards on one application. Recruiters and admins only; not saved. */
 export async function summarizeFeedbackAction(applicationId: string): Promise<{ text: string } | { error: string }> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("scorecards.view_all");
   const ai = await getAiFor("feedbackSummaries");
   if (!ai) return { error: "AI feedback summaries are turned off." };
   const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;

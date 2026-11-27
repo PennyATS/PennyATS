@@ -4,7 +4,7 @@ import { applications, stages } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleJobIds } from "@/lib/hiring";
-import { canManageHiring, canManageUsers } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { checklistSummary, showChecklistOnHome } from "@/lib/setup-checklist";
 import { loadChecklist } from "@/lib/setup-checklist-data";
 import { pipelineSnapshot } from "@/lib/candidate-review";
@@ -31,7 +31,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 export default async function Home() {
   const user = await requireUser();
-  const manage = canManageHiring(user.role);
+  const manage = can(user, "jobs.create");
   const ids = await visibleJobIds(user);
   const [work, team, stageCounts] = await Promise.all([
     myWork(user),
@@ -50,7 +50,7 @@ export default async function Home() {
   const largestStage = Math.max(1, ...pipeline.map((stage) => stage.total));
   const reviewTotal = team.reviewByJob.reduce((a, r) => a + r.n, 0);
   const first = user.name.split(" ")[0];
-  const admin = canManageUsers(user.role);
+  const admin = can(user, "settings.manage");
   const checklist = admin ? await loadChecklist(user.id) : null;
   const setup = checklist && showChecklistOnHome(admin, checklist.steps, checklist.state)
     ? checklistSummary(checklist.steps)

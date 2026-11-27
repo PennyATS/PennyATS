@@ -7,7 +7,7 @@ import { logoutAction } from "@/app/(auth)/actions";
 import { markAllReadAction, openNotificationAction } from "@/app/(app)/notifications/actions";
 import type { SessionUser } from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
-import { canManageHiring, canManageUsers } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 
 type IconName =
   | "home" | "jobs" | "candidates" | "templates" | "reports" | "settings" | "careers"
@@ -236,11 +236,10 @@ function NotificationsMenu({ inbox }: { inbox: Inbox }) {
   );
 }
 
-export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name" | "role">; notifications: Inbox }) {
+export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name" | "role" | "permissions">; notifications: Inbox }) {
   const pathname = usePathname();
   const router = useRouter();
-  const canHire = canManageHiring(user.role);
-  const canAdmin = canManageUsers(user.role);
+  const canAdmin = can(user, "settings.manage");
   const initials = user.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P";
   const recent = useRecent(pathname);
 
@@ -251,7 +250,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
       match: (p) => p === "/" || p.startsWith("/dashboards"),
       items: [
         { href: "/", label: "Home", icon: "home", note: "Your interviews, feedback, and jobs" },
-        ...(canHire ? [{ href: "/dashboards/executive", label: "Executive dashboard", icon: "reports" as const, note: "Hires, interviews, open jobs" }] : []),
+        ...(can(user, "dashboards.executive") ? [{ href: "/dashboards/executive", label: "Executive dashboard", icon: "reports" as const, note: "Hires, interviews, open jobs" }] : []),
         { href: "/dashboards/jobs", label: "Jobs dashboard", icon: "jobs", note: "Every open job by stage" },
       ],
     },
@@ -262,7 +261,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
       items: [
         { href: "/jobs", label: "All jobs", icon: "jobs" },
         { href: "/dashboards/jobs", label: "Job pipelines", icon: "dashboard" },
-        ...(canHire ? [{ href: "/jobs/new", label: "New job", icon: "plus" as const }] : []),
+        ...(can(user, "jobs.create") ? [{ href: "/jobs/new", label: "New job", icon: "plus" as const }] : []),
         { href: "/careers", label: "Careers page", icon: "careers" },
       ],
     },
@@ -274,10 +273,10 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
         { href: "/candidates", label: "All candidates", icon: "candidates" },
         { href: "/candidates?status=active", label: "Active", icon: "candidates", note: "In a pipeline now" },
         { href: "/candidates?status=rejected", label: "Archived", icon: "history", note: "Rejected, notes kept" },
-        ...(canHire ? [{ href: "/templates", label: "Email templates", icon: "templates" as const }] : []),
+        ...(can(user, "templates.manage") ? [{ href: "/templates", label: "Email templates", icon: "templates" as const }] : []),
       ],
     },
-    ...(canHire
+    ...(can(user, "reports.view")
       ? [
           {
             label: "Reports",
@@ -285,7 +284,9 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
             match: (p: string) => p.startsWith("/reports"),
             items: [
               { href: "/reports", label: "Hiring reports", icon: "reports" as const, note: "Funnel, sources, time in stage" },
-              { href: "/dashboards/executive", label: "Executive dashboard", icon: "dashboard" as const },
+              ...(can(user, "dashboards.executive")
+                ? [{ href: "/dashboards/executive", label: "Executive dashboard", icon: "dashboard" as const }]
+                : []),
             ],
           },
         ]
@@ -299,7 +300,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
         ...(canAdmin
           ? [
               { href: "/settings/setup", label: "Setup checklist", icon: "settings" as const },
-              { href: "/settings/users", label: "Users", icon: "candidates" as const },
+              ...(can(user, "users.manage") ? [{ href: "/settings/users", label: "Users", icon: "candidates" as const }] : []),
               { href: "/settings/privacy", label: "Privacy", icon: "settings" as const },
               { href: "/settings/ai", label: "AI", icon: "settings" as const },
               { href: "/settings/email", label: "Email", icon: "settings" as const },
@@ -309,13 +310,11 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
       ],
     },
   ];
-  const addItems: Item[] = canHire
-    ? ([
-        { href: "/jobs/new", label: "Job", icon: "jobs" },
-        { href: "/templates/new", label: "Email template", icon: "templates" },
-        { href: "/settings/users", label: "Teammate invite", icon: "candidates" },
-      ] satisfies Item[]).filter((i) => canAdmin || i.href !== "/settings/users")
-    : [];
+  const addItems: Item[] = [
+    ...(can(user, "jobs.create") ? [{ href: "/jobs/new", label: "Job", icon: "jobs" as const }] : []),
+    ...(can(user, "templates.manage") ? [{ href: "/templates/new", label: "Email template", icon: "templates" as const }] : []),
+    ...(can(user, "users.manage") ? [{ href: "/settings/users", label: "Teammate invite", icon: "candidates" as const }] : []),
+  ];
 
   function search(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

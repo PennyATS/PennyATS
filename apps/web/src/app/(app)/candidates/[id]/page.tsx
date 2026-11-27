@@ -26,7 +26,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canSeeCandidate, visibleJobIds } from "@/lib/hiring";
 import { ActionForm, SubmitButton } from "@/components/form";
-import { canManageHiring, canManageUsers } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 import { smtpConfigured } from "@/lib/smtp";
 import type { Recommendation } from "@/lib/scorecards";
@@ -63,9 +63,9 @@ export default async function CandidatePage({
   const { id } = await params;
   const user = await requireUser();
   if (!isUuid(id) || !(await canSeeCandidate(user, id))) notFound();
-  const manage = canManageHiring(user.role);
+  const manage = can(user, "candidates.edit");
   // Summaries cover every scorecard, so only people who may see them all get the button.
-  const aiSummaries = manage && (await isAiFeatureOn("feedbackSummaries"));
+  const aiSummaries = can(user, "scorecards.view_all") && (await isAiFeatureOn("feedbackSummaries"));
 
   const [candidate] = await db().select().from(candidates).where(eq(candidates.id, id));
   if (!candidate) notFound();
@@ -545,7 +545,7 @@ export default async function CandidatePage({
                 attributes={app.attributes}
                 summarizeAction={aiSummaries ? summarizeFeedbackAction.bind(null, app.id) : undefined}
                 userId={user.id}
-                managesHiring={manage}
+                managesHiring={can(user, "scorecards.view_all")}
               />
             </div>
           );
@@ -627,7 +627,7 @@ export default async function CandidatePage({
               ? `Agreed to the privacy notice on ${candidate.consentedAt.toLocaleDateString()}.`
               : "No privacy notice consent recorded."}
           </p>
-          {canManageUsers(user.role) && (
+          {can(user, "privacy.export") && (
             <>
               <p className="mt-3">
                 <a href={`/api/candidates/${candidate.id}/export`} className="link">

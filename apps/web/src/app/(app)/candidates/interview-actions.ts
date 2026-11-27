@@ -12,7 +12,6 @@ import { bookingToken, bookingTokenHash } from "@/lib/booking";
 import { cancelGoogleInterview, googleCalendarConfigured, pullGoogleInterview, syncGoogleInterview } from "@/lib/google-calendar";
 import { createStageInterviews, getApplicationFor } from "@/lib/hiring";
 import { parseZonedScheduledAt } from "@/lib/interviews";
-import { canManageHiring } from "@/lib/permissions";
 import { queueInterviewReminders, suppressQueuedStageLinks } from "@/lib/scheduling-delivery";
 import { field, isUuid } from "@/lib/validation";
 import { activeInterviewers, addInterview } from "@/lib/pipeline";
@@ -33,7 +32,7 @@ async function validInterviewers(jobId: string, form: FormData): Promise<string[
 }
 
 export async function saveManualScheduleAction(interviewId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const found = await loadForManager(user, interviewId);
   if (!found) return { error: "Interview not found." };
   if (found.app.status !== "active" || found.interview.cancelledAt || found.interview.completedAt) {
@@ -58,14 +57,14 @@ export async function setInterviewStateAction(
   interviewId: string,
   change: "complete" | "cancel" | "restore",
 ): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const found = await loadForManager(user, interviewId);
   if (!found) return;
   if (await setInterviewState(user, interviewId, change)) refresh(found.app.candidateId, found.app.jobId);
 }
 
 export async function retryCalendarSyncAction(interviewId: string): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const found = await loadForManager(user, interviewId);
   if (!found) return;
   if (found.interview.cancelledAt) await cancelGoogleInterview(interviewId);
@@ -74,7 +73,7 @@ export async function retryCalendarSyncAction(interviewId: string): Promise<void
 }
 
 export async function refreshGoogleEventAction(interviewId: string): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const found = await loadForManager(user, interviewId);
   if (!found?.interview.googleEventId) return;
   await pullGoogleInterview(interviewId);
@@ -84,7 +83,7 @@ export async function refreshGoogleEventAction(interviewId: string): Promise<voi
 export type BookingLinkState = { error?: string; url?: string; message?: string } | undefined;
 
 export async function createBookingLinkAction(interviewId: string, _: BookingLinkState): Promise<BookingLinkState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const found = await loadForManager(user, interviewId);
   if (!found || found.app.status !== "active" || found.interview.cancelledAt ||
     found.interview.completedAt || found.interview.scheduledAt) return { error: "This interview cannot be booked." };
@@ -111,7 +110,7 @@ export async function createBookingLinkAction(interviewId: string, _: BookingLin
 }
 
 export async function revokeBookingLinkAction(interviewId: string, _: BookingLinkState): Promise<BookingLinkState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const found = await loadForManager(user, interviewId);
   if (!found) return { error: "Interview not found." };
   await db().update(interviewBookingLinks).set({ revokedAt: new Date() })
@@ -128,7 +127,7 @@ export async function manageBookingLinkAction(interviewId: string, state: Bookin
 }
 
 export async function manageAvailabilityLinkAction(applicationId: string, _: BookingLinkState, form: FormData): Promise<BookingLinkState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;
   if (!app || app.status !== "active" || !app.stageId) return { error: "This application cannot request availability." };
   if (form.get("intent") === "revoke") {
@@ -151,7 +150,7 @@ export async function manageAvailabilityLinkAction(applicationId: string, _: Boo
 }
 
 export async function setInterviewersAction(interviewId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const found = await loadForManager(user, interviewId);
   if (!found) return { error: "Interview not found." };
   const ids = await validInterviewers(found.app.jobId, form);
@@ -175,7 +174,7 @@ export async function setInterviewersAction(interviewId: string, _: FormState, f
 
 /** A one-off interview that isn't in the job's plan. */
 export async function addInterviewAction(applicationId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;
   if (!app) return { error: "Application not found." };
   const name = field(form, "name", 120);
@@ -192,7 +191,7 @@ export async function addInterviewAction(applicationId: string, _: FormState, fo
 
 /** For candidates who entered their stage before it had a plan. */
 export async function createPlannedInterviewsAction(applicationId: string): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;
   if (!app?.stageId || app.status !== "active") return;
   await db().transaction((tx) => createStageInterviews(tx, app.id, app.stageId!));

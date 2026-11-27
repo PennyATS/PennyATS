@@ -8,7 +8,6 @@ import type { FormState } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { htmlToText, sanitizeEmailHtml } from "@/lib/email-templates";
-import { canManageHiring } from "@/lib/permissions";
 import { field, isUuid } from "@/lib/validation";
 
 const MAX_HTML = 100_000;
@@ -20,7 +19,7 @@ function isUniqueViolation(err: unknown): boolean {
 /* ---------- Folders ---------- */
 
 export async function createFolderAction(_: FormState, form: FormData): Promise<FormState> {
-  await requireUser(canManageHiring);
+  await requireUser("templates.manage");
   const name = field(form, "name", 80);
   if (!name) return { error: "Name the folder." };
   let id: string;
@@ -35,7 +34,7 @@ export async function createFolderAction(_: FormState, form: FormData): Promise<
 }
 
 export async function renameFolderAction(folderId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser(canManageHiring);
+  await requireUser("templates.manage");
   if (!isUuid(folderId)) return { error: "Folder not found." };
   const name = field(form, "name", 80);
   if (!name) return { error: "Name the folder." };
@@ -51,7 +50,7 @@ export async function renameFolderAction(folderId: string, _: FormState, form: F
 
 /** Deleting a folder keeps its templates; they become unfiled. */
 export async function deleteFolderAction(folderId: string): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("templates.manage");
   if (!isUuid(folderId)) return;
   await db().delete(emailTemplateFolders).where(eq(emailTemplateFolders.id, folderId));
   revalidatePath("/templates");
@@ -71,7 +70,7 @@ async function folderFrom(form: FormData): Promise<{ ok: true; id: string | null
 
 /** Create (id null) or update a template. The editor's HTML is sanitized here, never trusted. */
 export async function saveTemplateAction(templateId: string | null, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("templates.manage");
   if (templateId && !isUuid(templateId)) return { error: "Template not found." };
   const name = field(form, "name", 120);
   const subject = field(form, "subject", 200);
@@ -101,7 +100,7 @@ export async function saveTemplateAction(templateId: string | null, _: FormState
 }
 
 export async function duplicateTemplateAction(templateId: string): Promise<void> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("templates.manage");
   if (!isUuid(templateId)) return;
   const [source] = await db().select().from(emailTemplates).where(eq(emailTemplates.id, templateId));
   if (!source) return;
@@ -115,7 +114,7 @@ export async function duplicateTemplateAction(templateId: string): Promise<void>
 
 /** Stages that auto-send this template stop sending (the setting is cleared by the foreign key). */
 export async function deleteTemplateAction(templateId: string): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("templates.manage");
   if (!isUuid(templateId)) return;
   const [deleted] = await db().delete(emailTemplates).where(eq(emailTemplates.id, templateId))
     .returning({ folderId: emailTemplates.folderId });

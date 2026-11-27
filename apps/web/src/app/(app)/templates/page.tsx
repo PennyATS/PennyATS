@@ -4,7 +4,6 @@ import { emailTemplateFolders, emailTemplates, stageSchedulingSettings } from "@
 import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageHiring } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 import { createFolderAction, deleteFolderAction, renameFolderAction } from "./actions";
 
@@ -21,7 +20,7 @@ function FolderLink({ href, label, total, active }: { href: string; label: strin
 }
 
 export default async function TemplatesPage({ searchParams }: { searchParams: Promise<{ folder?: string }> }) {
-  await requireUser(canManageHiring);
+  await requireUser("templates.manage");
   const { folder: selected = "all" } = await searchParams;
   const [folders, templates, unfiled, usage] = await Promise.all([
     db().select({ id: emailTemplateFolders.id, name: emailTemplateFolders.name, total: count(emailTemplates.id) })

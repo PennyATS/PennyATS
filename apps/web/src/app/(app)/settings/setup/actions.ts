@@ -5,7 +5,6 @@ import type { FormState } from "@/components/form";
 import { allowAiCall, getAiFor } from "@/lib/ai";
 import { requireUser } from "@/lib/auth";
 import { calendarConnectionState, googleCalendarConfigured, googleFreeBusy } from "@/lib/google-calendar";
-import { canManageUsers } from "@/lib/permissions";
 import { isSetupStepId, skipStep, testMessage, unskipStep, type TestOutcome } from "@/lib/setup-checklist";
 import { getChecklistState, saveChecklistState } from "@/lib/setup-checklist-data";
 import { smtpConfigured, verifySmtp } from "@/lib/smtp";
@@ -21,7 +20,7 @@ function result(step: "email" | "calendar" | "ai", outcome: TestOutcome): FormSt
 }
 
 export async function setStepSkippedAction(stepId: string, skipped: boolean): Promise<void> {
-  await requireUser(canManageUsers);
+  await requireUser("settings.manage");
   if (!isSetupStepId(stepId)) return;
   const state = await getChecklistState();
   await saveChecklistState(skipped ? skipStep(state, stepId) : unskipStep(state, stepId));
@@ -29,13 +28,13 @@ export async function setStepSkippedAction(stepId: string, skipped: boolean): Pr
 }
 
 export async function setChecklistDismissedAction(dismissed: boolean): Promise<void> {
-  await requireUser(canManageUsers);
+  await requireUser("settings.manage");
   await saveChecklistState({ ...(await getChecklistState()), dismissed });
   refresh();
 }
 
 export async function testEmailStepAction(_: FormState): Promise<FormState> {
-  await requireUser(canManageUsers);
+  await requireUser("settings.manage");
   if (!smtpConfigured()) return result("email", "not_configured");
   try {
     await verifySmtp();
@@ -47,7 +46,7 @@ export async function testEmailStepAction(_: FormState): Promise<FormState> {
 }
 
 export async function testCalendarStepAction(_: FormState): Promise<FormState> {
-  const user = await requireUser(canManageUsers);
+  const user = await requireUser("settings.manage");
   if (!googleCalendarConfigured()) return result("calendar", "not_configured");
   if (!(await calendarConnectionState(user.id))) return result("calendar", "not_connected");
   try {
@@ -60,7 +59,7 @@ export async function testCalendarStepAction(_: FormState): Promise<FormState> {
 }
 
 export async function testAiStepAction(_: FormState): Promise<FormState> {
-  const user = await requireUser(canManageUsers);
+  const user = await requireUser("settings.manage");
   const ai = await getAiFor("test");
   if (!ai) return result("ai", "not_configured");
   if (!allowAiCall(user.id)) return result("ai", "rate_limited");

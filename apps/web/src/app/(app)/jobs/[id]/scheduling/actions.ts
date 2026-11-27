@@ -6,13 +6,12 @@ import { applications, emailTemplates, interviews, stageSchedulingSettings, stag
 import type { FormState } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageHiring } from "@/lib/permissions";
 import { queueInterviewReminders } from "@/lib/scheduling-delivery";
 import { isUuid } from "@/lib/validation";
 
 export async function saveStageSchedulingAction(jobId: string, stageId: string,
   _: FormState, form: FormData): Promise<FormState> {
-  await requireUser(canManageHiring);
+  await requireUser("interviews.plan");
   if (!isUuid(jobId) || !isUuid(stageId)) return { error: "Stage not found." };
   const [stage] = await db().select({ jobId: stages.jobId }).from(stages).where(eq(stages.id, stageId));
   if (!stage || stage.jobId !== jobId) return { error: "Stage not found." };

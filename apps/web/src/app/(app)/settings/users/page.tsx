@@ -3,11 +3,11 @@ import { invites, users } from "@pennyats/db";
 import { ActionForm, Field, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ROLES, canManageUsers } from "@/lib/permissions";
+import { ROLES, can } from "@/lib/permissions";
 import { createInviteAction, createPasswordResetAction, revokeInviteAction, updateUserAction } from "./actions";
 
 export default async function UsersPage() {
-  await requireUser(canManageUsers);
+  await requireUser("users.manage");
   const [people, pending] = await Promise.all([
     db().select().from(users).orderBy(asc(users.name)),
     db()
@@ -16,7 +16,7 @@ export default async function UsersPage() {
       .where(and(isNull(invites.acceptedAt), gt(invites.expiresAt, new Date())))
       .orderBy(desc(invites.createdAt)),
   ]);
-  const activeAdmins = people.filter((u) => u.active && u.role === "admin").length;
+  const activeAdmins = people.filter((u) => u.active && can({ role: u.role }, "users.manage")).length;
 
   return (
     <>
@@ -53,7 +53,7 @@ export default async function UsersPage() {
               <td>{u.active ? "Active" : "Deactivated"}</td>
               <td>
                 <div className="space-y-3">
-                  {u.active && u.role === "admin" && activeAdmins === 1 ? (
+                  {u.active && can({ role: u.role }, "users.manage") && activeAdmins === 1 ? (
                     <span className="muted text-sm">Last active admin</span>
                   ) : (
                     <ActionForm action={updateUserAction.bind(null, u.id)} resetKey={String(u.active)} className="space-y-2">

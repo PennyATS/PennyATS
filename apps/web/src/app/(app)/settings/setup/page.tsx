@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
-import { canManageUsers } from "@/lib/permissions";
 import { checklistSummary, type StepStatus } from "@/lib/setup-checklist";
 import { loadChecklist } from "@/lib/setup-checklist-data";
 import {
@@ -18,7 +17,7 @@ const STATUS_LABEL: Record<StepStatus, string> = { done: "Done", skipped: "Skipp
 const TESTS = { email: testEmailStepAction, calendar: testCalendarStepAction, ai: testAiStepAction } as const;
 
 export default async function SetupChecklistPage() {
-  const user = await requireUser(canManageUsers);
+  const user = await requireUser("settings.manage");
   const { steps, state } = await loadChecklist(user.id);
   const summary = checklistSummary(steps);
 

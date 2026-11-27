@@ -5,7 +5,6 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { keyLabel, keyUsable } from "@/lib/api/keys";
 import { READ_SCOPES, SCOPE_DESCRIPTIONS, SCOPES } from "@/lib/api/scopes";
-import { canManageUsers } from "@/lib/permissions";
 import { WEBHOOK_EVENT_DESCRIPTIONS, WEBHOOK_EVENT_NAMES } from "@/lib/webhook-events";
 import { MAX_ATTEMPTS } from "@/lib/webhooks";
 import {
@@ -19,7 +18,7 @@ import {
 import { SecretForm } from "./secret-form";
 
 export default async function ApiSettingsPage() {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   const [keys, people, hooks, deliveries, activity] = await Promise.all([
     db()
       .select({ key: apiKeys, user: users.name, role: users.role })

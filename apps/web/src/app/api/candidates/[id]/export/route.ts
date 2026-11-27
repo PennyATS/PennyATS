@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
-import { canManageUsers } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { exportCandidate, logAudit } from "@/lib/privacy";
 import { isUuid } from "@/lib/validation";
 
@@ -7,7 +7,7 @@ import { isUuid } from "@/lib/validation";
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getCurrentUser();
-  if (!user || !canManageUsers(user.role) || !isUuid(id)) return new Response("Not found", { status: 404 });
+  if (!user || !can(user, "privacy.export") || !isUuid(id)) return new Response("Not found", { status: 404 });
 
   const data = await exportCandidate(id);
   if (!data) return new Response("Not found", { status: 404 });

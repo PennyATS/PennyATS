@@ -8,7 +8,6 @@ import { requireUser } from "@/lib/auth";
 import { CSV_MAX_BYTES, importFields, parseImportCsv, planCandidateImport, type ImportMapping, type RowError } from "@/lib/candidate-import";
 import { csvRowsToWorkspaceDocument } from "@/lib/candidate-import-format";
 import { db } from "@/lib/db";
-import { canManageHiring } from "@/lib/permissions";
 import { logAudit } from "@/lib/privacy";
 
 export type ImportResult = {
@@ -18,7 +17,7 @@ export type ImportResult = {
 } | { error: string };
 
 export async function importCandidatesAction(form: FormData): Promise<ImportResult> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("candidates.create");
   const file = form.get("file");
   if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".csv") || !file.size || file.size > CSV_MAX_BYTES) {
     return { error: "Choose a non-empty CSV file no larger than 2 MB." };

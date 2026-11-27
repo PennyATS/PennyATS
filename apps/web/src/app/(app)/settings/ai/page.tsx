@@ -2,11 +2,10 @@ import { ActionForm, SubmitButton } from "@/components/form";
 import { aiStatus, getAiSettings } from "@/lib/ai";
 import { AI_FEATURES } from "@/lib/ai-rules";
 import { requireUser } from "@/lib/auth";
-import { canManageUsers } from "@/lib/permissions";
 import { saveAiSettingsAction, testAiAction } from "./actions";
 
 export default async function AiSettingsPage() {
-  await requireUser(canManageUsers);
+  await requireUser("settings.manage");
   const status = aiStatus();
   const settings = await getAiSettings();
 

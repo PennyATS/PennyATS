@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { toCsv } from "@/lib/csv";
-import { canManageHiring } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { loadReportInput } from "@/lib/report-data";
 import { REPORT_TABLES, readPeriod, reportTables, type ReportTableId } from "@/lib/reports";
 import { isUuid } from "@/lib/validation";
@@ -9,7 +9,7 @@ import { isUuid } from "@/lib/validation";
 export async function GET(request: Request, { params }: { params: Promise<{ table: string }> }) {
   const { table } = await params;
   const user = await getCurrentUser();
-  if (!user || !canManageHiring(user.role) || !REPORT_TABLES.includes(table as ReportTableId)) {
+  if (!user || !can(user, "reports.export") || !REPORT_TABLES.includes(table as ReportTableId)) {
     return new Response("Not found", { status: 404 });
   }
 
