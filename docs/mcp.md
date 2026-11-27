@@ -23,7 +23,7 @@ It talks to PennyATS only through the [public REST API](api.md) with a scoped AP
 | `list_jobs` | read | `jobs:read` | Jobs with their stages |
 | `list_applications` | read | `applications:read` | Applications by job, stage, status, or candidate |
 | `get_scorecards` | read | `scorecards:read` | Scorecards on an application, blind rule applied |
-| `run_report` | read | `reports:read` | Funnel, jobs, trend, stages, sources, rejection reasons, interviewers |
+| `run_report` | read | `reports:read` | Funnel, jobs, trend, stages, sources, rejection reasons, interviewers, careers apply |
 | `list_email_templates` | read | `templates:read` | Templates to draft from |
 | `draft_email` | read | `templates:read` | Fill a template for one application. Nothing is sent. |
 | `move_candidate_stage` | write | `applications:write` | Move by stage id or name, with all the usual side effects |

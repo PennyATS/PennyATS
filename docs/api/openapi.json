@@ -3898,7 +3898,8 @@
                 "stages",
                 "sources",
                 "reasons",
-                "interviewers"
+                "interviewers",
+                "apply"
               ]
             }
           },
@@ -5029,7 +5030,8 @@
               "stages",
               "sources",
               "reasons",
-              "interviewers"
+              "interviewers",
+              "apply"
             ]
           },
           "head": {

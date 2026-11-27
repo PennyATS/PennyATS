@@ -3,6 +3,7 @@
  * so every number on the reports page can be unit tested.
  */
 
+import { careersApplyFunnel, emptyCareersFunnelCounts, type CareersFunnelCounts } from "./careers-funnel";
 import { rejectionReasonKey } from "./candidate-review";
 import { monthKey, monthRange } from "./charts";
 
@@ -255,9 +256,11 @@ export type ReportInput = {
   events: ReportEvent[];
   stages: ReportStage[];
   cards: ReportCard[];
+  /** Careers-page views / starts / submits in the same period (and job filter). */
+  applyFunnel: CareersFunnelCounts;
 };
 
-export const REPORT_TABLES = ["funnel", "jobs", "trend", "stages", "sources", "reasons", "interviewers"] as const;
+export const REPORT_TABLES = ["funnel", "jobs", "trend", "stages", "sources", "reasons", "interviewers", "apply"] as const;
 export type ReportTableId = (typeof REPORT_TABLES)[number];
 
 /** Teams often post one title in several places, so include the location. */
@@ -336,6 +339,12 @@ export function reportTables(input: ReportInput): Partial<Record<ReportTableId, 
     rows: [...byAuthor.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, counts]) => [name, counts.reduce((a, b) => a + b, 0), ...counts]),
+  };
+
+  const apply = input.applyFunnel ?? emptyCareersFunnelCounts();
+  tables.apply = {
+    head: ["Step", "Count", "Percent of views"],
+    rows: careersApplyFunnel(apply).map((r) => [r.label, r.count, r.percent]),
   };
 
   return { ...tables, jobIds };
