@@ -76,7 +76,7 @@ Each public job page records anonymous counts: **views** (page load), **starts**
 
 ## Mobile and accessibility
 
-The public careers layout is mobile-first: full-width job cards, 16px inputs (so iOS does not zoom on focus), at least 44px-tall controls, a skip link into the main content, labeled fields with a required-field hint, fieldsets for details and resume, and a focused error alert when validation fails. Playwright covers phone and desktop apply flows in `apps/web/tests/integration/careers-apply.spec.ts`. For a WCAG 2.2 AA pass on a deployment, run [axe DevTools](https://www.deque.com/axe/devtools/) or [WAVE](https://wave.webaim.org/) against `/careers` and a job apply page after you set company branding and a privacy notice.
+The public careers layout is mobile-first: full-width job cards, 16px inputs (so iOS does not zoom on focus), at least 44px-tall controls, a skip link into the main content, labeled fields with a required-field hint, fieldsets for details and resume, and a focused error alert when validation fails. Playwright covers phone and desktop apply flows in `apps/web/tests/integration/zz-careers-apply.spec.ts`. For a WCAG 2.2 AA pass on a deployment, run [axe DevTools](https://www.deque.com/axe/devtools/) or [WAVE](https://wave.webaim.org/) against `/careers` and a job apply page after you set company branding and a privacy notice.
 
 ## Checklist
 
