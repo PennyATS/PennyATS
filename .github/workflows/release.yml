@@ -1,0 +1,189 @@
+name: Release
+
+# Verifiable releases (#120). Pushing a tag like v0.1.0 builds and publishes the container image
+# to GitHub Container Registry, signs it and the tag's source archive with Sigstore keyless
+# signing (GitHub OIDC, no stored keys), publishes SBOMs, and records build provenance. The
+# verify job then checks everything with the commands documented in SECURITY.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign, and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write # create the GitHub release
+      packages: write # push the image to ghcr.io
+      id-token: write # Sigstore keyless signing and attestations
+      attestations: write
+    outputs:
+      image: ${{ steps.names.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+      tag: ${{ steps.names.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Names
+        id: names
+        run: |
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.names.outputs.image }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: app
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+
+      - name: Sign the image (keyless)
+        env:
+          IMAGE: ${{ steps.names.outputs.image }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE"
+
+      - name: SBOM for the image
+        uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
+        with:
+          image: ${{ steps.names.outputs.image }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: pennyats-image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: SBOM for the source
+        uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
+        with:
+          path: .
+          format: spdx-json
+          output-file: pennyats-source.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Provenance for the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.names.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: SBOM attestation for the image
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ steps.names.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: pennyats-image.spdx.json
+          push-to-registry: true
+
+      - name: Source archive for the tag, signed (keyless)
+        env:
+          TAG: ${{ steps.names.outputs.tag }}
+        run: |
+          git archive --format=tar.gz --prefix="pennyats-${TAG}/" -o "pennyats-${TAG}.tar.gz" "$TAG"
+          cosign sign-blob --yes --bundle "pennyats-${TAG}.tar.gz.sigstore.json" "pennyats-${TAG}.tar.gz"
+          sha256sum "pennyats-${TAG}.tar.gz" pennyats-image.spdx.json pennyats-source.spdx.json > SHA256SUMS
+
+      - name: Provenance for the source archive and SBOMs
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            pennyats-${{ steps.names.outputs.tag }}.tar.gz
+            pennyats-image.spdx.json
+            pennyats-source.spdx.json
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.names.outputs.tag }}
+          IMAGE: ${{ steps.names.outputs.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          prerelease=""
+          case "$TAG" in *-*) prerelease="--prerelease" ;; esac
+          cat > notes.md <<NOTES
+          Container image: \`${IMAGE}@${DIGEST}\`
+
+          Signed with Sigstore keyless signing from this repository's release workflow, with build
+          provenance and SBOM attestations. See SECURITY.md, "Verifying a release".
+          NOTES
+          gh release create "$TAG" $prerelease --verify-tag --title "$TAG" --notes-file notes.md \
+            "pennyats-${TAG}.tar.gz" "pennyats-${TAG}.tar.gz.sigstore.json" \
+            pennyats-image.spdx.json pennyats-source.spdx.json SHA256SUMS
+
+  verify:
+    name: Verify the release as a user would
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      IMAGE: ${{ needs.release.outputs.image }}
+      DIGEST: ${{ needs.release.outputs.digest }}
+      TAG: ${{ needs.release.outputs.tag }}
+      IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${{ needs.release.outputs.tag }}
+      ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image signature
+        run: cosign verify "$IMAGE@$DIGEST" --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER"
+
+      - name: Image provenance and SBOM attestations
+        run: |
+          gh attestation verify "oci://$IMAGE@$DIGEST" --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "oci://$IMAGE@$DIGEST" --repo "$GITHUB_REPOSITORY" --predicate-type https://spdx.dev/Document/v2.3
+
+      - name: Source archive signature, provenance, and SBOMs
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY"
+          sha256sum -c SHA256SUMS
+          cosign verify-blob "pennyats-${TAG}.tar.gz" --bundle "pennyats-${TAG}.tar.gz.sigstore.json" \
+            --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER"
+          gh attestation verify "pennyats-${TAG}.tar.gz" --repo "$GITHUB_REPOSITORY"
+          jq -e '.spdxVersion and (.packages | length > 0)' pennyats-image.spdx.json > /dev/null
+          jq -e '.spdxVersion and (.packages | length > 0)' pennyats-source.spdx.json > /dev/null
+          echo "Verified $TAG: image signature, provenance, SBOM attestation, source signature, checksums, and SBOMs."
