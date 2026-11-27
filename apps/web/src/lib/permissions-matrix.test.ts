@@ -34,7 +34,8 @@ const MATRIX: Row[] = [
   ["applications.hire",         Y, Y, Y, Y, N, Y, N, N],
   ["notes.view",                Y, Y, Y, Y, Y, Y, Y, N],
   ["notes.write",               Y, Y, Y, Y, Y, Y, Y, N],
-  ["notes.phone_screen.write",  Y, Y, Y, Y, N, N, N, N], // Coordinator and HM: read only (#97)
+  ["notes.phone_screen.read",   Y, Y, Y, Y, Y, Y, N, N], // #97: read and write are separate
+  ["notes.phone_screen.write",  Y, Y, Y, Y, N, N, N, N], // Coordinator and HM: read only
   ["scorecards.view",           Y, Y, Y, Y, N, Y, Y, N], // Coordinator: no scorecard content
   ["scorecards.view_all",       Y, Y, Y, Y, N, Y, N, N], // Interviewer: after own submitted
   ["scorecards.submit",         Y, Y, Y, Y, N, Y, Y, N],

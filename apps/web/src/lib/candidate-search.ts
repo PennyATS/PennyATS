@@ -3,6 +3,7 @@ import { activity, applicationNotes, applications, candidates, notes, stages } f
 import type { SessionUser } from "./auth";
 import { db } from "./db";
 import { visibleJobIds } from "./hiring";
+import { can } from "./permissions";
 import { likePattern, parseQuery, type QueryNode } from "./search-query";
 import { isUuid } from "./validation";
 
@@ -66,7 +67,7 @@ export function hasFilters(filters: CandidateFilters): boolean {
 }
 
 /** SQL for one search term: anywhere in the profile, resume, notes, or application history. */
-function termMatches(term: string, jobIds: string[] | null): SQL {
+function termMatches(term: string, jobIds: string[] | null, phoneScreens: boolean): SQL {
   const p = likePattern(term);
   const visibleApps = jobIds ? inArray(applications.jobId, jobIds) : undefined;
   return or(
@@ -94,13 +95,16 @@ function termMatches(term: string, jobIds: string[] | null): SQL {
             visibleApps,
             or(
               ilike(applications.rejectionReason, p),
-              // Phone screen notes, kept even after a rejection.
-              exists(
-                db()
-                  .select({ x: sql`1` })
-                  .from(applicationNotes)
-                  .where(and(eq(applicationNotes.applicationId, applications.id), ilike(applicationNotes.body, p))),
-              ),
+              // Phone screen notes, kept even after a rejection. Only for people who may read
+              // them (#97), so a search can't reveal what they say.
+              phoneScreens
+                ? exists(
+                    db()
+                      .select({ x: sql`1` })
+                      .from(applicationNotes)
+                      .where(and(eq(applicationNotes.applicationId, applications.id), ilike(applicationNotes.body, p))),
+                  )
+                : undefined,
               exists(
                 db()
                   .select({ x: sql`1` })
@@ -114,16 +118,16 @@ function termMatches(term: string, jobIds: string[] | null): SQL {
   )!;
 }
 
-function compile(node: QueryNode, jobIds: string[] | null): SQL {
+function compile(node: QueryNode, jobIds: string[] | null, phoneScreens: boolean): SQL {
   switch (node.type) {
     case "term":
-      return termMatches(node.value, jobIds);
+      return termMatches(node.value, jobIds, phoneScreens);
     case "not":
-      return not(compile(node.node, jobIds));
+      return not(compile(node.node, jobIds, phoneScreens));
     case "and":
-      return and(...node.nodes.map((n) => compile(n, jobIds)))!;
+      return and(...node.nodes.map((n) => compile(n, jobIds, phoneScreens)))!;
     case "or":
-      return or(...node.nodes.map((n) => compile(n, jobIds)))!;
+      return or(...node.nodes.map((n) => compile(n, jobIds, phoneScreens)))!;
   }
 }
 
@@ -155,7 +159,7 @@ export async function candidateWhere(user: SessionUser, filters: CandidateFilter
     filters.tag ? sql`exists (select 1 from unnest(${candidates.tags}) as t(v) where lower(t.v) = ${filters.tag})` : undefined,
     filters.from ? gte(candidates.createdAt, sql`${addDays(filters.from, 0)}::timestamptz`) : undefined,
     filters.to ? lt(candidates.createdAt, sql`${addDays(filters.to, 1)}::timestamptz`) : undefined,
-    query ? compile(query, ids) : undefined,
+    query ? compile(query, ids, can(user, "notes.phone_screen.read")) : undefined,
     // Interviewers only see candidates with an application on one of their jobs.
     needsApp
       ? exists(

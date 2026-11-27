@@ -142,7 +142,9 @@ export default async function CandidatePage({
           .orderBy(desc(scorecards.updatedAt))
       : [],
   ]);
-  const phoneScreens = appIds.length
+  // Phone screen notes need their own read permission (#97), checked per job so team roles count.
+  const screenAppIds = apps.filter((a) => can(user, "notes.phone_screen.read", { jobId: a.jobId })).map((a) => a.id);
+  const phoneScreens = screenAppIds.length
     ? await db()
         .select({
           applicationId: applicationNotes.applicationId,
@@ -152,7 +154,7 @@ export default async function CandidatePage({
         })
         .from(applicationNotes)
         .leftJoin(users, eq(users.id, applicationNotes.authorId))
-        .where(and(inArray(applicationNotes.applicationId, appIds), eq(applicationNotes.kind, "phone_screen")))
+        .where(and(inArray(applicationNotes.applicationId, screenAppIds), eq(applicationNotes.kind, "phone_screen")))
     : [];
   const [templates, sentEmails] = await Promise.all([
     manage ? db().select({ id: emailTemplates.id, name: emailTemplates.name, folder: emailTemplateFolders.name })
@@ -470,7 +472,7 @@ export default async function CandidatePage({
                   )}
                 </div>
               )}
-              {(() => {
+              {screenAppIds.includes(app.id) && (() => {
                 const screen = phoneScreens.find((n) => n.applicationId === app.id);
                 const meta = screen && (
                   <span className="muted text-xs">
@@ -483,7 +485,7 @@ export default async function CandidatePage({
                       <h3 id={`screen-${app.id}`} className="font-medium">Phone screen notes</h3>
                       {meta}
                     </div>
-                    {manage ? (
+                    {can(user, "notes.phone_screen.write", { jobId: app.jobId }) ? (
                       <ActionForm
                         action={savePhoneScreenAction.bind(null, app.id)}
                         resetKey={screen?.updatedAt.toISOString() ?? "none"}

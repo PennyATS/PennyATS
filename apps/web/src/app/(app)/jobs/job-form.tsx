@@ -45,9 +45,9 @@ function Select({
   );
 }
 
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+function Section({ title, note, disabled, children }: { title: string; note?: string; disabled?: boolean; children: React.ReactNode }) {
   return (
-    <fieldset className="space-y-4 border-t pt-5 first:border-t-0 first:pt-0" style={{ borderColor: "var(--border)" }}>
+    <fieldset disabled={disabled} className="space-y-4 border-t pt-5 first:border-t-0 first:pt-0" style={{ borderColor: "var(--border)" }}>
       <legend className="sr-only">{title}</legend>
       <div aria-hidden="true">
         <h2 className="card-title">{title}</h2>
@@ -64,6 +64,7 @@ export async function JobForm({
   people,
   submitLabel,
   version,
+  pay = "edit",
 }: {
   action: FormAction;
   job?: JobValues;
@@ -72,6 +73,8 @@ export async function JobForm({
   submitLabel: string;
   /** Changes when the job is saved, so the fields show the saved values. */
   version?: string;
+  /** Compensation access (#97): edit it, see it read-only, or leave it off the form. */
+  pay?: "edit" | "view" | "hidden";
 }) {
   const aiDrafts = await isAiFeatureOn("jobDescriptions");
   const money = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
@@ -94,7 +97,12 @@ export async function JobForm({
         </div>
       </Section>
 
-      <Section title="Compensation" note="Min, mid, and max of the band. The midpoint fills in from the range if left blank.">
+      {pay !== "hidden" && (
+      <Section
+        title="Compensation"
+        disabled={pay === "view"}
+        note={pay === "view" ? "You can see the pay band but not change it." : "Min, mid, and max of the band. The midpoint fills in from the range if left blank."}
+      >
         <div className="grid gap-4 sm:grid-cols-[8rem_10rem]">
           <Select id="compCurrency" label="Currency" options={CURRENCIES} defaultValue={job?.compCurrency ?? "USD"} blank={null} />
           <Select id="compPeriod" label="Pay period" options={{ year: "Yearly", hour: "Hourly" } satisfies Record<keyof typeof PAY_PERIODS, string>} defaultValue={job?.compPeriod ?? "year"} blank={null} />
@@ -119,6 +127,7 @@ export async function JobForm({
           Show the pay range on the careers page
         </label>
       </Section>
+      )}
 
       <Section title="People" note="They join the hiring team so they can see this job.">
         <div className="grid gap-4 sm:grid-cols-2">

@@ -31,7 +31,9 @@ export default async function JobLayout({ children, params }: { children: React.
   const peopleIds = [job.hiringManagerId, job.recruiterId].filter((x): x is string => Boolean(x));
   const people = peopleIds.length ? await db().select({ id: users.id, name: users.name }).from(users).innerJoin(roles, eq(roles.id, users.roleId)).where(inArray(users.id, peopleIds)) : [];
   const personName = (pid: string | null) => (pid ? people.find((p) => p.id === pid)?.name : undefined);
-  const pay = can(user, "jobs.view_compensation", { jobId: id }) ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
+  // Pay and equity need jobs.view_compensation (#97), separately from editing the job.
+  const seePay = can(user, "jobs.view_compensation", { jobId: id });
+  const pay = seePay ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
   const base = `/jobs/${job.id}`;
 
   const details: [string, React.ReactNode][] = [
@@ -45,7 +47,7 @@ export default async function JobLayout({ children, params }: { children: React.
     ["Requisition", job.requisitionId],
     ["Hiring manager", personName(job.hiringManagerId)],
     ["Recruiter", personName(job.recruiterId)],
-    ...(manage ? ([
+    ...(seePay ? ([
       ["Compensation", pay && `${pay}${job.compMid ? ` (mid ${job.compMid.toLocaleString()})` : ""}${job.compPublic ? " · shown on careers page" : ""}`],
       ["Equity", job.equityNote],
     ] as [string, React.ReactNode][]) : []),

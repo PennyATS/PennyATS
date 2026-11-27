@@ -28,6 +28,9 @@ export default async function JobPage({
   // The pipeline lists candidates, so it needs more than seeing the job (Executive sees summaries only).
   const user = await requireJobAccess("applications.view", id);
   const manage = can(user, "applications.move", { jobId: id });
+  // Recommendation breakdowns need scorecards.view_all; phone screen notes need their own read (#97).
+  const seeCards = can(user, "scorecards.view_all", { jobId: id });
+  const seeScreens = can(user, "notes.phone_screen.read", { jobId: id });
   const { job, stages } = await loadJob(user, id);
   const stageName = new Map(stages.map((s) => [s.id, s.name]));
 
@@ -61,10 +64,12 @@ export default async function JobPage({
             .from(activity)
             .where(and(inArray(activity.applicationId, archived.map((r) => r.id)), inArray(activity.type, ["rejected", "withdrawn"])))
             .orderBy(desc(activity.createdAt)),
-          db()
-            .select({ applicationId: applicationNotes.applicationId })
-            .from(applicationNotes)
-            .where(inArray(applicationNotes.applicationId, archived.map((r) => r.id))),
+          seeScreens
+            ? db()
+                .select({ applicationId: applicationNotes.applicationId })
+                .from(applicationNotes)
+                .where(inArray(applicationNotes.applicationId, archived.map((r) => r.id)))
+            : Promise.resolve([] as { applicationId: string }[]),
         ])
       : null;
 
@@ -84,7 +89,7 @@ export default async function JobPage({
     const recs = feedback.filter((f) => f.applicationId === applicationId).map((f) => f.recommendation as Recommendation);
     if (recs.length === 0) return null;
     // Interviewers only get a count here; the candidate page decides when they may see the rest.
-    if (!manage) return `${recs.length} scorecard${recs.length === 1 ? "" : "s"}`;
+    if (!seeCards) return `${recs.length} scorecard${recs.length === 1 ? "" : "s"}`;
     return summarize(recs)
       .reverse()
       .map((x) => `${x.count} ${RECOMMENDATION_LABELS[x.recommendation]}`)
