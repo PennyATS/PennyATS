@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { can, defaultsToRecruiterOnNewJob, isRole, removesLastAdmin, rolesWith, statusPermission } from "./permissions";
+import { can, defaultsToRecruiterOnNewJob, isRole, isTeamRole, JOB_SCOPED_PERMISSIONS, jobPermissionsFrom, removesLastAdmin, rolesWith, statusPermission, TEAM_ROLE_PRESETS, TEAM_ROLES, teamRoleForJobField } from "./permissions";
 
 test("only admins manage users", () => {
   assert.equal(can({ role: "admin" }, "users.manage"), true);
@@ -62,4 +62,33 @@ test("the last active admin cannot be demoted or deactivated", () => {
   assert.equal(removesLastAdmin({ ...current, activeAdminCount: 2, nextRole: "interviewer", nextActive: true }), false);
   assert.equal(removesLastAdmin({ ...current, activeAdminCount: 2, nextRole: "admin", nextActive: false }), false);
   assert.equal(removesLastAdmin({ currentRole: "recruiter", currentActive: true, activeAdminCount: 1, nextRole: "interviewer", nextActive: false }), false);
+});
+
+test("team roles grant job-scoped permissions on that job only (#96)", () => {
+  const rows = [
+    { jobId: "job-hm", teamRole: "hiring_manager" as const },
+    { jobId: "job-view", teamRole: "viewer" as const },
+  ];
+  const interviewer = { role: "interviewer" as const, jobPermissions: jobPermissionsFrom(rows) };
+  // An Interviewer who is a job's hiring manager can move candidates and read every scorecard there.
+  assert.equal(can(interviewer, "applications.move", { jobId: "job-hm" }), true);
+  assert.equal(can(interviewer, "scorecards.view_all", { jobId: "job-hm" }), true);
+  assert.equal(can(interviewer, "applications.move", { jobId: "job-view" }), false);
+  assert.equal(can(interviewer, "applications.move"), false);
+  // Team roles never grant pay edits to a hiring manager, or anything instance-wide.
+  assert.equal(can(interviewer, "jobs.edit_compensation", { jobId: "job-hm" }), false);
+  for (const role of TEAM_ROLES) {
+    for (const p of TEAM_ROLE_PRESETS[role].permissions) assert.ok(JOB_SCOPED_PERMISSIONS.includes(p), `${role} ${p}`);
+  }
+  // An Executive placed on a job as viewer can see that job's pipeline.
+  const exec = { role: "executive" as const, jobPermissions: jobPermissionsFrom([{ jobId: "j", teamRole: "viewer" }]) };
+  assert.equal(can(exec, "applications.view", { jobId: "j" }), true);
+  assert.equal(can(exec, "applications.view"), false);
+});
+
+test("the job form's people get matching team roles", () => {
+  assert.equal(teamRoleForJobField("hiringManagerId"), "hiring_manager");
+  assert.equal(teamRoleForJobField("recruiterId"), "recruiter");
+  assert.equal(isTeamRole("viewer"), true);
+  assert.equal(isTeamRole("owner"), false);
 });

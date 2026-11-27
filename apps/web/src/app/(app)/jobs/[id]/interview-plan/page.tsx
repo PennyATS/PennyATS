@@ -3,7 +3,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { roleLabel } from "@/lib/permissions";
 import { interviewTemplateInterviewers, interviewTemplates, users, roles } from "@pennyats/db";
 import { ActionForm, Field, SubmitButton } from "@/components/form";
-import { requireUser } from "@/lib/auth";
+import { requireJobAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
 import { isUuid } from "@/lib/validation";
@@ -18,7 +18,7 @@ export default async function InterviewPlanPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const user = await requireUser("interviews.plan");
+  const user = await requireJobAccess("interviews.plan", id);
   const { job, stages } = await loadJob(user, id);
 
   const templates = await db()

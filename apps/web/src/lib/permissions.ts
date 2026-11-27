@@ -63,16 +63,88 @@ export function isPermission(value: unknown): value is Permission {
 export const JOB_SCOPED_PERMISSIONS: readonly Permission[] = [
   "jobs.edit",
   "jobs.view_compensation",
+  "jobs.edit_compensation",
+  "applications.view",
   "applications.move",
   "applications.reject",
   "applications.hire",
-  "scorecards.view_all",
+  "notes.view",
   "notes.phone_screen.write",
+  "scorecards.view",
+  "scorecards.view_all",
+  "interviews.view",
   "interviews.schedule",
   "interviews.plan",
   "email.send",
   "reports.view",
 ];
+
+/** Roles on one job's hiring team (#96). */
+export const TEAM_ROLES = ["hiring_manager", "recruiter", "coordinator", "interviewer", "viewer"] as const;
+export type TeamRole = (typeof TEAM_ROLES)[number];
+
+export function isTeamRole(value: unknown): value is TeamRole {
+  return typeof value === "string" && (TEAM_ROLES as readonly string[]).includes(value);
+}
+
+/** Seeing a job's pipeline, notes, interviews, and scorecards (subject to the blind rule). */
+const TEAM_MEMBER: readonly Permission[] = ["applications.view", "notes.view", "scorecards.view", "interviews.view"];
+
+/**
+ * What each team role grants on that job, on top of the person's own role. For example an
+ * Interviewer who is a job's hiring manager can see all its scorecards and move its candidates.
+ */
+export const TEAM_ROLE_PRESETS: Record<TeamRole, { name: string; description: string; permissions: readonly Permission[] }> = {
+  hiring_manager: {
+    name: "Hiring manager",
+    description: "Moves, rejects, and hires; sees all scorecards and the job's reports; edits the job but not its pay.",
+    permissions: [...TEAM_MEMBER, "jobs.edit", "jobs.view_compensation", "applications.move", "applications.reject", "applications.hire", "scorecards.view_all", "reports.view"],
+  },
+  recruiter: {
+    name: "Recruiter",
+    description: "The full hiring workflow on this job, including pay, phone screens, scheduling, and email.",
+    permissions: [
+      ...TEAM_MEMBER,
+      "jobs.edit",
+      "jobs.view_compensation",
+      "jobs.edit_compensation",
+      "applications.move",
+      "applications.reject",
+      "applications.hire",
+      "notes.phone_screen.write",
+      "scorecards.view_all",
+      "interviews.schedule",
+      "interviews.plan",
+      "email.send",
+      "reports.view",
+    ],
+  },
+  coordinator: {
+    name: "Coordinator",
+    description: "Schedules interviews, edits the interview plan, emails candidates, and moves them between stages.",
+    permissions: [...TEAM_MEMBER, "applications.move", "interviews.schedule", "interviews.plan", "email.send"],
+  },
+  interviewer: {
+    name: "Interviewer",
+    description: "Sees the job's candidates and interviews and gives feedback.",
+    permissions: TEAM_MEMBER,
+  },
+  viewer: {
+    name: "Viewer",
+    description: "Can see the job and its candidates. Changes nothing.",
+    permissions: ["applications.view", "interviews.view"],
+  },
+};
+
+/** Job id to the permissions a user's team roles grant there, for `Actor.jobPermissions`. */
+export function jobPermissionsFrom(rows: readonly { jobId: string; teamRole: TeamRole }[]): Record<string, readonly Permission[]> {
+  return Object.fromEntries(rows.map((r) => [r.jobId, TEAM_ROLE_PRESETS[r.teamRole].permissions]));
+}
+
+/** The team role a job's named hiring manager or recruiter gets when the job form sets them. */
+export function teamRoleForJobField(field: "hiringManagerId" | "recruiterId"): TeamRole {
+  return field === "hiringManagerId" ? "hiring_manager" : "recruiter";
+}
 
 /** Everyone signed in. Which jobs they see is decided by job scoping, not by these. */
 const MEMBER: readonly Permission[] = [

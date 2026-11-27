@@ -13,7 +13,7 @@ import { DetailsButton, JobDrawer, JobRail } from "./job-chrome";
 export default async function JobLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const manage = can(user, "jobs.edit");
+  const manage = can(user, "jobs.edit", { jobId: id });
   const { job, stages } = await loadJob(user, id);
 
   const [statusCounts, team] = await Promise.all([
@@ -31,7 +31,7 @@ export default async function JobLayout({ children, params }: { children: React.
   const peopleIds = [job.hiringManagerId, job.recruiterId].filter((x): x is string => Boolean(x));
   const people = peopleIds.length ? await db().select({ id: users.id, name: users.name }).from(users).innerJoin(roles, eq(roles.id, users.roleId)).where(inArray(users.id, peopleIds)) : [];
   const personName = (pid: string | null) => (pid ? people.find((p) => p.id === pid)?.name : undefined);
-  const pay = can(user, "jobs.view_compensation") ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
+  const pay = can(user, "jobs.view_compensation", { jobId: id }) ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
   const base = `/jobs/${job.id}`;
 
   const details: [string, React.ReactNode][] = [

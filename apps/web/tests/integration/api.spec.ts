@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { activity, applications, auditLog, candidates, jobTeam, notes, stages } from "@pennyats/db";
+import { activity, applications, auditLog, candidates, jobTeam, jobs, notes, stages } from "@pennyats/db";
 import { expect, test } from "@playwright/test";
 import { exportCandidate } from "../../src/lib/privacy";
 import { routes, type RouteName } from "../../src/lib/api/routes";
@@ -446,5 +446,44 @@ test("public API: keys, scopes, visibility, privacy, and audit", async ({ reques
   await test.step("every endpoint was called with an allowed and a denied key", async () => {
     const missing = [...coverage].filter(([name, seen]) => name !== "me" && (!seen.has("allowed") || !seen.has("denied")));
     expect(missing.map(([name, seen]) => `${name}: ${[...seen].join("+") || "none"}`)).toEqual([]);
+  });
+});
+
+test("confidential jobs: only the hiring team sees them, and team changes apply on the next request (#96)", async ({ request }) => {
+  const call = apiClient(request, coverage);
+  const title = `Confidential ${suffix}`;
+  const created = await call(admin, "createJob", { body: { title, status: "open" } });
+  expect(created.status).toBe(201);
+  const jobId: string = created.body.id;
+  await db.update(jobs).set({ confidential: true }).where(eq(jobs.id, jobId));
+  const candidate = await call(admin, "createCandidate", {
+    body: { job_id: jobId, full_name: `Confidential Candidate ${suffix}`, email: `confidential-${suffix}@example.com` },
+  });
+  expect(candidate.status).toBe(201);
+  const candidateId: string = candidate.body.candidate.id;
+  const jobsReport = async (k: string) => JSON.stringify((await call(k, "getReport", { params: { table: "jobs" }, query: { period: "all" } })).body.rows);
+
+  await test.step("a recruiter who is not on the team can't load it, its candidate, or see it in lists and reports", async () => {
+    expect((await call(recruiter, "getJob", { params: { id: jobId } })).status).toBe(404);
+    expect((await call(recruiter, "updateJob", { params: { id: jobId }, body: { department: "x" } })).status).toBe(404);
+    const list = await call(recruiter, "listJobs", { query: { limit: "100" } });
+    expect(list.body.data.map((j: { id: string }) => j.id)).not.toContain(jobId);
+    expect((await call(recruiter, "getCandidate", { params: { id: candidateId } })).status).toBe(404);
+    const search = await call(recruiter, "listCandidates", { query: { q: `"confidential-${suffix}@example.com"` } });
+    expect(search.body.data).toHaveLength(0);
+    expect(await jobsReport(recruiter)).not.toContain(title);
+  });
+
+  await test.step("admins (jobs.view_confidential) see it", async () => {
+    expect((await call(admin, "getJob", { params: { id: jobId } })).status).toBe(200);
+    expect(await jobsReport(admin)).toContain(title);
+  });
+
+  await test.step("joining the hiring team takes effect on the next request, and leaving it does too", async () => {
+    await db.insert(jobTeam).values({ jobId, userId: people.recruiter.id, teamRole: "viewer" });
+    expect((await call(recruiter, "getJob", { params: { id: jobId } })).status).toBe(200);
+    expect((await call(recruiter, "getCandidate", { params: { id: candidateId } })).status).toBe(200);
+    await db.delete(jobTeam).where(and(eq(jobTeam.jobId, jobId), eq(jobTeam.userId, people.recruiter.id)));
+    expect((await call(recruiter, "getJob", { params: { id: jobId } })).status).toBe(404);
   });
 });

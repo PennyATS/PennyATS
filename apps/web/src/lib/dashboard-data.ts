@@ -11,7 +11,7 @@ import {
 } from "@pennyats/db";
 import type { SessionUser } from "./auth";
 import { db } from "./db";
-import { visibleJobIds } from "./hiring";
+import { jobIdsFor, visibleJobIds } from "./hiring";
 import { FEEDBACK_DUE_DAYS } from "./interviews";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -190,8 +190,8 @@ export async function executiveData(user: SessionUser, period: ExecPeriod, depar
 }
 
 /** Open jobs with active candidates per stage, for the jobs dashboard. */
-export async function jobsByStage(user: SessionUser, status: "open" | "all") {
-  const ids = await visibleJobIds(user);
+export async function jobsByStage(user: SessionUser, status: "open" | "all", mine = false) {
+  const ids = await jobIdsFor(user, mine);
   if (ids !== null && ids.length === 0) return [];
   const jobRows = await db()
     .select({ id: jobs.id, title: jobs.title, location: jobs.location, department: jobs.department, status: jobs.status, workplaceType: jobs.workplaceType })

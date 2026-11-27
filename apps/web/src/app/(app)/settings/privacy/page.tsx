@@ -21,6 +21,7 @@ const ACTION_LABELS: Record<string, string> = {
   api_write: "Change through the API",
   workspace_exported: "Exported all hiring data",
   workspace_imported: "Imported hiring data",
+  team_role_changed: "Changed a hiring team role",
 };
 
 /** Who did it: a person, a person's API key, or an AI agent using one. */

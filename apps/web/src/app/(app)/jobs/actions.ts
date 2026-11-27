@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { applications, jobTeam, jobs, stages, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
-import { requireJobAccess, requireUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
+import { requireJobAccess, requireUser, requireApplicationAccess } from "@/lib/auth";
+import { can, isTeamRole } from "@/lib/permissions";
+import { logAudit } from "@/lib/privacy";
 import { db } from "@/lib/db";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { jobDescriptionPrompt } from "@/lib/ai-rules";
@@ -143,10 +144,24 @@ export async function deleteStageAction(jobId: string, stageId: string): Promise
 export async function addTeamMemberAction(jobId: string, form: FormData): Promise<void> {
   await requireJobAccess("jobs.edit", jobId);
   const userId = field(form, "userId", 64);
+  const teamRole = form.get("teamRole");
   if (!userId || !isUuid(userId)) return;
   const [exists] = await db().select({ id: users.id }).from(users).where(eq(users.id, userId));
   if (!exists) return;
-  await db().insert(jobTeam).values({ jobId, userId }).onConflictDoNothing();
+  await db()
+    .insert(jobTeam)
+    .values({ jobId, userId, teamRole: isTeamRole(teamRole) ? teamRole : "interviewer" })
+    .onConflictDoNothing();
+  stagePath(jobId);
+}
+
+/** Change someone's role on this job's hiring team. Takes effect on their next request. */
+export async function setTeamRoleAction(jobId: string, userId: string, form: FormData): Promise<void> {
+  const user = await requireJobAccess("jobs.edit", jobId);
+  const teamRole = form.get("teamRole");
+  if (!isUuid(userId) || !isTeamRole(teamRole)) return;
+  await db().update(jobTeam).set({ teamRole }).where(and(eq(jobTeam.jobId, jobId), eq(jobTeam.userId, userId)));
+  await logAudit("team_role_changed", user.id, { job_id: jobId, user_id: userId, team_role: teamRole });
   stagePath(jobId);
 }
 
@@ -162,7 +177,7 @@ export async function removeTeamMemberAction(jobId: string, userId: string): Pro
 
 /** Called by the kanban board when a card is dropped or moved with the arrow buttons. */
 export async function moveCardAction(applicationId: string, stageId: string): Promise<{ ok: boolean }> {
-  const user = await requireUser("applications.move");
+  const user = await requireApplicationAccess("applications.move", applicationId);
   const moved = await moveStage(user, applicationId, stageId);
   if (!moved) return { ok: false };
   revalidatePath(`/jobs/${moved.jobId}`);

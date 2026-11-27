@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { candidates, googleCalendarConnections, interviewInterviewers, interviews, jobs, users } from "@pennyats/db";
-import { requireUser } from "@/lib/auth";
+import { requireInterviewAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getApplicationFor } from "@/lib/hiring";
 import { googleCalendarConfigured } from "@/lib/google-calendar";
@@ -15,7 +15,7 @@ export default async function ScheduleInterviewPage({
   params: Promise<{ id: string; interviewId: string }>;
 }) {
   const { id, interviewId } = await params;
-  const user = await requireUser("interviews.schedule");
+  const user = await requireInterviewAccess("interviews.schedule", interviewId);
   if (!isUuid(id) || !isUuid(interviewId)) notFound();
   const [interview] = await db().select().from(interviews).where(eq(interviews.id, interviewId));
   if (!interview) notFound();

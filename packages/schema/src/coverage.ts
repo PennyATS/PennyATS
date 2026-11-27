@@ -82,7 +82,7 @@ export const COVERAGE: Coverage[] = [
   {
     table: jobTeam,
     name: "job_team",
-    columns: { job_id: f("(nested in jobs[])"), user_id: f("jobs[].hiring_team_emails") },
+    columns: { job_id: f("(nested in jobs[])"), user_id: f("jobs[].hiring_team_emails"), team_role: f("jobs[].hiring_team_roles") },
   },
   {
     table: candidates,

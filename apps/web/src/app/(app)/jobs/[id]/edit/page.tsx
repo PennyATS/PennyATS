@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { asc, count, eq, inArray } from "drizzle-orm";
-import { roleLabel } from "@/lib/permissions";
+import { roleLabel, TEAM_ROLE_PRESETS, TEAM_ROLES } from "@/lib/permissions";
 import { applications, jobTeam, users, roles } from "@pennyats/db";
-import { requireUser } from "@/lib/auth";
+import { requireJobAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
 import {
@@ -11,6 +11,7 @@ import {
   deleteStageAction,
   moveStageAction,
   removeTeamMemberAction,
+  setTeamRoleAction,
   renameStageAction,
   updateAttributesAction,
   updateJobAction,
@@ -21,7 +22,7 @@ import { JobForm } from "../../job-form";
 
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser("jobs.edit");
+  const user = await requireJobAccess("jobs.edit", id);
   const { job, stages } = await loadJob(user, id);
 
   const [stageCounts, team, everyone] = await Promise.all([
@@ -38,7 +39,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
           .groupBy(applications.stageId)
       : [],
     db()
-      .select({ id: users.id, name: users.name, role: roles.key })
+      .select({ id: users.id, name: users.name, role: roles.key, teamRole: jobTeam.teamRole })
       .from(jobTeam)
       .innerJoin(users, eq(users.id, jobTeam.userId))
       .innerJoin(roles, eq(roles.id, users.roleId))
@@ -177,17 +178,29 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
       <section className="card mt-6" aria-labelledby="team-title">
         <div className="card-header">
           <h2 id="team-title" className="card-title">Hiring team</h2>
-          <p className="card-note">Interviewers only see jobs they are on the hiring team for.</p>
+          <p className="card-note">
+            Each member&apos;s team role adds permissions on this job only, on top of their own role. Hiring Managers and
+            Interviewers only see jobs they are on{job.confidential ? "; this confidential job is hidden from everyone not listed here" : ""}.
+          </p>
         </div>
         {team.length === 0 ? (
           <p className="muted text-sm">No one yet.</p>
         ) : (
           <ul className="card-rows text-sm">
             {team.map((member) => (
-              <li key={member.id} className="flex items-center justify-between gap-3">
+              <li key={member.id} className="flex flex-wrap items-center justify-between gap-3">
                 <span>
                   {member.name} <span className="muted">· {roleLabel(member.role)}</span>
                 </span>
+                <form action={setTeamRoleAction.bind(null, job.id, member.id)} className="flex items-center gap-2" key={member.teamRole}>
+                  <label className="sr-only" htmlFor={`team-role-${member.id}`}>Team role for {member.name}</label>
+                  <select id={`team-role-${member.id}`} name="teamRole" defaultValue={member.teamRole} className="input">
+                    {TEAM_ROLES.map((r) => (
+                      <option key={r} value={r}>{TEAM_ROLE_PRESETS[r].name}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className="btn btn-secondary">Save</button>
+                </form>
                 <form action={removeTeamMemberAction.bind(null, job.id, member.id)}>
                   <button type="submit" className="btn btn-secondary" aria-label={`Remove ${member.name} from the hiring team`}>
                     Remove
@@ -210,11 +223,24 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
                 </option>
               ))}
             </select>
+            <select name="teamRole" aria-label="Team role" defaultValue="interviewer" className="input">
+              {TEAM_ROLES.map((r) => (
+                <option key={r} value={r}>{TEAM_ROLE_PRESETS[r].name}</option>
+              ))}
+            </select>
             <button type="submit" className="btn btn-secondary">
               Add to team
             </button>
           </form>
         )}
+        <dl className="mt-4 space-y-1 border-t pt-4 text-xs" style={{ borderColor: "var(--border)" }}>
+          {TEAM_ROLES.map((r) => (
+            <div key={r}>
+              <dt className="inline font-medium">{TEAM_ROLE_PRESETS[r].name}:</dt>{" "}
+              <dd className="muted inline">{TEAM_ROLE_PRESETS[r].description}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
     </>
   );

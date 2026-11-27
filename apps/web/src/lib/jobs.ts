@@ -1,5 +1,6 @@
 /** Job creation helpers shared by the job form actions and the public API. */
 import { and, eq, inArray, like, max, or } from "drizzle-orm";
+import { teamRoleForJobField } from "./permissions";
 import { DEFAULT_STAGES, jobTeam, jobs, stages, users, type Db } from "@pennyats/db";
 import { db } from "./db";
 import { slugify } from "./validation";
@@ -33,8 +34,14 @@ export async function addPeopleToTeam(
   jobId: string,
   value: { hiringManagerId?: string | null; recruiterId?: string | null },
 ) {
-  const ids = [...new Set([value.hiringManagerId, value.recruiterId].filter((id): id is string => Boolean(id)))];
-  if (ids.length) await ex.insert(jobTeam).values(ids.map((userId) => ({ jobId, userId }))).onConflictDoNothing();
+  // The job form's recruiter and hiring manager get those team roles (#96); hiring manager wins
+  // when one person is both.
+  const rows = (["recruiterId", "hiringManagerId"] as const)
+    .filter((field) => value[field])
+    .map((field) => ({ jobId, userId: value[field]!, teamRole: teamRoleForJobField(field) }));
+  for (const row of rows) {
+    await ex.insert(jobTeam).values(row).onConflictDoUpdate({ target: [jobTeam.jobId, jobTeam.userId], set: { teamRole: row.teamRole } });
+  }
 }
 
 /** Insert a job with the default pipeline stages. Callers validate and check people first. */

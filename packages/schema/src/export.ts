@@ -106,6 +106,12 @@ export async function exportWorkspace(db: Db, now: Date = new Date()): Promise<E
       hiring_manager_email: email(j.hiringManagerId),
       recruiter_email: email(j.recruiterId),
       hiring_team_emails: emails((teamByJob.get(j.id) ?? []).map((t) => t.userId)),
+      hiring_team_roles: Object.fromEntries(
+        (teamByJob.get(j.id) ?? [])
+          .map((t) => [emailOf.get(t.userId), t.teamRole] as const)
+          .filter((pair): pair is readonly [string, typeof pair[1]] => Boolean(pair[0]))
+          .sort(([a], [b]) => a.localeCompare(b)),
+      ),
       created_by_email: email(j.createdBy),
       stages: (stagesByJob.get(j.id) ?? []).map((s) => ({ id: s.id, name: s.name, position: s.position })),
       created_at: iso(j.createdAt),

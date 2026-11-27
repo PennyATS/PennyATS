@@ -3,9 +3,9 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { and, eq, gt, lt } from "drizzle-orm";
-import { sessions, users, roles } from "@pennyats/db";
+import { applications, interviews, roles, sessions, users } from "@pennyats/db";
 import { db } from "./db";
-import { canSeeJob } from "./hiring";
+import { canSeeCandidate, canSeeJob, loadJobPermissions } from "./hiring";
 import { isUuid } from "./validation";
 import { can, isRole, permissionsForRole, type Permission, type Role } from "./permissions";
 
@@ -13,7 +13,15 @@ const COOKIE = "pennyats_session";
 const SESSION_DAYS = 30;
 
 /** `permissions` is resolved when the session is loaded, so checks with `can()` don't re-query. */
-export type SessionUser = { id: string; email: string; name: string; role: Role; permissions: readonly Permission[] };
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  permissions: readonly Permission[];
+  /** Extra permissions from hiring team roles, by job id (#96). Read per request, so changes apply at once. */
+  jobPermissions: Readonly<Record<string, readonly Permission[]>>;
+};
 
 export function newToken(): string {
   return randomBytes(32).toString("base64url");
@@ -62,7 +70,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date()), eq(users.active, true)));
   // Only the system role presets exist today; an unknown key gets no access rather than a guess.
   if (!row || !isRole(row.role)) return null;
-  return { ...row, role: row.role, permissions: permissionsForRole(row.role) };
+  return { ...row, role: row.role, permissions: permissionsForRole(row.role), jobPermissions: await loadJobPermissions(row.id) };
 });
 
 /**
@@ -77,12 +85,38 @@ export async function requireUser(permission?: Permission): Promise<SessionUser>
 }
 
 /**
- * Like `requireUser(permission)`, and the user must also be able to see the job. Use it in
- * every action that changes a job, since roles such as Hiring Manager hold job permissions
- * without seeing every job.
+ * The user must hold `permission` on this job, through their role or their team role on it
+ * (#96), and be able to see the job. Use it in every action that changes a job.
  */
 export async function requireJobAccess(permission: Permission, jobId: string): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!isUuid(jobId) || !can(user, permission, { jobId }) || !(await canSeeJob(user, jobId))) notFound();
+  return user;
+}
+
+/** `requireJobAccess` for actions that start from an application. */
+export async function requireApplicationAccess(permission: Permission, applicationId: string): Promise<SessionUser> {
+  if (!isUuid(applicationId)) notFound();
+  const [app] = await db().select({ jobId: applications.jobId }).from(applications).where(eq(applications.id, applicationId));
+  if (!app) notFound();
+  return requireJobAccess(permission, app.jobId);
+}
+
+/** `requireJobAccess` for actions that start from an interview. */
+export async function requireInterviewAccess(permission: Permission, interviewId: string): Promise<SessionUser> {
+  if (!isUuid(interviewId)) notFound();
+  const [row] = await db()
+    .select({ jobId: applications.jobId })
+    .from(interviews)
+    .innerJoin(applications, eq(applications.id, interviews.applicationId))
+    .where(eq(interviews.id, interviewId));
+  if (!row) notFound();
+  return requireJobAccess(permission, row.jobId);
+}
+
+/** The user must hold `permission` and be able to see the candidate through one of their jobs. */
+export async function requireCandidateAccess(permission: Permission, candidateId: string): Promise<SessionUser> {
   const user = await requireUser(permission);
-  if (!isUuid(jobId) || !(await canSeeJob(user, jobId))) notFound();
+  if (!isUuid(candidateId) || !(await canSeeCandidate(user, candidateId))) notFound();
   return user;
 }

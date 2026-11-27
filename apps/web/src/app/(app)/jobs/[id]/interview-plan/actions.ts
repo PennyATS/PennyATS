@@ -12,7 +12,7 @@ import {
   users,
 } from "@pennyats/db";
 import type { FormState } from "@/components/form";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireJobAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createStageInterviews } from "@/lib/hiring";
 import { parseTemplateForm, type TemplateInput } from "@/lib/interviews";
@@ -56,7 +56,7 @@ function refresh(jobId: string) {
 }
 
 export async function createTemplateAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser("interviews.plan");
+  await requireJobAccess("interviews.plan", jobId);
   if (!isUuid(jobId)) return { error: "Job not found." };
   const parsed = parseTemplateForm(form);
   if (!parsed.ok) return { error: parsed.error };
@@ -115,7 +115,7 @@ export async function updateTemplateAction(
   _: FormState,
   form: FormData,
 ): Promise<FormState> {
-  await requireUser("interviews.plan");
+  await requireJobAccess("interviews.plan", jobId);
   if (!isUuid(jobId) || !isUuid(templateId)) return { error: "Interview not found." };
   const parsed = parseTemplateForm(form);
   if (!parsed.ok) return { error: parsed.error };
@@ -152,7 +152,7 @@ export async function updateTemplateAction(
 
 /** Removes an interview from the plan. Candidates' existing interviews and scorecards stay. */
 export async function deleteTemplateAction(jobId: string, templateId: string): Promise<void> {
-  await requireUser("interviews.plan");
+  await requireJobAccess("interviews.plan", jobId);
   if (!isUuid(jobId) || !isUuid(templateId)) return;
   await db()
     .delete(interviewTemplates)

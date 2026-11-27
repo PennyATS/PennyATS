@@ -2,13 +2,15 @@ import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { applications, jobs } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { visibleJobIds } from "@/lib/hiring";
+import Link from "next/link";
+import { jobIdsFor } from "@/lib/hiring";
 import { can } from "@/lib/permissions";
 import { JobsTable } from "./jobs-table";
 
-export default async function JobsPage() {
+export default async function JobsPage({ searchParams }: { searchParams: Promise<{ mine?: string }> }) {
   const user = await requireUser();
-  const ids = await visibleJobIds(user);
+  const mine = (await searchParams).mine === "1";
+  const ids = await jobIdsFor(user, mine);
 
   const rows =
     ids !== null && ids.length === 0
@@ -34,5 +36,13 @@ export default async function JobsPage() {
           .groupBy(jobs.id)
           .orderBy(desc(jobs.createdAt));
 
-  return <JobsTable rows={rows} canCreate={can(user, "jobs.create")} />;
+  return (
+    <>
+      <nav aria-label="Which jobs" className="mb-4 flex gap-2 text-sm">
+        <Link href="/jobs" className={mine ? "btn btn-secondary" : "btn"} aria-current={mine ? undefined : "page"}>All jobs</Link>
+        <Link href="/jobs?mine=1" className={mine ? "btn" : "btn btn-secondary"} aria-current={mine ? "page" : undefined}>My jobs</Link>
+      </nav>
+      <JobsTable rows={rows} canCreate={can(user, "jobs.create")} />
+    </>
+  );
 }

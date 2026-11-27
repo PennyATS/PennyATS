@@ -75,6 +75,13 @@ export const Job = z.object({
   hiring_manager_email: nullable(Email),
   recruiter_email: nullable(Email),
   hiring_team_emails: z.array(Email),
+  hiring_team_roles: z
+    .record(z.string(), z.string().max(64))
+    .optional()
+    .meta({
+      description:
+        "Team role per hiring team email (1.1.0): `hiring_manager`, `recruiter`, `coordinator`, `interviewer`, or `viewer`. Open: readers must accept unknown values. Members not listed are interviewers.",
+    }),
   created_by_email: nullable(Email),
   stages: z.array(Stage),
   created_at: Time,

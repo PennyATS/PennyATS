@@ -176,6 +176,13 @@
       "when": 1795819746918,
       "tag": "0024_drop_user_role_enum",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795820321069,
+      "tag": "0025_team_roles",
+      "breakpoints": true
     }
   ]
 }
