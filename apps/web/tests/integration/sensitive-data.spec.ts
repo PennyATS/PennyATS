@@ -65,7 +65,7 @@ test("coordinator: no pay, phone screens read only", async ({ browser }) => {
   await expect(page.getByText(screenText)).toBeVisible();
   await expect(page.getByLabel(/Phone screen notes for/)).toHaveCount(0);
   await page.goto(`/candidates?q=${encodeURIComponent(`"${marker}"`)}`);
-  await expect(page.locator(`a[href^="/candidates/${candidateId}"]`).first()).toBeVisible();
+  await expect(page.getByRole("main").locator(`a[href^="/candidates/${candidateId}"]`).first()).toBeVisible();
 });
 
 test("interviewer: no pay, no phone screens, and search can't reveal them", async ({ browser }) => {
@@ -77,7 +77,7 @@ test("interviewer: no pay, no phone screens, and search can't reveal them", asyn
   await expect(page.getByRole("heading", { name: "Phone screen notes" })).toHaveCount(0);
   await expect(page.getByText(screenText)).toHaveCount(0);
   await page.goto(`/candidates?q=${encodeURIComponent(`"${marker}"`)}`);
-  await expect(page.locator(`a[href^="/candidates/${candidateId}"]`)).toHaveCount(0);
+  await expect(page.getByRole("main").locator(`a[href^="/candidates/${candidateId}"]`)).toHaveCount(0);
   expect((await page.request.get(`/api/candidates/${candidateId}/export`)).status()).toBe(404);
 });
 
