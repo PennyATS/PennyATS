@@ -37,7 +37,8 @@ export async function importCandidatesAction(form: FormData): Promise<ImportResu
     const errors = [...plan.errors];
     if (!plan.rows.length) return { created: 0, skipped: plan.duplicateRows.length, errors };
     // The open-format importer owns email matching, idempotency, and database writes.
-    const summary = await importWorkspace(db(), csvRowsToWorkspaceDocument(plan.rows));
+    const summary = await importWorkspace(db(), csvRowsToWorkspaceDocument(plan.rows)).catch(() => null);
+    if (!summary) return { error: "Import failed; no rows were written. Check the server and try again." };
     const created = summary.created.applications;
     const skipped = plan.duplicateRows.length + summary.skipped_existing.applications;
     await logAudit("workspace_imported", user.id, {
