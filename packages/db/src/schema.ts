@@ -19,6 +19,8 @@ import { sql } from "drizzle-orm";
 
 
 export const jobStatus = pgEnum("job_status", ["draft", "open", "closed"]);
+/** A person's role on one job's hiring team (#96). Grants job-scoped permissions on that job. */
+export const teamRole = pgEnum("team_role", ["hiring_manager", "recruiter", "coordinator", "interviewer", "viewer"]);
 export const applicationStatus = pgEnum("application_status", [
   "active",
   "hired",
@@ -211,8 +213,9 @@ export const jobTeam = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    teamRole: teamRole("team_role").notNull().default("interviewer"),
   },
-  (t) => [primaryKey({ columns: [t.jobId, t.userId] })],
+  (t) => [primaryKey({ columns: [t.jobId, t.userId] }), index("job_team_user_idx").on(t.userId)],
 );
 
 /* ---------- Candidates and applications ---------- */

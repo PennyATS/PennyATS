@@ -198,8 +198,15 @@ export async function importWorkspace(db: Db, input: unknown): Promise<ImportSum
         updatedAt: new Date(j.updated_at),
       });
       if (j.stages.length) await tx.insert(stages).values(j.stages.map((s) => ({ id: s.id, jobId: j.id, name: s.name, position: s.position })));
-      const team = j.hiring_team_emails.map(uid).filter((id): id is string => Boolean(id));
-      if (team.length) await tx.insert(jobTeam).values(team.map((userId) => ({ jobId: j.id, userId }))).onConflictDoNothing();
+      const TEAM_ROLES = ["hiring_manager", "recruiter", "coordinator", "interviewer", "viewer"] as const;
+      const teamRoleOf = (email: string) => {
+        const role = j.hiring_team_roles?.[email.toLowerCase()];
+        return TEAM_ROLES.find((r) => r === role) ?? "interviewer";
+      };
+      const team = j.hiring_team_emails
+        .map((email) => ({ userId: uid(email), teamRole: teamRoleOf(email) }))
+        .filter((m): m is { userId: string; teamRole: (typeof TEAM_ROLES)[number] } => Boolean(m.userId));
+      if (team.length) await tx.insert(jobTeam).values(team.map((m) => ({ jobId: j.id, ...m }))).onConflictDoNothing();
       summary.created.jobs++;
       summary.created.stages += j.stages.length;
     }

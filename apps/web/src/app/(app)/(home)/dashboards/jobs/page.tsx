@@ -5,12 +5,13 @@ import { WORKPLACE_TYPES } from "@/lib/job-fields";
 
 export const metadata = { title: "Jobs dashboard" };
 
-export default async function JobsDashboard({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
+export default async function JobsDashboard({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; mine?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const status = sp.status === "all" ? "all" : "open";
   const q = sp.q?.trim().slice(0, 100) ?? "";
-  const all = await jobsByStage(user, status);
+  const mine = sp.mine === "1";
+  const all = await jobsByStage(user, status, mine);
   const rows = q ? all.filter((j) => `${j.title} ${j.department ?? ""} ${j.location ?? ""}`.toLowerCase().includes(q.toLowerCase())) : all;
 
   return (
@@ -26,6 +27,13 @@ export default async function JobsDashboard({ searchParams }: { searchParams: Pr
           <select id="jobs-status" name="status" defaultValue={status} className="input">
             <option value="open">Open</option>
             <option value="all">All</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="jobs-mine" className="label">Jobs</label>
+          <select id="jobs-mine" name="mine" defaultValue={mine ? "1" : ""} className="input">
+            <option value="">All jobs</option>
+            <option value="1">My jobs</option>
           </select>
         </div>
         <button type="submit" className="btn btn-secondary">Apply</button>

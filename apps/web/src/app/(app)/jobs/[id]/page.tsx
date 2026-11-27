@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { activity, applicationNotes, applications, candidates, interviewInterviewers, interviews, jobTeam, scorecards, users } from "@pennyats/db";
-import { requireUser } from "@/lib/auth";
+import { requireJobAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
 import { daysSince, jobHealth, weeklyApplicants } from "@/lib/job-health";
@@ -26,8 +26,8 @@ export default async function JobPage({
   const requested = (await searchParams).view;
   const view = requested === "board" || requested === "list" || requested === "archived" ? requested : "overview";
   // The pipeline lists candidates, so it needs more than seeing the job (Executive sees summaries only).
-  const user = await requireUser("applications.view");
-  const manage = can(user, "applications.move");
+  const user = await requireJobAccess("applications.view", id);
+  const manage = can(user, "applications.move", { jobId: id });
   const { job, stages } = await loadJob(user, id);
   const stageName = new Map(stages.map((s) => [s.id, s.name]));
 

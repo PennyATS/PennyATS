@@ -53,7 +53,8 @@ export type AuditAction =
   | "webhook_deleted"
   | "api_write"
   | "workspace_exported"
-  | "workspace_imported";
+  | "workspace_imported"
+  | "team_role_changed";
 
 /**
  * Permanently delete candidates and everything attached to them: applications, stage

@@ -153,7 +153,7 @@ export async function JobForm({
           <input type="checkbox" name="confidential" defaultChecked={job?.confidential ?? false} className="mt-1" />
           <span>
             Confidential
-            <span className="muted block text-xs">Kept off the public careers page, even while open.</span>
+            <span className="muted block text-xs">Kept off the public careers page, even while open. Only its hiring team and people allowed to see confidential jobs can open it, its candidates, or its reports.</span>
           </span>
         </label>
         <div>

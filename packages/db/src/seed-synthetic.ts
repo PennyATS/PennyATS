@@ -450,7 +450,15 @@ export async function seedSynthetic(db: Db, input: { adminId: string; passwordHa
     await insertChunked(phoneScreenRows, (chunk) => tx.insert(applicationNotes).values(chunk));
     await tx
       .insert(jobTeam)
-      .values([...team].flatMap(([job, ids]) => [...ids].map((uid) => ({ jobId: job, userId: uid }))))
+      .values(
+        [...team].flatMap(([job, ids]) =>
+          [...ids].map((uid) => ({
+            jobId: job,
+            userId: uid,
+            teamRole: uid === hiringManagerId ? ("hiring_manager" as const) : uid === recruiterId ? ("recruiter" as const) : ("interviewer" as const),
+          })),
+        ),
+      )
       .onConflictDoNothing();
 
     return {

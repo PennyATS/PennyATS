@@ -217,6 +217,17 @@
         "description": "A person's email address, lowercase. Listed in `people`."
       }
     },
+    "hiring_team_roles": {
+      "description": "Team role per hiring team email (1.1.0): `hiring_manager`, `recruiter`, `coordinator`, `interviewer`, or `viewer`. Open: readers must accept unknown values. Members not listed are interviewers.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 64
+      }
+    },
     "created_by_email": {
       "anyOf": [
         {

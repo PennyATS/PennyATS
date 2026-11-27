@@ -7,7 +7,7 @@ import { applicationNotes, candidates, emails, emailTemplates, jobs, schedulingD
 import type { FormState } from "@/components/form";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { feedbackPrompt } from "@/lib/ai-rules";
-import { requireUser } from "@/lib/auth";
+import { requireApplicationAccess, requireCandidateAccess, requireJobAccess, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { prepareTemplateEmail, retryEmail, sendStageEntryEmail } from "@/lib/candidate-email";
 import { addApplication, getApplicationFor } from "@/lib/hiring";
@@ -22,7 +22,7 @@ import { checkResume, field, isUuid, parseCandidate } from "@/lib/validation";
 
 /** Recruiter adds someone by hand (sourced, referral, etc.). Email is optional here. */
 export async function addCandidateAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser("candidates.create");
+  const user = await requireJobAccess("candidates.create", jobId);
   if (!isUuid(jobId)) return { error: "Job not found." };
   const [job] = await db().select({ id: jobs.id }).from(jobs).where(eq(jobs.id, jobId));
   if (!job) return { error: "Job not found." };
@@ -60,7 +60,7 @@ function refresh(candidateId: string, jobId: string) {
 }
 
 export async function moveStageAction(applicationId: string, form: FormData): Promise<void> {
-  const user = await requireUser("applications.move");
+  const user = await requireApplicationAccess("applications.move", applicationId);
   const moved = await moveStage(user, applicationId, field(form, "stageId", 64) ?? "");
   if (moved) refresh(moved.candidateId, moved.jobId);
 }
@@ -81,7 +81,7 @@ export async function retrySchedulingDeliveryAction(deliveryId: string): Promise
 }
 
 export async function sendCandidateEmailAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser("email.send");
+  const user = await requireCandidateAccess("email.send", candidateId);
   const applicationId = String(form.get("applicationId") ?? "");
   const templateId = String(form.get("templateId") ?? "");
   if (!isUuid(candidateId) || !isUuid(applicationId) || !isUuid(templateId)) return { error: "Choose a job and template." };
@@ -99,7 +99,7 @@ export async function sendCandidateEmailAction(candidateId: string, _: FormState
 
 /** Resend an email that failed or was skipped (for example, before SMTP was set up). */
 export async function resendEmailAction(emailId: string, candidateId: string): Promise<void> {
-  const user = await requireUser("email.send");
+  const user = await requireCandidateAccess("email.send", candidateId);
   if (!isUuid(emailId) || !isUuid(candidateId)) return;
   const [row] = await db().select({ applicationId: emails.applicationId, candidateId: emails.candidateId })
     .from(emails).where(eq(emails.id, emailId));
@@ -115,7 +115,7 @@ export async function setStatusAction(
   status: "hired" | "rejected" | "withdrawn" | "active",
   form: FormData,
 ): Promise<void> {
-  const user = await requireUser(statusPermission(status));
+  const user = await requireApplicationAccess(statusPermission(status), applicationId);
   // Rejections use the standard list, with an optional note; withdrawals keep a free-text note.
   const reason =
     status === "rejected"
@@ -129,7 +129,7 @@ export async function setStatusAction(
 
 /** Add tags ("#swe, #bayarea"). Recruiters and admins only. */
 export async function addTagsAction(candidateId: string, form: FormData): Promise<void> {
-  await requireUser("candidates.edit");
+  await requireCandidateAccess("candidates.edit", candidateId);
   if (!isUuid(candidateId)) return;
   const added = parseTags(field(form, "tags", 500) ?? "");
   if (added.length === 0) return;
@@ -139,7 +139,7 @@ export async function addTagsAction(candidateId: string, form: FormData): Promis
 }
 
 export async function removeTagAction(candidateId: string, tag: string): Promise<void> {
-  await requireUser("candidates.edit");
+  await requireCandidateAccess("candidates.edit", candidateId);
   if (!isUuid(candidateId) || !normalizeTag(tag)) return;
   if (!(await removeTag(candidateId, tag))) return;
   revalidatePath(`/candidates/${candidateId}`);
@@ -148,7 +148,7 @@ export async function removeTagAction(candidateId: string, tag: string): Promise
 
 /** Upload or replace a resume from the profile. Plain-text files also fill the searchable resume text. */
 export async function uploadResumeAction(candidateId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser("candidates.edit");
+  await requireCandidateAccess("candidates.edit", candidateId);
   if (!isUuid(candidateId)) return { error: "Candidate not found." };
   const file = form.get("resume");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a file to upload." };
@@ -172,7 +172,7 @@ export async function uploadResumeAction(candidateId: string, _: FormState, form
 
 /** Save the recruiter's phone screen notes on one application. Saving again edits them. */
 export async function savePhoneScreenAction(applicationId: string, _: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser("notes.phone_screen.write");
+  const user = await requireApplicationAccess("notes.phone_screen.write", applicationId);
   const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;
   if (!app) return { error: "Application not found." };
   const body = field(form, "body", 20_000) ?? "";
@@ -218,7 +218,7 @@ export async function deleteCandidateAction(candidateId: string, _: FormState, f
 
 /** AI summary of the scorecards on one application. Recruiters and admins only; not saved. */
 export async function summarizeFeedbackAction(applicationId: string): Promise<{ text: string } | { error: string }> {
-  const user = await requireUser("scorecards.view_all");
+  const user = await requireApplicationAccess("scorecards.view_all", applicationId);
   const ai = await getAiFor("feedbackSummaries");
   if (!ai) return { error: "AI feedback summaries are turned off." };
   const app = isUuid(applicationId) ? await getApplicationFor(user, applicationId) : null;

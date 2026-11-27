@@ -8,12 +8,13 @@ import {
   interviewTemplates,
   interviews,
   jobTeam,
+  jobs,
   stages,
   type Db,
 } from "@pennyats/db";
 import { db } from "./db";
 import type { SessionUser } from "./auth";
-import { can } from "./permissions";
+import { can, jobPermissionsFrom } from "./permissions";
 import { isUuid, type CandidateInput } from "./validation";
 import { jobWatchers, notify } from "./notifications";
 import { queueWebhookEvent } from "./webhooks";
@@ -21,14 +22,39 @@ import { queueWebhookEvent } from "./webhooks";
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type Executor = Db | Tx;
 
-/** Job ids the user may see, or null for "all jobs". */
-export async function visibleJobIds(user: SessionUser): Promise<string[] | null> {
-  if (can(user, "jobs.view_all")) return null;
-  const rows = await db()
-    .select({ jobId: jobTeam.jobId })
-    .from(jobTeam)
-    .where(eq(jobTeam.userId, user.id));
-  return rows.map((r) => r.jobId);
+/**
+ * Job ids the user may see, or null for "all jobs". People without `jobs.view_all` see the jobs
+ * they are on the hiring team for. Confidential jobs (#96) are left out for everyone else unless
+ * they have `jobs.view_confidential`, so lists, search, dashboards, and reports skip them.
+ */
+export async function visibleJobIds(user: Pick<SessionUser, "id" | "role" | "permissions">): Promise<string[] | null> {
+  const team = (await db().select({ jobId: jobTeam.jobId }).from(jobTeam).where(eq(jobTeam.userId, user.id))).map((r) => r.jobId);
+  if (!can(user, "jobs.view_all")) return team;
+  if (can(user, "jobs.view_confidential")) return null;
+  const confidential = await db().select({ id: jobs.id }).from(jobs).where(eq(jobs.confidential, true));
+  const onTeam = new Set(team);
+  if (confidential.every((j) => onTeam.has(j.id))) return null;
+  const open = await db().select({ id: jobs.id }).from(jobs).where(eq(jobs.confidential, false));
+  return [...open.map((j) => j.id), ...confidential.filter((j) => onTeam.has(j.id)).map((j) => j.id)];
+}
+
+/** Jobs the user is on the hiring team for, for the "My jobs" filters. */
+export async function myJobIds(userId: string): Promise<string[]> {
+  return (await db().select({ jobId: jobTeam.jobId }).from(jobTeam).where(eq(jobTeam.userId, userId))).map((r) => r.jobId);
+}
+
+/** Visible jobs, narrowed to the user's own when `mine` is set. */
+export async function jobIdsFor(user: Pick<SessionUser, "id" | "role" | "permissions">, mine: boolean): Promise<string[] | null> {
+  const visible = await visibleJobIds(user);
+  if (!mine) return visible;
+  const own = await myJobIds(user.id);
+  return visible === null ? own : own.filter((id) => visible.includes(id));
+}
+
+/** Team roles by job, as `can()` reads them from `user.jobPermissions`. Loaded once per request. */
+export async function loadJobPermissions(userId: string) {
+  const rows = await db().select({ jobId: jobTeam.jobId, teamRole: jobTeam.teamRole }).from(jobTeam).where(eq(jobTeam.userId, userId));
+  return jobPermissionsFrom(rows);
 }
 
 /**
@@ -36,7 +62,7 @@ export async function visibleJobIds(user: SessionUser): Promise<string[] | null>
  * jobs they are on the hiring team for (Recruiter and Hiring Manager presets: "own jobs").
  */
 export async function reportJobIds(user: SessionUser): Promise<string[] | null> {
-  if (can(user, "reports.view_all")) return null;
+  if (can(user, "reports.view_all")) return visibleJobIds(user);
   const rows = await db().select({ jobId: jobTeam.jobId }).from(jobTeam).where(eq(jobTeam.userId, user.id));
   return rows.map((r) => r.jobId);
 }
