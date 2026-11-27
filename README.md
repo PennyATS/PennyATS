@@ -10,7 +10,7 @@ and off by default.
 
 **Status: Early preview**
 
-[Quick start](#quick-start) · [Roadmap](#roadmap) · [Contributing](CONTRIBUTING.md)
+[Quick start](#quick-start) · [Why switch and migrate](docs/why-pennyats.md) · [Roadmap](#roadmap) · [Contributing](CONTRIBUTING.md)
 
 ## Preview
 
