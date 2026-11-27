@@ -4,7 +4,9 @@ import { applications, stages } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleJobIds } from "@/lib/hiring";
-import { canManageHiring } from "@/lib/permissions";
+import { canManageHiring, canManageUsers } from "@/lib/permissions";
+import { checklistSummary, showChecklistOnHome } from "@/lib/setup-checklist";
+import { loadChecklist } from "@/lib/setup-checklist-data";
 import { pipelineSnapshot } from "@/lib/candidate-review";
 import { myWork, teamActivity } from "@/lib/dashboard-data";
 import { LocalTime } from "@/components/local-time";
@@ -48,6 +50,11 @@ export default async function Home() {
   const largestStage = Math.max(1, ...pipeline.map((stage) => stage.total));
   const reviewTotal = team.reviewByJob.reduce((a, r) => a + r.n, 0);
   const first = user.name.split(" ")[0];
+  const admin = canManageUsers(user.role);
+  const checklist = admin ? await loadChecklist(user.id) : null;
+  const setup = checklist && showChecklistOnHome(admin, checklist.steps, checklist.state)
+    ? checklistSummary(checklist.steps)
+    : null;
 
   return (
     <div className="space-y-5">
@@ -58,6 +65,18 @@ export default async function Home() {
         </div>
         {manage && <Link href="/jobs/new" className="btn min-h-9 px-4 text-[13px]">+ New job</Link>}
       </header>
+
+      {setup && (
+        <section className="dashboard-card flex flex-wrap items-center justify-between gap-3" aria-label="Finish setting up">
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-tight">Finish setting up</h2>
+            <p className="muted mt-0.5 text-sm">
+              {setup.done} of {setup.total} steps done: company name, first job, email, calendar, AI, and your team.
+            </p>
+          </div>
+          <Link href="/settings/setup" className="btn min-h-9 px-4 text-[13px]">Open setup checklist</Link>
+        </section>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="space-y-5">
