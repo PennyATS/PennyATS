@@ -10,7 +10,7 @@ and off by default.
 
 **Status: Early preview**
 
-[Quick start](#quick-start) · [Why switch and migrate](docs/why-pennyats.md) · [Roadmap](#roadmap) · [Contributing](CONTRIBUTING.md)
+[Quick start](#quick-start) · [Why PennyATS and migrating](docs/why-pennyats.md) · [Starting without an ATS](docs/getting-started-hiring.md) · [Roadmap](#roadmap) · [Contributing](CONTRIBUTING.md)
 
 ## Preview
 
