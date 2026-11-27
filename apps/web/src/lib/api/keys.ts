@@ -9,7 +9,7 @@
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { apiKeys, users } from "@pennyats/db";
+import { apiKeys, roles, users } from "@pennyats/db";
 import type { SessionUser } from "../auth";
 import { db } from "../db";
 import { isRole, permissionsForRole } from "../permissions";
@@ -84,10 +84,11 @@ export async function lookupApiKey(token: string, now: Date = new Date()): Promi
   const [row] = await db()
     .select({
       key: apiKeys,
-      user: { id: users.id, email: users.email, name: users.name, role: users.role, active: users.active },
+      user: { id: users.id, email: users.email, name: users.name, role: roles.key, active: users.active },
     })
     .from(apiKeys)
     .innerJoin(users, eq(users.id, apiKeys.userId))
+    .innerJoin(roles, eq(roles.id, users.roleId))
     .where(eq(apiKeys.prefix, parsed.prefix));
   // Compare hashes in constant time even though the prefix already narrowed it to one row.
   if (!row || !timingSafeEqual(Buffer.from(row.key.keyHash), Buffer.from(hash))) return { ok: false, reason: "unknown" };

@@ -4,6 +4,7 @@
  * document, so the docs and the code can't drift apart. No Next.js or database imports.
  */
 import { z } from "zod";
+import { ROLES } from "../permissions";
 import { EMPLOYMENT_TYPES, WORKPLACE_TYPES } from "../job-fields";
 import { REJECTION_REASONS } from "../candidate-review";
 import { REPORT_TABLES } from "../reports";
@@ -382,7 +383,7 @@ export const Me = named(
       source: z.string().nullable().describe("Source given to candidates this key adds, unless the request sets one."),
       expires_at: Timestamp.nullable(),
     }),
-    user: z.object({ id: Id, name: z.string(), email: z.string(), role: z.enum(["admin", "recruiter", "interviewer"]) }),
+    user: z.object({ id: Id, name: z.string(), email: z.string(), role: z.enum(ROLES).meta({ description: "Role preset key, such as `recruiter` or `hiring_manager`." }) }),
     webhook_events: z.array(z.enum(WEBHOOK_EVENT_NAMES)),
   }),
   "The key making the request and the user it acts as.",

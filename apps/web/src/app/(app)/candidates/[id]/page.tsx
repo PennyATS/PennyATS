@@ -61,7 +61,7 @@ export default async function CandidatePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const user = await requireUser();
+  const user = await requireUser("candidates.view");
   if (!isUuid(id) || !(await canSeeCandidate(user, id))) notFound();
   const manage = can(user, "candidates.edit");
   // Summaries cover every scorecard, so only people who may see them all get the button.

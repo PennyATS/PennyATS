@@ -4948,9 +4948,15 @@
                 "type": "string",
                 "enum": [
                   "admin",
+                  "head_of_talent",
+                  "ta_manager",
                   "recruiter",
-                  "interviewer"
-                ]
+                  "coordinator",
+                  "hiring_manager",
+                  "interviewer",
+                  "executive"
+                ],
+                "description": "Role preset key, such as `recruiter` or `hiring_manager`."
               }
             },
             "required": [

@@ -31,6 +31,16 @@ export async function visibleJobIds(user: SessionUser): Promise<string[] | null>
   return rows.map((r) => r.jobId);
 }
 
+/**
+ * Jobs whose reports the user may see, or null for all. Without `reports.view_all` that is only
+ * jobs they are on the hiring team for (Recruiter and Hiring Manager presets: "own jobs").
+ */
+export async function reportJobIds(user: SessionUser): Promise<string[] | null> {
+  if (can(user, "reports.view_all")) return null;
+  const rows = await db().select({ jobId: jobTeam.jobId }).from(jobTeam).where(eq(jobTeam.userId, user.id));
+  return rows.map((r) => r.jobId);
+}
+
 export async function canSeeJob(user: SessionUser, jobId: string): Promise<boolean> {
   const ids = await visibleJobIds(user);
   return ids === null || ids.includes(jobId);

@@ -1,5 +1,5 @@
 import { asc, eq } from "drizzle-orm";
-import { users } from "@pennyats/db";
+import { users, roles } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { defaultsToRecruiterOnNewJob } from "@/lib/permissions";
@@ -9,8 +9,8 @@ import { JobForm } from "../job-form";
 export default async function NewJobPage() {
   const user = await requireUser("jobs.create");
   const people = await db()
-    .select({ id: users.id, name: users.name, role: users.role })
-    .from(users)
+    .select({ id: users.id, name: users.name, role: roles.key })
+    .from(users).innerJoin(roles, eq(roles.id, users.roleId))
     .where(eq(users.active, true))
     .orderBy(asc(users.name));
   return (

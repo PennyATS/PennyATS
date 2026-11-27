@@ -17,7 +17,7 @@ import { sql } from "drizzle-orm";
 
 /* ---------- Enums ---------- */
 
-export const userRole = pgEnum("user_role", ["admin", "recruiter", "interviewer"]);
+
 export const jobStatus = pgEnum("job_status", ["draft", "open", "closed"]);
 export const applicationStatus = pgEnum("application_status", [
   "active",
@@ -34,6 +34,25 @@ export const recommendation = pgEnum("recommendation", [
 
 /* ---------- Users and workspace ---------- */
 
+/**
+ * Roles (#95). System presets (is_system) are identified by `key`; their permissions come from
+ * `ROLE_PRESETS` in apps/web/src/lib/permissions.ts so app upgrades can adjust them. The
+ * `permissions` column records the preset at the time it was written.
+ */
+export const roles = pgTable(
+  "roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    permissions: text("permissions").array().notNull().default([]),
+    isSystem: boolean("is_system").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("roles_key_idx").on(t.key)],
+);
+
 export const users = pgTable(
   "users",
   {
@@ -41,7 +60,9 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     passwordHash: text("password_hash"),
-    role: userRole("role").notNull().default("recruiter"),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "restrict" }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -67,7 +88,9 @@ export const invites = pgTable("invites", {
   id: uuid("id").primaryKey().defaultRandom(),
   tokenHash: text("token_hash").notNull().unique(),
   email: text("email").notNull(),
-  role: userRole("role").notNull().default("recruiter"),
+  roleId: uuid("role_id")
+    .notNull()
+    .references(() => roles.id, { onDelete: "cascade" }),
   invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),

@@ -3,9 +3,11 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { and, eq, gt, lt } from "drizzle-orm";
-import { sessions, users } from "@pennyats/db";
+import { sessions, users, roles } from "@pennyats/db";
 import { db } from "./db";
-import { can, permissionsForRole, type Permission, type Role } from "./permissions";
+import { canSeeJob } from "./hiring";
+import { isUuid } from "./validation";
+import { can, isRole, permissionsForRole, type Permission, type Role } from "./permissions";
 
 const COOKIE = "pennyats_session";
 const SESSION_DAYS = 30;
@@ -53,11 +55,14 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const [row] = await db()
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role })
+    .select({ id: users.id, email: users.email, name: users.name, role: roles.key })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .innerJoin(roles, eq(roles.id, users.roleId))
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date()), eq(users.active, true)));
-  return row ? { ...row, permissions: permissionsForRole(row.role) } : null;
+  // Only the system role presets exist today; an unknown key gets no access rather than a guess.
+  if (!row || !isRole(row.role)) return null;
+  return { ...row, role: row.role, permissions: permissionsForRole(row.role) };
 });
 
 /**
@@ -68,5 +73,16 @@ export async function requireUser(permission?: Permission): Promise<SessionUser>
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (permission && !can(user, permission)) notFound();
+  return user;
+}
+
+/**
+ * Like `requireUser(permission)`, and the user must also be able to see the job. Use it in
+ * every action that changes a job, since roles such as Hiring Manager hold job permissions
+ * without seeing every job.
+ */
+export async function requireJobAccess(permission: Permission, jobId: string): Promise<SessionUser> {
+  const user = await requireUser(permission);
+  if (!isUuid(jobId) || !(await canSeeJob(user, jobId))) notFound();
   return user;
 }

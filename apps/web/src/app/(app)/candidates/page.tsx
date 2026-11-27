@@ -14,7 +14,7 @@ export default async function CandidatesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requireUser();
+  const user = await requireUser("candidates.view");
   const sp = await searchParams;
   const filters = readFilters(sp);
   const filtered = hasFilters(filters);

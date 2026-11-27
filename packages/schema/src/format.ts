@@ -9,7 +9,7 @@
 import { z } from "zod";
 
 /** Bump per the compatibility policy, and add a CHANGELOG entry. */
-export const SCHEMA_VERSION = "1.0.0";
+export const SCHEMA_VERSION = "1.1.0";
 export const SCHEMA_ID_BASE = "https://github.com/PennyATS/PennyATS/blob/main/docs/schema/v1";
 
 export const registry = z.registry<{ id: string; title: string; description: string }>();
@@ -25,7 +25,17 @@ const nullable = <T extends z.ZodType>(t: T) => t.nullable();
 export const Person = z.object({
   email: Email,
   name: z.string(),
-  role: z.enum(["admin", "recruiter", "interviewer"]),
+  role: z.enum(["admin", "recruiter", "interviewer"]).meta({
+    description: "Closest 1.0 role with no more access than `role_key`, for readers that only know the original three.",
+  }),
+  role_key: z
+    .string()
+    .max(64)
+    .optional()
+    .meta({
+      description:
+        "The person's role preset (1.1.0), for example `head_of_talent`, `coordinator`, `hiring_manager`, or `executive`. Open: readers must accept unknown values and fall back to `role`.",
+    }),
 });
 
 export const Stage = z.object({

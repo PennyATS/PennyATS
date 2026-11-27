@@ -2,12 +2,12 @@
 
 import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { invites, passwordResets, sessions, users } from "@pennyats/db";
+import { invites, passwordResets, roleIdFor, roles, sessions, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { hashToken, newToken, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEMO_BLOCKED, isDemoMode } from "@/lib/demo";
-import { isRole, removesLastAdmin, rolesWith } from "@/lib/permissions";
+import { canAssignRole, isRole, removesLastAdmin, roleName, rolesWith } from "@/lib/permissions";
 import { sendSmtp, smtpConfigured } from "@/lib/smtp";
 import { field, isEmail, isUuid, normalizeEmail } from "@/lib/validation";
 
@@ -23,6 +23,8 @@ export async function createInviteAction(_: FormState, form: FormData): Promise<
   const role = form.get("role");
   if (!isEmail(email)) return { error: "Enter a valid email address." };
   if (!isRole(role)) return { error: "Pick a role." };
+  // Without roles.manage, people can only invite to roles with no more access than their own.
+  if (!canAssignRole(admin, role)) return { error: "You can't invite someone to a role with more access than yours." };
 
   const [existing] = await db().select({ id: users.id }).from(users).where(eq(users.email, email));
   if (existing) return { error: "That person already has an account." };
@@ -31,7 +33,7 @@ export async function createInviteAction(_: FormState, form: FormData): Promise<
   await db().insert(invites).values({
     tokenHash: hashToken(token),
     email,
-    role,
+    roleId: await roleIdFor(db(), role),
     invitedBy: admin.id,
     expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000),
   });
@@ -42,7 +44,7 @@ export async function createInviteAction(_: FormState, form: FormData): Promise<
   if (smtpConfigured()) {
     try {
       await sendSmtp({ to: email, subject: "You're invited to PennyATS",
-        text: `You've been invited to join PennyATS as a ${role}.\n\nAccept your invite within ${INVITE_DAYS} days:\n${link}` });
+        text: `You've been invited to join PennyATS as ${roleName(role)}.\n\nAccept your invite within ${INVITE_DAYS} days:\n${link}` });
       return { message: `Invite emailed to ${email}. It expires in ${INVITE_DAYS} days.` };
     } catch {
       return { message: `Email delivery failed. Send this one-time invite link manually: ${link}` };
@@ -54,7 +56,15 @@ export async function createInviteAction(_: FormState, form: FormData): Promise<
 }
 
 export async function revokeInviteAction(inviteId: string): Promise<void> {
-  await requireUser("users.invite");
+  const user = await requireUser("users.invite");
+  if (!isUuid(inviteId)) return;
+  const [invite] = await db()
+    .select({ role: roles.key })
+    .from(invites)
+    .innerJoin(roles, eq(roles.id, invites.roleId))
+    .where(eq(invites.id, inviteId));
+  // Same rule as inviting: only invites to roles this person could have created.
+  if (!invite || !isRole(invite.role) || !canAssignRole(user, invite.role)) return;
   await db()
     .delete(invites)
     .where(and(eq(invites.id, inviteId), isNull(invites.acceptedAt)));
@@ -121,13 +131,18 @@ export async function updateUserAction(userId: string, _: FormState, form: FormD
   const result = await db().transaction(async (tx) => {
     // Serialize role and status changes so two admins cannot each remove the other last admin.
     await tx.execute(sql`select pg_advisory_xact_lock(21472, 1)`);
-    const [target] = await tx.select().from(users).where(eq(users.id, userId));
-    if (!target) return { error: "User not found." } as const;
+    const [target] = await tx
+      .select({ role: roles.key, active: users.active })
+      .from(users)
+      .innerJoin(roles, eq(roles.id, users.roleId))
+      .where(eq(users.id, userId));
+    if (!target || !isRole(target.role)) return { error: "User not found." } as const;
 
     const nextRole = requestedRole ?? target.role;
     const nextActive = intent === "deactivate" ? false : intent === "reactivate" ? true : target.active;
     const [{ n }] = await tx.select({ n: count() }).from(users)
-      .where(and(inArray(users.role, rolesWith("users.manage")), eq(users.active, true)));
+      .innerJoin(roles, eq(roles.id, users.roleId))
+      .where(and(inArray(roles.key, rolesWith("roles.manage")), eq(users.active, true)));
     if (removesLastAdmin({
       currentRole: target.role,
       currentActive: target.active,
@@ -135,13 +150,13 @@ export async function updateUserAction(userId: string, _: FormState, form: FormD
       nextActive,
       activeAdminCount: n,
     })) {
-      return { error: "The last active admin (someone who can manage users) cannot be demoted or deactivated." } as const;
+      return { error: "The last active admin (the only person who can manage roles) cannot be demoted or deactivated." } as const;
     }
 
     if (nextRole === target.role && nextActive === target.active) {
       return { message: "No change needed." } as const;
     }
-    await tx.update(users).set({ role: nextRole, active: nextActive }).where(eq(users.id, userId));
+    await tx.update(users).set({ roleId: await roleIdFor(tx, nextRole), active: nextActive }).where(eq(users.id, userId));
     if (target.active && !nextActive) {
       await tx.delete(sessions).where(eq(sessions.userId, userId));
     }

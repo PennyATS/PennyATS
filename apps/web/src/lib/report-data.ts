@@ -4,16 +4,24 @@ import { tallyCareersFunnel } from "./careers-funnel";
 import { db } from "./db";
 import { periodStart, type Period, type ReportApp, type ReportInput } from "./reports";
 
-/** Load everything the reports need for one job (or all) and period. Callers check permissions. */
-export async function loadReportInput(jobId: string | null, period: Period): Promise<ReportInput> {
+/**
+ * Load everything the reports need for one job (or all) and period. Callers check the
+ * permission and pass `scope` from `reportJobIds(user)`: null for every job, or the only job
+ * ids whose data may be included.
+ */
+export async function loadReportInput(jobId: string | null, period: Period, scope: string[] | null): Promise<ReportInput> {
   const start = periodStart(period);
-  // Every query is limited to applications in the selected job and period.
+  // A job outside the scope reads as no data; an empty scope matches nothing.
+  const jobIds = jobId ? (scope === null || scope.includes(jobId) ? [jobId] : []) : scope;
+  const none = "00000000-0000-0000-0000-000000000000";
+  const ids = jobIds && jobIds.length === 0 ? [none] : jobIds;
+  // Every query is limited to applications in the selected jobs and period.
   const appFilter: SQL | undefined = and(
-    jobId ? eq(applications.jobId, jobId) : undefined,
+    ids ? inArray(applications.jobId, ids) : undefined,
     start ? gte(applications.appliedAt, start) : undefined,
   );
   const funnelFilter: SQL | undefined = and(
-    jobId ? eq(careersFunnelEvents.jobId, jobId) : undefined,
+    ids ? inArray(careersFunnelEvents.jobId, ids) : undefined,
     start ? gte(careersFunnelEvents.createdAt, start) : undefined,
   );
 
@@ -21,6 +29,7 @@ export async function loadReportInput(jobId: string | null, period: Period): Pro
     db()
       .select({ id: jobs.id, title: jobs.title, location: jobs.location, status: jobs.status })
       .from(jobs)
+      .where(scope ? inArray(jobs.id, scope.length ? scope : [none]) : undefined)
       .orderBy(asc(jobs.title)),
     db()
       .select({
@@ -48,7 +57,7 @@ export async function loadReportInput(jobId: string | null, period: Period): Pro
     db()
       .select({ id: stages.id, jobId: stages.jobId, name: stages.name, position: stages.position })
       .from(stages)
-      .where(jobId ? eq(stages.jobId, jobId) : undefined),
+      .where(ids ? inArray(stages.jobId, ids) : undefined),
     db()
       .select({ author: users.name, recommendation: scorecards.recommendation })
       .from(scorecards)

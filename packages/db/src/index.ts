@@ -5,6 +5,7 @@ import * as schema from "./schema";
 export * from "./schema";
 export * from "./password";
 export * from "./defaults";
+export * from "./roles";
 export { schema };
 
 export function createDb(url = process.env.DATABASE_URL) {

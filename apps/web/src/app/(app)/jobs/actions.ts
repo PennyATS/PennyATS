@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { applications, jobTeam, jobs, stages, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
-import { requireUser } from "@/lib/auth";
+import { requireJobAccess, requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { jobDescriptionPrompt } from "@/lib/ai-rules";
@@ -57,10 +58,13 @@ export async function createJobAction(_: FormState, form: FormData): Promise<For
 }
 
 export async function updateJobAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser("jobs.edit");
-  if (!isUuid(jobId)) return { error: "Job not found." };
+  const user = await requireJobAccess("jobs.edit", jobId);
   const parsed = parseJob(form);
   if ("error" in parsed) return { error: parsed.error };
+  // People who may edit a job but not its pay (Hiring Manager) leave compensation as it was.
+  if (!can(user, "jobs.edit_compensation")) {
+    for (const key of ["compCurrency", "compPeriod", "compMin", "compMid", "compMax", "compPublic"] as const) delete parsed.value[key];
+  }
   const peopleError = await checkPeople(parsed.value);
   if (peopleError) return { error: peopleError };
   // The slug stays the same on edit so careers page links keep working.
@@ -81,7 +85,7 @@ function stagePath(jobId: string) {
 }
 
 export async function addStageAction(jobId: string, form: FormData): Promise<void> {
-  await requireUser("jobs.edit");
+  await requireJobAccess("jobs.edit", jobId);
   const name = field(form, "name", 100);
   if (!name) return;
   await appendStage(jobId, name);
@@ -89,7 +93,7 @@ export async function addStageAction(jobId: string, form: FormData): Promise<voi
 }
 
 export async function renameStageAction(jobId: string, stageId: string, form: FormData): Promise<void> {
-  await requireUser("jobs.edit");
+  await requireJobAccess("jobs.edit", jobId);
   const name = field(form, "name", 100);
   if (!name) return;
   await db()
@@ -101,7 +105,7 @@ export async function renameStageAction(jobId: string, stageId: string, form: Fo
 
 /** Swap a stage with its neighbour above (-1) or below (+1). */
 export async function moveStageAction(jobId: string, stageId: string, direction: -1 | 1): Promise<void> {
-  await requireUser("jobs.edit");
+  await requireJobAccess("jobs.edit", jobId);
   await db().transaction(async (tx) => {
     const list = await tx
       .select()
@@ -122,7 +126,7 @@ export async function moveStageAction(jobId: string, stageId: string, direction:
 
 /** Only empty stages can be deleted, so no application loses its place. */
 export async function deleteStageAction(jobId: string, stageId: string): Promise<void> {
-  await requireUser("jobs.edit");
+  await requireJobAccess("jobs.edit", jobId);
   const [{ n }] = await db()
     .select({ n: count() })
     .from(applications)
@@ -137,7 +141,7 @@ export async function deleteStageAction(jobId: string, stageId: string): Promise
 /* ---------- Hiring team ---------- */
 
 export async function addTeamMemberAction(jobId: string, form: FormData): Promise<void> {
-  await requireUser("jobs.edit");
+  await requireJobAccess("jobs.edit", jobId);
   const userId = field(form, "userId", 64);
   if (!userId || !isUuid(userId)) return;
   const [exists] = await db().select({ id: users.id }).from(users).where(eq(users.id, userId));
@@ -147,7 +151,7 @@ export async function addTeamMemberAction(jobId: string, form: FormData): Promis
 }
 
 export async function removeTeamMemberAction(jobId: string, userId: string): Promise<void> {
-  await requireUser("jobs.edit");
+  await requireJobAccess("jobs.edit", jobId);
   await db()
     .delete(jobTeam)
     .where(and(eq(jobTeam.jobId, jobId), eq(jobTeam.userId, userId)));
@@ -169,7 +173,7 @@ export async function moveCardAction(applicationId: string, stageId: string): Pr
 /* ---------- Scorecard attributes ---------- */
 
 export async function updateAttributesAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser("jobs.edit");
+  await requireJobAccess("jobs.edit", jobId);
   const raw = form.get("attributes");
   const attributes = parseAttributes(typeof raw === "string" ? raw : "");
   // Existing scorecards keep their ratings under the old names, so renaming here is safe.

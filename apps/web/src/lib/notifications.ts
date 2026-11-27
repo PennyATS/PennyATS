@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { applications, candidates, interviews, jobTeam, jobs, notifications, users, type Db } from "@pennyats/db";
+import { applications, candidates, interviews, jobTeam, jobs, notifications, roles, users, type Db } from "@pennyats/db";
 import { db } from "./db";
 import { rolesWith } from "./permissions";
 
@@ -41,7 +41,8 @@ export async function jobWatchers(ex: Executor, jobId: string): Promise<string[]
     .select({ id: users.id })
     .from(jobTeam)
     .innerJoin(users, eq(users.id, jobTeam.userId))
-    .where(and(eq(jobTeam.jobId, jobId), eq(users.active, true), inArray(users.role, rolesWith("applications.move"))));
+    .innerJoin(roles, eq(roles.id, users.roleId))
+    .where(and(eq(jobTeam.jobId, jobId), eq(users.active, true), inArray(roles.key, rolesWith("jobs.create"))));
   return team.map((t) => t.id);
 }
 

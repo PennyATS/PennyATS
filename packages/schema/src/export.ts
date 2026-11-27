@@ -1,5 +1,5 @@
 /** Build a whole-workspace export document from the database. Admin-only callers. */
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import {
   activity,
   applicationNotes,
@@ -10,12 +10,20 @@ import {
   jobTeam,
   jobs,
   notes,
+  roles,
   scorecards,
   stages,
   users,
   type Db,
 } from "@pennyats/db";
 import { SCHEMA_VERSION, type ExportDocument } from "./format";
+
+/** The 1.0 role with no more access than a role preset: admin and recruiter map to themselves, the rest to interviewer. */
+export function legacyRole(key: string): "admin" | "recruiter" | "interviewer" {
+  if (key === "admin") return "admin";
+  if (key === "recruiter" || key === "head_of_talent" || key === "ta_manager") return "recruiter";
+  return "interviewer";
+}
 
 const iso = (d: Date) => d.toISOString();
 const isoOrNull = (d: Date | null) => (d ? d.toISOString() : null);
@@ -39,7 +47,7 @@ function group<T, K>(rows: T[], key: (row: T) => K): Map<K, T[]> {
 export async function exportWorkspace(db: Db, now: Date = new Date()): Promise<ExportDocument> {
   const [userRows, jobRows, stageRows, teamRows, candidateRows, appRows, events, appNotes, interviewRows, people, cardRows, noteRows] =
     await Promise.all([
-      db.select().from(users),
+      db.select({ id: users.id, email: users.email, name: users.name, roleKey: roles.key }).from(users).innerJoin(roles, eq(roles.id, users.roleId)),
       db.select().from(jobs),
       db.select().from(stages).orderBy(asc(stages.position), asc(stages.id)),
       db.select().from(jobTeam),
@@ -178,7 +186,7 @@ export async function exportWorkspace(db: Db, now: Date = new Date()): Promise<E
 
   doc.people = userRows
     .filter((u) => referenced.has(u.email.toLowerCase()))
-    .map((u) => ({ email: u.email.toLowerCase(), name: u.name, role: u.role }))
+    .map((u) => ({ email: u.email.toLowerCase(), name: u.name, role: legacyRole(u.roleKey), role_key: u.roleKey }))
     .sort((a, b) => a.email.localeCompare(b.email));
   return doc;
 }

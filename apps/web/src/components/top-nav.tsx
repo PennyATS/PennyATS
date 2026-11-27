@@ -7,7 +7,7 @@ import { logoutAction } from "@/app/(auth)/actions";
 import { markAllReadAction, openNotificationAction } from "@/app/(app)/notifications/actions";
 import type { SessionUser } from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
-import { can } from "@/lib/permissions";
+import { can, roleLabel } from "@/lib/permissions";
 
 type IconName =
   | "home" | "jobs" | "candidates" | "templates" | "reports" | "settings" | "careers"
@@ -240,6 +240,8 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
   const pathname = usePathname();
   const router = useRouter();
   const canAdmin = can(user, "settings.manage");
+  // Executives see summaries, not individual candidates, so they get no candidate search.
+  const canSearch = can(user, "candidates.view");
   const initials = user.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P";
   const recent = useRecent(pathname);
 
@@ -265,17 +267,21 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
         { href: "/careers", label: "Careers page", icon: "careers" },
       ],
     },
-    {
-      label: "Candidates",
-      icon: "candidates",
-      match: (p) => p.startsWith("/candidates") || p.startsWith("/templates"),
-      items: [
-        { href: "/candidates", label: "All candidates", icon: "candidates" },
-        { href: "/candidates?status=active", label: "Active", icon: "candidates", note: "In a pipeline now" },
-        { href: "/candidates?status=rejected", label: "Archived", icon: "history", note: "Rejected, notes kept" },
-        ...(can(user, "templates.manage") ? [{ href: "/templates", label: "Email templates", icon: "templates" as const }] : []),
-      ],
-    },
+    ...(canSearch
+      ? [
+          {
+            label: "Candidates",
+            icon: "candidates",
+            match: (p: string) => p.startsWith("/candidates") || p.startsWith("/templates"),
+            items: [
+              { href: "/candidates", label: "All candidates", icon: "candidates" as const },
+              { href: "/candidates?status=active", label: "Active", icon: "candidates", note: "In a pipeline now" } as Item,
+              { href: "/candidates?status=rejected", label: "Archived", icon: "history", note: "Rejected, notes kept" } as Item,
+              ...(can(user, "templates.manage") ? [{ href: "/templates", label: "Email templates", icon: "templates" as const }] : []),
+            ],
+          } satisfies Folder,
+        ]
+      : []),
     ...(can(user, "reports.view")
       ? [
           {
@@ -297,6 +303,8 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
       match: (p) => p.startsWith("/settings"),
       items: [
         { href: "/settings/calendar", label: "Google Calendar", icon: "settings" },
+        ...(!canAdmin && can(user, "users.invite") ? [{ href: "/settings/users", label: "Users and invites", icon: "candidates" as const }] : []),
+        ...(!canAdmin && can(user, "audit.view") ? [{ href: "/settings/privacy", label: "Audit log", icon: "settings" as const }] : []),
         ...(canAdmin
           ? [
               { href: "/settings/setup", label: "Setup checklist", icon: "settings" as const },
@@ -313,7 +321,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
   const addItems: Item[] = [
     ...(can(user, "jobs.create") ? [{ href: "/jobs/new", label: "Job", icon: "jobs" as const }] : []),
     ...(can(user, "templates.manage") ? [{ href: "/templates/new", label: "Email template", icon: "templates" as const }] : []),
-    ...(can(user, "users.manage") ? [{ href: "/settings/users", label: "Teammate invite", icon: "candidates" as const }] : []),
+    ...(can(user, "users.invite") ? [{ href: "/settings/users", label: "Teammate invite", icon: "candidates" as const }] : []),
   ];
 
   function search(e: React.FormEvent<HTMLFormElement>) {
@@ -339,7 +347,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
 
         {/* Right: search, add, notifications, user. */}
         <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
-          <form role="search" onSubmit={search} className="relative">
+          <form role="search" onSubmit={search} className="relative" hidden={!canSearch}>
             <label htmlFor="nav-search" className="sr-only">Search candidates</label>
             <Icon name="search" className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#9fbcad]" />
             <input
@@ -361,7 +369,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
           >
             <div className="border-b border-[#e7eee9] px-3 pb-2 pt-1 text-xs text-[#617267]">
               <span className="block font-semibold text-[#1d2c24]">{user.name}</span>
-              <span className="capitalize">{user.role}</span>
+              <span>{roleLabel(user.role)}</span>
             </div>
             <form action={logoutAction}>
               <button type="submit" role="menuitem" className="mt-1 w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[#e7f4eb]">Sign out</button>
@@ -384,7 +392,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
             <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-[#d9eee2] text-[10px] font-bold text-[#14533b]">{initials}</span>
           </summary>
           <nav aria-label="Mobile navigation" className="absolute left-0 right-0 top-full max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-[#275343] bg-[#123a2e] p-3 shadow-xl">
-            <form role="search" onSubmit={search} className="mb-3">
+            <form role="search" onSubmit={search} className="mb-3" hidden={!canSearch}>
               <label htmlFor="mobile-search" className="sr-only">Search candidates</label>
               <input id="mobile-search" name="q" placeholder="Search candidates" className="h-9 w-full rounded-md border border-[#36614b] bg-white/10 px-3 text-sm text-white placeholder:text-[#9fbcad]" />
             </form>
@@ -401,7 +409,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
               ))}
             </div>
             <div className="mt-3 flex items-center justify-between border-t border-[#36614b] px-3 pt-3 text-xs">
-              <span className="truncate text-[#c8ddd2]">{user.name} · <span className="capitalize">{user.role}</span></span>
+              <span className="truncate text-[#c8ddd2]">{user.name} · <span>{roleLabel(user.role)}</span></span>
               <form action={logoutAction}><button type="submit" className="ml-3 whitespace-nowrap font-medium text-white hover:underline">Sign out</button></form>
             </div>
           </nav>

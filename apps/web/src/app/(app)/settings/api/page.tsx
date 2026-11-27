@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { apiKeys, auditLog, users, webhookDeliveries, webhooks } from "@pennyats/db";
+import { apiKeys, auditLog, users, webhookDeliveries, webhooks, roles } from "@pennyats/db";
+import { roleLabel } from "@/lib/permissions";
 import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -21,13 +22,14 @@ export default async function ApiSettingsPage() {
   const admin = await requireUser("settings.manage");
   const [keys, people, hooks, deliveries, activity] = await Promise.all([
     db()
-      .select({ key: apiKeys, user: users.name, role: users.role })
+      .select({ key: apiKeys, user: users.name, role: roles.key })
       .from(apiKeys)
       .innerJoin(users, eq(users.id, apiKeys.userId))
+      .innerJoin(roles, eq(roles.id, users.roleId))
       .orderBy(desc(apiKeys.createdAt)),
     db()
-      .select({ id: users.id, name: users.name, role: users.role })
-      .from(users)
+      .select({ id: users.id, name: users.name, role: roles.key })
+      .from(users).innerJoin(roles, eq(roles.id, users.roleId))
       .where(eq(users.active, true))
       .orderBy(users.name),
     db().select().from(webhooks).orderBy(desc(webhooks.createdAt)),
@@ -86,7 +88,7 @@ export default async function ApiSettingsPage() {
             <select id="key-user" name="userId" className="input" defaultValue={admin.id}>
               {people.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.role})
+                  {p.name} ({roleLabel(p.role)})
                 </option>
               ))}
             </select>

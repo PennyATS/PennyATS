@@ -32,7 +32,7 @@ export const COVERAGE: Coverage[] = [
       id: x("People are referenced by email so documents move between instances."),
       email: f("people[].email"),
       name: f("people[].name"),
-      role: f("people[].role"),
+      role_id: f("people[].role_key"),
       password_hash: x("Never exported."),
       active: x("Instance account state, not hiring data. Imported people start deactivated."),
       created_at: x("Instance account state."),
@@ -206,6 +206,7 @@ export const COVERAGE: Coverage[] = [
 
 /** Tables that hold hiring data but aren't in v1 at all, with the reason. */
 export const NOT_IN_V1: Record<string, string> = {
+  roles: "Workspace configuration. People carry their role preset as people[].role_key.",
   emails: "Email history. Planned for a later minor version.",
   email_templates: "Workspace configuration, not hiring records.",
   email_template_folders: "Workspace configuration.",
