@@ -99,7 +99,8 @@ test("T6 resumes always download, never render, and only for people who can see 
     .from(applications)
     .where(notInArray(applications.jobId, people.interviewerJobIds))
     .limit(1);
-  const key = `security-${randomUUID()}.html`;
+  // A real-looking key (storage only serves uuid keys) holding HTML that must never render.
+  const key = `${randomUUID()}.html`;
   const dir = path.resolve(process.env.STORAGE_DIR ?? ".data/uploads");
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, key), "<script>alert(1)</script>");
