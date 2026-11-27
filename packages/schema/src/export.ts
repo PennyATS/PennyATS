@@ -143,7 +143,7 @@ export async function exportWorkspace(db: Db, now: Date = new Date()): Promise<E
       // Events in one transaction share a timestamp, so ties are ordered by content, not by row id.
       events: (eventsByApp.get(a.id) ?? [])
         .map((e) => ({ type: e.type, at: iso(e.createdAt), actor_email: email(e.actorId), data: e.data }))
-        .sort((x, y) => x.at.localeCompare(y.at) || x.type.localeCompare(y.type) || JSON.stringify(x.data).localeCompare(JSON.stringify(y.data))),
+        .sort((x, y) => x.at.localeCompare(y.at) || x.type.localeCompare(y.type) || JSON.stringify(x.data).localeCompare(JSON.stringify(y.data)) || (x.actor_email ?? "").localeCompare(y.actor_email ?? "")),
       notes: (notesByApp.get(a.id) ?? []).map((n) => ({
         kind: n.kind,
         body: n.body,
