@@ -46,6 +46,9 @@ test("recruiter: sees pay and phone screens, but no CSV export", async ({ browse
   const page = await signIn(browser, "recruiter@example.com");
   await page.goto(`/jobs/${jobId}?details=1`);
   await expect(page.getByText("123,456").first()).toBeVisible();
+  // Job settings render for people who can edit the job and its pay.
+  await page.goto(`/jobs/${jobId}/edit`);
+  await expect(page.locator("#compMin")).toBeEnabled();
   await page.goto(`/candidates/${candidateId}`);
   await expect(page.locator('textarea[name="body"]').filter({ hasText: screenText })).toHaveCount(1);
   // Recruiters' reports cover their own jobs and have no CSV export (#95 matrix).

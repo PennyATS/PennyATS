@@ -45,7 +45,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
       .innerJoin(roles, eq(roles.id, users.roleId))
       .where(eq(jobTeam.jobId, job.id))
       .orderBy(asc(users.name)),
-    db().select({ id: users.id, name: users.name, role: roles.key, active: users.active }).from(users).innerJoin(roles, eq(roles.id, users.roleId)).innerJoin(roles, eq(roles.id, users.roleId)).orderBy(asc(users.name)),
+    db().select({ id: users.id, name: users.name, role: roles.key, active: users.active }).from(users).innerJoin(roles, eq(roles.id, users.roleId)).orderBy(asc(users.name)),
   ]);
   const inStage = new Map(stageCounts.map((r) => [r.stageId, r.n]));
   const teamIds = new Set(team.map((t) => t.id));
