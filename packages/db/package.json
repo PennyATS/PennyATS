@@ -11,7 +11,8 @@
     "seed": "tsx src/seed.ts",
     "demo:reset": "tsx src/demo-reset.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test \"src/**/*.test.ts\""
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "app-role": "tsx src/app-role.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.0",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { withScorecardFacts } from "@/lib/db-context";
 import { activity, applicationNotes, applications, candidates, interviewInterviewers, interviews, jobTeam, scorecards, users } from "@pennyats/db";
 import { requireJobAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -74,7 +75,9 @@ export default async function JobPage({
       : null;
 
   // Scorecards on this job: board card summaries and the overview's feedback check.
-  const feedback = await db()
+  // Counts and who submitted, not content; content stays behind the blind rule (#119).
+  const feedback = await withScorecardFacts(() =>
+    db()
     .select({
       applicationId: scorecards.applicationId,
       recommendation: scorecards.recommendation,
@@ -84,7 +87,8 @@ export default async function JobPage({
     })
     .from(scorecards)
     .innerJoin(applications, eq(applications.id, scorecards.applicationId))
-    .where(eq(applications.jobId, job.id));
+    .where(eq(applications.jobId, job.id)),
+  );
   function feedbackFor(applicationId: string): string | null {
     const recs = feedback.filter((f) => f.applicationId === applicationId).map((f) => f.recommendation as Recommendation);
     if (recs.length === 0) return null;

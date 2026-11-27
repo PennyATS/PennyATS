@@ -4,6 +4,7 @@
  * the consistent error format, and the audit log entry for writes.
  */
 import { auditLog } from "@pennyats/db";
+import { bindActor, withRequestScope } from "../db-context";
 import type { z } from "zod";
 import type { SessionUser } from "../auth";
 import { db } from "../db";
@@ -95,7 +96,11 @@ export function agentName(header: string | null): string | null {
 }
 
 export function apiHandler<R extends ApiRoute>(route: R, fn: Handler<R>) {
-  return async (request: Request, context: { params: Promise<Record<string, string | string[]>> }): Promise<Response> => {
+  // Row-level security (#119): each request gets its own scope, bound to the key's user below.
+  return (request: Request, context: { params: Promise<Record<string, string | string[]>> }): Promise<Response> =>
+    withRequestScope(() => handle(request, context));
+
+  async function handle(request: Request, context: { params: Promise<Record<string, string | string[]>> }): Promise<Response> {
     try {
       const token = bearerToken(request.headers.get("authorization"));
       if (!token) {
@@ -118,6 +123,7 @@ export function apiHandler<R extends ApiRoute>(route: R, fn: Handler<R>) {
         return errorResponse("unauthorized", message, undefined, { "WWW-Authenticate": 'Bearer realm="pennyats", error="invalid_token"' });
       }
       const { key, user } = found;
+      bindActor(user);
       if (!allowKey(key.id)) {
         return errorResponse("rate_limited", `Rate limit is ${perMinute} requests a minute per key.`, undefined, { "Retry-After": "60" });
       }
@@ -185,7 +191,7 @@ export function apiHandler<R extends ApiRoute>(route: R, fn: Handler<R>) {
       console.error(`API ${route.method} ${route.path} failed:`, err);
       return errorResponse("internal", "Something went wrong. The error was logged on the server.");
     }
-  };
+  }
 }
 
 function decodeParams(raw: Record<string, string | string[]>): Record<string, string> {

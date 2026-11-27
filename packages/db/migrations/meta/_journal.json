@@ -183,6 +183,13 @@
       "when": 1795820321069,
       "tag": "0025_team_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795821301752,
+      "tag": "0026_row_level_security",
+      "breakpoints": true
     }
   ]
 }

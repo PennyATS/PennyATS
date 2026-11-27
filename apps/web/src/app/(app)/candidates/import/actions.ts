@@ -1,6 +1,7 @@
 "use server";
 
 import { asc } from "drizzle-orm";
+import { asSystem } from "@/lib/db-context";
 import { revalidatePath } from "next/cache";
 import { jobs, stages } from "@pennyats/db";
 import { importWorkspace } from "@pennyats/schema";
@@ -36,7 +37,9 @@ export async function importCandidatesAction(form: FormData): Promise<ImportResu
     const errors = [...plan.errors];
     if (!plan.rows.length) return { created: 0, skipped: plan.duplicateRows.length, errors };
     // The open-format importer owns email matching, idempotency, and database writes.
-    const summary = await importWorkspace(db(), csvRowsToWorkspaceDocument(plan.rows)).catch(() => null);
+    // The import writes people, scorecards, and history on others' behalf, so it runs without
+    // an acting user once this admin's permission has been checked (#119).
+    const summary = await asSystem(() => importWorkspace(db(), csvRowsToWorkspaceDocument(plan.rows))).catch(() => null);
     if (!summary) return { error: "Import failed; no rows were written. Check the server and try again." };
     const created = summary.created.applications;
     const skipped = plan.duplicateRows.length + summary.skipped_existing.applications;
