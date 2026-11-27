@@ -596,6 +596,8 @@ export const apiKeys = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     scopes: text("scopes").array().notNull().default([]),
+    /** Source for candidates this key adds (e.g. "Gem"), unless the request names one. Feeds the sources report. */
+    source: text("source"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp("expires_at", { withTimezone: true }),

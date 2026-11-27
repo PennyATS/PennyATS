@@ -26,7 +26,7 @@ export async function seededUsers() {
 export async function makeKey(
   userId: string,
   scopes: readonly string[],
-  opts: { name?: string; expiresAt?: Date | null; revokedAt?: Date | null } = {},
+  opts: { name?: string; expiresAt?: Date | null; revokedAt?: Date | null; source?: string } = {},
 ): Promise<{ id: string; key: string }> {
   const generated = generateApiKey();
   const [row] = await db
@@ -37,6 +37,7 @@ export async function makeKey(
       keyHash: generated.hash,
       userId,
       scopes: [...scopes],
+      source: opts.source ?? null,
       expiresAt: opts.expiresAt ?? null,
       revokedAt: opts.revokedAt ?? null,
     })

@@ -76,6 +76,8 @@ export async function addApplication(
     /** Set when the applicant agreed to the privacy notice. */
     consentedAt?: Date;
     actorId: string | null;
+    /** Where it came from, kept in the application's history, e.g. { via: "api", key: "pats_1a2b…" }. */
+    attribution?: Record<string, string>;
   },
 ): Promise<{ candidateId: string; applicationId: string | null; created: boolean }> {
   const { candidate, resume, consentedAt } = input;
@@ -110,7 +112,13 @@ export async function addApplication(
     candidateId = created.id;
   }
 
-  const started = await startApplication(ex, { candidateId, jobId: input.jobId, actorId: input.actorId, source: candidate.source });
+  const started = await startApplication(ex, {
+    candidateId,
+    jobId: input.jobId,
+    actorId: input.actorId,
+    source: candidate.source,
+    attribution: input.attribution,
+  });
   return { candidateId, ...started };
 }
 
@@ -121,7 +129,7 @@ export async function addApplication(
  */
 export async function startApplication(
   ex: Executor,
-  input: { candidateId: string; jobId: string; actorId: string | null; source: string | null },
+  input: { candidateId: string; jobId: string; actorId: string | null; source: string | null; attribution?: Record<string, string> },
 ): Promise<{ applicationId: string | null; created: boolean }> {
   const { candidateId } = input;
   const [firstStage] = await ex
@@ -144,7 +152,7 @@ export async function startApplication(
     applicationId: application.id,
     actorId: input.actorId,
     type: input.actorId ? "added" : "applied",
-    data: { source: input.source },
+    data: { source: input.source, ...(input.attribution ?? {}) },
   });
   const watchers = await jobWatchers(ex, input.jobId);
   await notify(ex, input.actorId, watchers.map((userId) => ({ userId, kind: "application" as const, applicationId: application.id })));

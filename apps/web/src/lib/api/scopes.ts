@@ -54,7 +54,7 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
   "tags:read": "Read candidate tags",
   "tags:write": "Add and remove candidate tags",
   "interviews:read": "View interviews",
-  "interviews:write": "Add interviews",
+  "interviews:write": "Add, schedule, complete, cancel, and restore interviews",
   "reports:read": "Run reports",
   "templates:read": "List email templates and draft emails from them",
   "emails:send": "Send template emails to candidates",

@@ -1,8 +1,9 @@
-import { desc, eq, sql, and } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { candidates, jobs } from "@pennyats/db";
 import { db } from "@/lib/db";
-import { before, decodeCursor, loadCandidate, pageOf, serializeCandidate } from "@/lib/api/data";
+import { before, decodeCursor, newestFirst, loadCandidate, pageOf, serializeCandidate } from "@/lib/api/data";
 import { ApiError, apiHandler, notFound } from "@/lib/api/handler";
+import { apiAttribution } from "@/lib/api/keys";
 import { routes } from "@/lib/api/routes";
 import { sendStageEntryEmail } from "@/lib/candidate-email";
 import { candidateWhere, readFilters } from "@/lib/candidate-search";
@@ -32,13 +33,13 @@ export const GET = apiHandler(routes.listCandidates, async ({ user, query }) => 
     .select()
     .from(candidates)
     .where(and(where, before(sql`${candidates.createdAt}`, candidates.id, cursor)))
-    .orderBy(desc(candidates.createdAt), desc(candidates.id))
+    .orderBy(...newestFirst(candidates.createdAt, candidates.id))
     .limit(query.limit + 1);
   const page = pageOf(rows, query.limit, (r) => ({ at: r.createdAt, id: r.id }));
   return { data: page.data.map(serializeCandidate), next_cursor: page.next_cursor };
 });
 
-export const POST = apiHandler(routes.createCandidate, async ({ user, body }) => {
+export const POST = apiHandler(routes.createCandidate, async ({ user, key, body }) => {
   if (!(await canSeeJob(user, body.job_id))) throw notFound("Job");
   const [job] = await db().select({ id: jobs.id }).from(jobs).where(eq(jobs.id, body.job_id));
   if (!job) throw notFound("Job");
@@ -60,8 +61,10 @@ export const POST = apiHandler(routes.createCandidate, async ({ user, body }) =>
   const result = await db().transaction((tx) =>
     addApplication(tx, {
       jobId: job.id,
-      candidate: { ...parsed.value, source: body.source ?? "API" },
+      // The request's source, else the key's (e.g. "Gem"), so the sources report credits the integration.
+      candidate: { ...parsed.value, source: body.source ?? key.source ?? "API" },
       actorId: user.id,
+      attribution: apiAttribution(key),
     }),
   );
   if (!result.created || !result.applicationId) {

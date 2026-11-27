@@ -34,6 +34,7 @@ export async function createApiKeyAction(_: SecretState, form: FormData): Promis
   const scopes = requested.filter((s) => allowed.has(s));
   if (scopes.length === 0) return { error: "Pick at least one scope this user's role allows." };
 
+  const source = field(form, "source", 100);
   const expiry = String(form.get("expiresInDays") ?? "");
   const expiresAt = EXPIRY_DAYS.has(expiry) ? new Date(Date.now() + Number(expiry) * 24 * 60 * 60 * 1000) : null;
 
@@ -42,11 +43,11 @@ export async function createApiKeyAction(_: SecretState, form: FormData): Promis
     const generated = generateApiKey();
     const [row] = await db()
       .insert(apiKeys)
-      .values({ name, prefix: generated.prefix, keyHash: generated.hash, userId: owner.id, scopes, createdBy: admin.id, expiresAt })
+      .values({ name, prefix: generated.prefix, keyHash: generated.hash, userId: owner.id, scopes, source, createdBy: admin.id, expiresAt })
       .onConflictDoNothing()
       .returning({ id: apiKeys.id });
     if (!row) continue;
-    await logAudit("api_key_created", admin.id, { key: keyLabel(generated.prefix), name, scopes, acts_as: owner.id });
+    await logAudit("api_key_created", admin.id, { key: keyLabel(generated.prefix), name, scopes, acts_as: owner.id, source });
     revalidatePath("/settings/api");
     return {
       secret: generated.key,

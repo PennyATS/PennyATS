@@ -3,6 +3,7 @@
 PennyATS has a public REST API under `/api/v1` so scripts, integrations, and AI agents can do the everyday hiring work people do in the app. There are no per-seat limits: any number of keys, for any number of tools.
 
 - **Reference:** [`docs/api/openapi.json`](api/openapi.json) (OpenAPI 3.1). Your instance also serves it at `/api/v1/openapi.json`. Load it into Swagger UI, Postman, or an agent framework.
+- **Integrations:** [integrations.md](integrations.md) walks through a sourcing tool, a scheduler, and an AI assistant, with reference code in `examples/`.
 - **Agents:** the [MCP server](mcp.md) lets Claude, ChatGPT, and Cursor use this API with a scoped key.
 
 The OpenAPI document is generated from the same zod schemas the endpoints validate requests with (`apps/web/src/lib/api/`). Run `pnpm api:spec` after changing the API. CI fails when the committed document and the code disagree.
@@ -14,6 +15,7 @@ An admin creates keys in **Settings > API and webhooks**.
 - **A key acts as one teammate.** It can never do more than that person can do in the app. Pick the teammate when you create the key.
 - **Scopes narrow it further.** A request needs both the route's scope on the key and the permission on the person's role.
 - **Shown once.** The full key is displayed when it is created and never again. Only its SHA-256 hash is stored, plus an 8-character prefix so you can tell keys apart: `pats_1a2b3c4d_…`.
+- **Source label.** Optional. Candidates the key adds get this source (for example "Gem") unless the request sets one, so the sources report credits the integration. Their application history also records `via: api`, the key, and its name.
 - **Expiry, last used, revoke.** Keys can expire after 30, 90, or 365 days. The settings page shows when each key was last used (to the minute). Revoking takes effect on the next request.
 - **Deactivated teammates.** A key stops working when the person it acts as is deactivated.
 
@@ -49,7 +51,7 @@ curl -H "Authorization: Bearer $PENNYATS_API_KEY" https://ats.example.com/api/v1
 | `tags:read` | Read candidate tags | `candidates.view` |
 | `tags:write` | Add and remove tags | `candidates.edit` |
 | `interviews:read` | View interviews | `interviews.view` |
-| `interviews:write` | Add interviews | `interviews.schedule` |
+| `interviews:write` | Add, schedule, complete, cancel, and restore interviews | `interviews.schedule` |
 | `reports:read` | Run reports | `reports.view` |
 | `templates:read` | List email templates and draft emails | `templates.view` |
 | `emails:send` | Send template emails to candidates | `email.send` |
@@ -117,6 +119,8 @@ Each key may make 300 requests a minute by default (`API_RATE_LIMIT_PER_MINUTE`)
 | POST | `/applications/{id}/status` | `applications:write` |
 | GET, POST | `/applications/{id}/scorecards` | `scorecards:read`, `scorecards:write` |
 | GET, POST | `/applications/{id}/interviews` | `interviews:read`, `interviews:write` |
+| GET | `/interviews` | `interviews:read` |
+| GET, PATCH | `/interviews/{id}` | `interviews:read`, `interviews:write` |
 | POST | `/applications/{id}/email-drafts` | `templates:read` |
 | POST | `/applications/{id}/emails` | `emails:send` |
 | GET | `/email-templates` | `templates:read` |

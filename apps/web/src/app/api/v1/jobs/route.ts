@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { jobs } from "@pennyats/db";
 import { db } from "@/lib/db";
-import { before, decodeCursor, loadJob, pageOf, serializeJob, stagesFor } from "@/lib/api/data";
+import { before, decodeCursor, newestFirst, loadJob, pageOf, serializeJob, stagesFor } from "@/lib/api/data";
 import { ApiError, apiHandler } from "@/lib/api/handler";
 import { routes } from "@/lib/api/routes";
 import { visibleJobIds } from "@/lib/hiring";
@@ -21,7 +21,7 @@ export const GET = apiHandler(routes.listJobs, async ({ user, query }) => {
         before(sql`${jobs.createdAt}`, jobs.id, cursor),
       ),
     )
-    .orderBy(desc(jobs.createdAt), desc(jobs.id))
+    .orderBy(...newestFirst(jobs.createdAt, jobs.id))
     .limit(query.limit + 1);
   const page = pageOf(rows, query.limit, (r) => ({ at: r.createdAt, id: r.id }));
   const allStages = await stagesFor(page.data.map((j) => j.id));
