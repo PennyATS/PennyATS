@@ -1,3 +1,5 @@
+import { DEMO_LIMITS, isDemoMode } from "./demo";
+
 /** Small, typed input helpers. No validation library on purpose. */
 
 export function normalizeEmail(value: string): string {
@@ -41,12 +43,21 @@ export function isHttpUrl(value: string): boolean {
 export const RESUME_MAX_BYTES = 5 * 1024 * 1024;
 export const RESUME_EXTENSIONS = [".pdf", ".doc", ".docx", ".txt", ".rtf"] as const;
 
-export function checkResume(name: string, size: number): string | null {
+/** The upload cap: 5 MB, or 512 KB on the public demo so its disk can't fill between resets. */
+export function resumeMaxBytes(env: Record<string, string | undefined> = process.env): number {
+  return isDemoMode(env) ? DEMO_LIMITS.resumeMaxBytes : RESUME_MAX_BYTES;
+}
+
+export function resumeSizeLabel(bytes = resumeMaxBytes()): string {
+  return bytes >= 1024 * 1024 ? `${bytes / (1024 * 1024)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+export function checkResume(name: string, size: number, maxBytes = resumeMaxBytes()): string | null {
   const lower = name.toLowerCase();
   if (!RESUME_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
     return `Resume must be one of: ${RESUME_EXTENSIONS.join(", ")}.`;
   }
-  if (size > RESUME_MAX_BYTES) return "Resume must be 5 MB or smaller.";
+  if (size > maxBytes) return `Resume must be ${resumeSizeLabel(maxBytes)} or smaller.`;
   if (size === 0) return "Resume file is empty.";
   return null;
 }

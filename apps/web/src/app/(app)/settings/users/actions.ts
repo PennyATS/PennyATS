@@ -6,6 +6,7 @@ import { invites, passwordResets, sessions, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { hashToken, newToken, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DEMO_BLOCKED, isDemoMode } from "@/lib/demo";
 import { canManageUsers, isRole, removesLastAdmin } from "@/lib/permissions";
 import { sendSmtp, smtpConfigured } from "@/lib/smtp";
 import { field, isEmail, isUuid, normalizeEmail } from "@/lib/validation";
@@ -16,6 +17,8 @@ const RESET_HOURS = 24;
 /** Creates an invite, emailing it when SMTP is available and returning a manual fallback. */
 export async function createInviteAction(_: FormState, form: FormData): Promise<FormState> {
   const admin = await requireUser(canManageUsers);
+  // Demo visitors share accounts, so nobody may lock the others out or add real people.
+  if (isDemoMode()) return { error: DEMO_BLOCKED };
   const email = normalizeEmail(field(form, "email", 254) ?? "");
   const role = form.get("role");
   if (!isEmail(email)) return { error: "Enter a valid email address." };
@@ -61,6 +64,8 @@ export async function revokeInviteAction(inviteId: string): Promise<void> {
 /** Generate a one-time reset link for an active user; any older link is revoked. */
 export async function createPasswordResetAction(userId: string, _: FormState, _form: FormData): Promise<FormState> {
   await requireUser(canManageUsers);
+  // Demo visitors share accounts, so nobody may lock the others out or add real people.
+  if (isDemoMode()) return { error: DEMO_BLOCKED };
   if (!isUuid(userId)) return { error: "User not found." };
 
   const token = newToken();
@@ -98,6 +103,8 @@ export async function createPasswordResetAction(userId: string, _: FormState, _f
 /** Change a role or deactivate/reactivate an account without deleting its attribution. */
 export async function updateUserAction(userId: string, _: FormState, form: FormData): Promise<FormState> {
   await requireUser(canManageUsers);
+  // Demo visitors share accounts, so nobody may lock the others out or add real people.
+  if (isDemoMode()) return { error: DEMO_BLOCKED };
   if (!isUuid(userId)) return { error: "User not found." };
 
   const intent = form.get("intent");

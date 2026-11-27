@@ -10,6 +10,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import { and, eq, sql } from "drizzle-orm";
 import { webhookDeliveries, webhooks, type Db } from "@pennyats/db";
 import { db } from "./db";
+import { isDemoMode } from "./demo";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type Executor = Db | Tx;
@@ -138,6 +139,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
  * server it also sets a timer for the next retry; `pnpm webhooks:deliver` covers restarts.
  */
 export function deliverDueWebhooks(): Promise<number> {
+  // The public demo never makes outbound requests; deliveries stay queued until the reset.
+  if (isDemoMode()) return Promise.resolve(0);
   if (running) {
     again = true;
     return running;

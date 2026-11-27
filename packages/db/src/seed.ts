@@ -1,6 +1,8 @@
 import { eq, isNull } from "drizzle-orm";
 import { loadRootEnv } from "./env";
 import { seedSynthetic } from "./seed-synthetic";
+import { readDbState } from "./db-state";
+import { seedRefusal } from "./demo-guard";
 import {
   createDb,
   jobs,
@@ -18,6 +20,14 @@ import {
 loadRootEnv();
 
 const db = createDb();
+
+// Never run the seed against a real deployment: it adds logins with a published password.
+const state = await readDbState(db);
+const refusal = state && seedRefusal(state);
+if (refusal) {
+  console.error(`Seed refused: ${refusal}`);
+  process.exit(1);
+}
 
 // Demo login for local use only. Never run the seed against a real instance.
 const ADMIN_EMAIL = "admin@example.com";

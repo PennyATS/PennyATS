@@ -8,6 +8,9 @@
   --text: #1d2c24;
   --muted: #617267;
   --accent: #176b4d;
+  --warn-bg: #fff4d6;
+  --warn-border: #e6c56b;
+  --warn-text: #5a4300;
 }
 
 body {

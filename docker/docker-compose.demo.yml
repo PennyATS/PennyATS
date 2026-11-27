@@ -1,0 +1,40 @@
+# Public demo (#10). Layer this on the main file, on a server used only for the demo:
+#
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.demo.yml up -d --build
+#
+# It turns on DEMO_MODE (banner, no email, AI, calendar sync, or webhooks, smaller uploads,
+# tighter rate limits) and adds a service that wipes and reseeds the database every
+# DEMO_RESET_HOURS hours. Never point this at a database with real data: demo:reset refuses
+# a database it did not create, but do not rely on that alone. See docs/demo.md.
+services:
+  app:
+    environment:
+      DEMO_MODE: "true"
+      DEMO_RESET_HOURS: ${DEMO_RESET_HOURS:-6}
+      # AI stays off on the demo even if these are set in the shell.
+      AI_PROVIDER: ""
+      AI_API_KEY: ""
+
+  demo-reset:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://pennyats:${POSTGRES_PASSWORD:-pennyats}@db:5432/pennyats}
+      DEMO_MODE: "true"
+      # Must equal the database name in DATABASE_URL, as a deliberate confirmation.
+      DEMO_RESET_CONFIRM: ${DEMO_RESET_CONFIRM:-pennyats}
+      DEMO_RESET_HOURS: ${DEMO_RESET_HOURS:-6}
+      STORAGE_DIR: /app/apps/web/.data/uploads
+    volumes:
+      - pennyats_uploads:/app/apps/web/.data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Reset now, then on a schedule. A failed run is logged and retried at the next interval.
+    command:
+      - sh
+      - -c
+      - while true; do pnpm demo:reset || echo "demo:reset failed"; sleep $$(( $${DEMO_RESET_HOURS} * 3600 )); done
+    restart: unless-stopped

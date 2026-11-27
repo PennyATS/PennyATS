@@ -77,7 +77,9 @@ Open http://localhost:3000 and you'll be asked to create the first admin account
 
 ### Demo data
 
-To try it with sample data instead, run `pnpm db:seed` after migrating. It creates a small starter job (three made-up candidates) plus a larger reproducible software-engineering funnel from [`synthetic-recruiting`](https://github.com/Allen55/synthetic-recruiting): about nine jobs, ~1,400 synthetic candidates (`@example.com`, 555 numbers), stage history, interviews, and scorecards so the pipeline board, reports, and health checks have something to show. Demo login: `admin@example.com` / `pennyats-demo`. The same password works for `recruiter@example.com` and `dana.interviewer@example.com`. Only use the seed on a throwaway database.
+To try it with sample data instead, run `pnpm db:seed` after migrating. It creates a small starter job (three made-up candidates) plus a larger reproducible software-engineering funnel from [`synthetic-recruiting`](https://github.com/Allen55/synthetic-recruiting): about nine jobs, ~1,400 synthetic candidates (`@example.com`, 555 numbers), stage history, interviews, and scorecards so the pipeline board, reports, and health checks have something to show. Demo login: `admin@example.com` / `pennyats-demo`. The same password works for `recruiter@example.com` and `dana.interviewer@example.com`. Only use the seed on a throwaway database; it refuses to run on one whose setup was completed through `/setup`.
+
+To host a public demo that resets itself to this data on a schedule, see [docs/demo.md](docs/demo.md).
 
 ## Privacy
 
@@ -183,7 +185,7 @@ For the longer-term direction (agent-ready API and MCP server, security, complia
 
 - [Finish the visual design](https://github.com/PennyATS/PennyATS/issues/8), including dark mode and restyling the candidate profile and settings pages.
 - [Verify AI features with real Anthropic and OpenAI keys and a local compatible server](https://github.com/PennyATS/PennyATS/issues/6).
-- [Host a public demo with fictional data that resets automatically](https://github.com/PennyATS/PennyATS/issues/10).
+- [Host a public demo with fictional data that resets automatically](https://github.com/PennyATS/PennyATS/issues/10). Demo mode and the scheduled reset are built ([docs/demo.md](docs/demo.md)); hosting it is still to do.
 
 ### Scheduling suite
 

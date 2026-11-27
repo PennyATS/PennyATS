@@ -5,7 +5,7 @@ import { Field, SubmitButton, type FormAction } from "@/components/form";
 
 type Notice = { text: string | null; url: string | null; requireConsent: boolean };
 
-export function ApplyForm({ action, notice }: { action: FormAction; notice: Notice }) {
+export function ApplyForm({ action, notice, maxResume }: { action: FormAction; notice: Notice; maxResume: string }) {
   const [state, formAction] = useActionState(action, undefined);
 
   if (state?.message) {
@@ -25,7 +25,7 @@ export function ApplyForm({ action, notice }: { action: FormAction; notice: Noti
       <Field label="Location" name="location" autoComplete="address-level2" />
       <div>
         <label className="label" htmlFor="resume">
-          Resume (PDF, DOC, DOCX, TXT or RTF, up to 5 MB)
+          Resume (PDF, DOC, DOCX, TXT or RTF, up to {maxResume})
         </label>
         <input
           id="resume"

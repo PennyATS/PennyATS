@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { MIN_PASSWORD_LENGTH } from "@pennyats/db";
 import { ActionForm, Field, SubmitButton } from "@/components/form";
+import { isDemoMode } from "@/lib/demo";
 import { isSetupComplete } from "@/lib/instance";
 import { setupAction } from "../actions";
 
@@ -8,6 +9,15 @@ export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
   if (await isSetupComplete()) redirect("/login");
+  // The demo is loaded by demo:reset; nobody may claim it as its first admin.
+  if (isDemoMode()) {
+    return (
+      <>
+        <h1 className="text-xl font-semibold">The demo is resetting</h1>
+        <p className="muted mt-1 text-sm">Fresh sample data is loading. Try again in a minute.</p>
+      </>
+    );
+  }
 
   return (
     <>

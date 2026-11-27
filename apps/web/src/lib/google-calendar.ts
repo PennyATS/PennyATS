@@ -5,6 +5,7 @@ import {
   interviews, jobs, users,
 } from "@pennyats/db";
 import { db } from "./db";
+import { isDemoMode } from "./demo";
 import { logActivity } from "./hiring";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -16,6 +17,7 @@ const SCOPES = [
 ];
 
 export function googleCalendarConfigured(): boolean {
+  if (isDemoMode()) return false;
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.AUTH_SECRET && process.env.APP_URL);
 }
 

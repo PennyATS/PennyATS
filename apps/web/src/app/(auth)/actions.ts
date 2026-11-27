@@ -13,14 +13,16 @@ import type { FormState } from "@/components/form";
 import { endSession, hashToken, startSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { DEMO_LIMITS, isDemoMode } from "@/lib/demo";
 import { clientIp } from "@/lib/request";
 import { readPassword } from "@/lib/password";
 import { field, isEmail, normalizeEmail } from "@/lib/validation";
 
-const loginLimiter = createRateLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
+const loginLimiter = createRateLimiter({ limit: isDemoMode() ? DEMO_LIMITS.loginPer15Min : 10, windowMs: 15 * 60 * 1000 });
 
 /** First-run setup: creates the first admin. Only works once. */
 export async function setupAction(_: FormState, form: FormData): Promise<FormState> {
+  if (isDemoMode()) return { error: "The demo is resetting. Try again in a minute." };
   const name = field(form, "name", 200);
   const email = normalizeEmail(field(form, "email", 254) ?? "");
   if (!name) return { error: "Name is required." };

@@ -7,6 +7,7 @@ import { getPrivacySettings } from "@/lib/privacy";
 import { EMPLOYMENT_TYPES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
 import { applyAction } from "../actions";
 import { ApplyForm } from "./apply-form";
+import { resumeSizeLabel } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export default async function CareerJobPage({ params }: { params: Promise<{ slug
       <ApplyForm
         action={applyAction.bind(null, job.id)}
         notice={{ text: privacy.noticeText, url: privacy.noticeUrl, requireConsent: privacy.requireConsent }}
+        maxResume={resumeSizeLabel()}
       />
     </>
   );

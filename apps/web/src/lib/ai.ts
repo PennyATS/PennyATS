@@ -3,12 +3,18 @@ import { AiError, DEFAULT_MODELS, aiConfigFromEnv, getAiClient, type AiClient } 
 import { settings } from "@pennyats/db";
 import { keyHint, readAiSettings, type AiFeature, type AiSettings } from "./ai-rules";
 import { db } from "./db";
+import { isDemoMode } from "./demo";
 import { createRateLimiter } from "./rate-limit";
 
 // Every AI feature goes through here: it checks the provider is configured and the feature
 // is switched on, and the client from @pennyats/ai applies redaction.
 
 const SETTINGS_KEY = "ai";
+
+/** Provider config from the environment. Always null on the public demo, so AI stays off there. */
+function aiConfig() {
+  return isDemoMode() ? null : aiConfigFromEnv();
+}
 
 export async function getAiSettings(): Promise<AiSettings> {
   const [row] = await db().select().from(settings).where(eq(settings.key, SETTINGS_KEY));
@@ -24,7 +30,7 @@ export async function saveAiSettings(value: AiSettings): Promise<void> {
 
 /** What the settings page shows. Never includes the key itself. */
 export function aiStatus() {
-  const config = aiConfigFromEnv();
+  const config = aiConfig();
   if (!config) return null;
   return {
     provider: config.provider,
@@ -36,7 +42,7 @@ export function aiStatus() {
 
 /** A client for this feature, or null when AI isn't configured or the feature is switched off. */
 export async function getAiFor(feature: AiFeature | "test"): Promise<AiClient | null> {
-  const config = aiConfigFromEnv();
+  const config = aiConfig();
   if (!config) return null;
   const s = await getAiSettings();
   if (feature !== "test" && !s.features[feature]) return null;
@@ -44,7 +50,7 @@ export async function getAiFor(feature: AiFeature | "test"): Promise<AiClient | 
 }
 
 export async function isAiFeatureOn(feature: AiFeature): Promise<boolean> {
-  if (!aiConfigFromEnv()) return false;
+  if (!aiConfig()) return false;
   return (await getAiSettings()).features[feature];
 }
 
