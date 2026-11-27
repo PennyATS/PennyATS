@@ -4,7 +4,7 @@ This is the in-repo copy of the roadmap, written so people and AI agents (Claude
 
 ## Where this is headed
 
-PennyATS aims to be a near one-to-one open source alternative to Ashby and Greenhouse that a founder can run on their own Postgres, so the monthly ATS bill is no longer a budget question for early-stage teams. The goal is to match the everyday experience, then be better in the places hosted vendors cannot easily follow: an agent-ready API with no per-seat pricing, and data that stays in the company's own database.
+PennyATS aims to be a near one-to-one open source alternative to Ashby and Greenhouse that a founder can run on their own Postgres, so the monthly ATS bill is no longer a budget question for early-stage teams. The goal is to match the everyday experience, then differ where a hosted product is structurally different: PennyATS is open source, self-hosted on the company's own Postgres, has no per-seat pricing, and its code can be audited by anyone. An agent-ready API and MCP server are table stakes, not a moat: Ashby and Greenhouse both offer public APIs and official MCP servers, so PennyATS has to match them there rather than claim an advantage.
 
 ## Principles
 
@@ -49,11 +49,19 @@ Builds on the privacy tools that already ship: notice and consent, export, perma
 - [#125](https://github.com/PennyATS/PennyATS/issues/125) End-to-end hiring-cycle test matrix with published screenshots and a demo video
 - [#124](https://github.com/PennyATS/PennyATS/issues/124) Why switch: dated, cited cost comparison, tradeoffs, and a migration guide (uses CSV import [#20](https://github.com/PennyATS/PennyATS/issues/20))
 
+## 6. Onboarding for non-technical founders
+
+The target user is often a founder or founding recruiter adopting their first ATS, without a terminal or a database background.
+
+- [#10](https://github.com/PennyATS/PennyATS/issues/10) Public demo with fictional data that resets automatically
+- [#131](https://github.com/PennyATS/PennyATS/issues/131) One-click deploy buttons for hosts that bundle a database, with generated secrets, persistent uploads, and a plain-language guide
+- [#132](https://github.com/PennyATS/PennyATS/issues/132) First-run setup wizard for email, calendar, and AI, with Test buttons and skippable steps
+
 ## Already on the roadmap
 
 - Access and administration: [#93](https://github.com/PennyATS/PennyATS/issues/93) to [#105](https://github.com/PennyATS/PennyATS/issues/105)
 - Scheduling suite: [#43](https://github.com/PennyATS/PennyATS/issues/43)
-- Before launch and public demo: [#8](https://github.com/PennyATS/PennyATS/issues/8), [#6](https://github.com/PennyATS/PennyATS/issues/6), [#10](https://github.com/PennyATS/PennyATS/issues/10)
+- Before launch: [#8](https://github.com/PennyATS/PennyATS/issues/8), [#6](https://github.com/PennyATS/PennyATS/issues/6) (the public demo, #10, is in section 6)
 - Proposals still to scope: agency portal [#24](https://github.com/PennyATS/PennyATS/issues/24), sourcing extension [#26](https://github.com/PennyATS/PennyATS/issues/26), expanded analytics [#28](https://github.com/PennyATS/PennyATS/issues/28)
 
 ## For agents
