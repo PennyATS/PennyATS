@@ -25,10 +25,11 @@ export default async function ApiSettingsPage() {
       .select({ key: apiKeys, user: users.name, role: roles.key })
       .from(apiKeys)
       .innerJoin(users, eq(users.id, apiKeys.userId))
+      .innerJoin(roles, eq(roles.id, users.roleId))
       .orderBy(desc(apiKeys.createdAt)),
     db()
       .select({ id: users.id, name: users.name, role: roles.key })
-      .from(users).innerJoin(roles, eq(roles.id, users.roleId)).innerJoin(roles, eq(roles.id, users.roleId))
+      .from(users).innerJoin(roles, eq(roles.id, users.roleId))
       .where(eq(users.active, true))
       .orderBy(users.name),
     db().select().from(webhooks).orderBy(desc(webhooks.createdAt)),

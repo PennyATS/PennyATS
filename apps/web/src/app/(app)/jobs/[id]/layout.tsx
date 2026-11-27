@@ -22,6 +22,7 @@ export default async function JobLayout({ children, params }: { children: React.
       .select({ id: users.id, name: users.name, role: roles.key })
       .from(jobTeam)
       .innerJoin(users, eq(users.id, jobTeam.userId))
+      .innerJoin(roles, eq(roles.id, users.roleId))
       .where(eq(jobTeam.jobId, job.id))
       .orderBy(asc(users.name)),
   ]);
