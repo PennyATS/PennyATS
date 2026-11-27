@@ -34,6 +34,8 @@ The Docker build excludes `.env` and local uploads. Runtime configuration is pas
 
 The app listens on loopback port 3000 on the host. Put a reverse proxy with TLS (for example Caddy or Nginx) in front of `127.0.0.1:3000`, and set `APP_URL` to the exact public `https://` origin. Terminate HTTPS at the proxy and forward requests to the app. Keep Postgres on loopback; do not expose port 5432 publicly.
 
+To serve the public careers page on a company subdomain or subpath (for example `careers.acme.com` or `acme.com/careers`), see [careers.md](careers.md).
+
 ## Upgrades and migrations
 
 Back up the database and uploads before an upgrade. Pull the new code, then run:

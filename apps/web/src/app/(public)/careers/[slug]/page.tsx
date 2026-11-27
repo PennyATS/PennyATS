@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { jobs } from "@pennyats/db";
+import { getCompanyName } from "@/lib/candidate-email";
 import { db } from "@/lib/db";
 import { getPrivacySettings } from "@/lib/privacy";
 import { EMPLOYMENT_TYPES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
+import { jobPostingJsonLd } from "@/lib/job-posting";
 import { applyAction } from "../actions";
 import { ApplyForm } from "./apply-form";
 import { resumeSizeLabel } from "@/lib/validation";
@@ -28,9 +30,12 @@ export default async function CareerJobPage({ params }: { params: Promise<{ slug
   const job = await getOpenJob((await params).slug);
   if (!job) notFound();
   const privacy = await getPrivacySettings();
+  const appUrl = (process.env.APP_URL ?? "").replace(/\/$/, "") || "http://localhost:3000";
+  const jsonLd = jobPostingJsonLd(job, { companyName: await getCompanyName(), appUrl });
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
       <p className="text-sm">
         <Link href="/careers" className="link">
           All open roles
