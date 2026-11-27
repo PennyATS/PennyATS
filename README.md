@@ -28,7 +28,7 @@ These images use fictional candidates from the demo seed.
 
 - **Sign in and roles.** First-run setup creates the admin. Admins invite teammates, change roles, deactivate accounts, and issue one-time password reset links to copy and send. Interviewers only see jobs they're on the hiring team for.
 - **Jobs.** Create and edit jobs as draft, open, or closed. Each job has its own pipeline stages (rename, reorder, add, remove) and hiring team.
-- **Careers page.** Open jobs are listed at `/careers` with an apply form and resume upload. Includes basic spam protection.
+- **Careers page.** Open jobs are listed at `/careers` with an apply form and resume upload. Includes basic spam protection, JobPosting structured data for search, and [docs for serving careers on your own domain or subpath](docs/careers.md).
 - **Applications.** Candidates are matched by email, so someone applying to a second role keeps one profile. Recruiters can add candidates by hand, move them between stages, reject with a reason, or mark them withdrawn.
 - **Pipeline board.** A kanban view per job. Drag candidates between stages, or use the arrow buttons from the keyboard. Cards show days in stage and scorecard results.
 - **Interview loop.** Plan the interviews for each stage of a job (who runs them, what they cover, and instructions). Candidates get those interviews automatically when they enter the stage, with a status from "to schedule" to "complete", and the job overview flags interviewers whose feedback is overdue.
