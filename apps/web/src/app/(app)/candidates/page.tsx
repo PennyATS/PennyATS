@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleJobIds } from "@/lib/hiring";
 import { filterOptions, filtersQuery, hasFilters, readFilters, searchCandidates } from "@/lib/candidate-search";
+import { canManageHiring } from "@/lib/permissions";
 
 const PAGE_SIZE = 100;
 
@@ -64,6 +65,7 @@ export default async function CandidatesPage({
             {filtered && " · filtered"}
           </p>
         </div>
+        {canManageHiring(user.role) && <Link href="/candidates/import" className="btn btn-secondary">Import CSV</Link>}
       </div>
       {sp.deleted && (
         <p role="status" className="mt-2 text-sm">
