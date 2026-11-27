@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 
 ENV NEXT_TELEMETRY_DISABLED=1
 # Ask next.config.ts for standalone output (used by the runtime stage below).
@@ -16,7 +16,7 @@ RUN mkdir -p /app/apps/web/.data/uploads && chown -R node:node /app/apps/web/.da
 USER node
 CMD ["pnpm", "db:migrate"]
 
-FROM node:22-bookworm-slim AS app
+FROM node:26-bookworm-slim AS app
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
