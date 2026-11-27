@@ -5,7 +5,7 @@ import { applications, jobTeam, users } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
-import { canManageHiring } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { EMPLOYMENT_TYPES, PRIORITIES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
 import { DetailsButton, JobDrawer, JobRail } from "./job-chrome";
 
@@ -13,7 +13,7 @@ import { DetailsButton, JobDrawer, JobRail } from "./job-chrome";
 export default async function JobLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const manage = canManageHiring(user.role);
+  const manage = can(user, "jobs.edit");
   const { job, stages } = await loadJob(user, id);
 
   const [statusCounts, team] = await Promise.all([
@@ -30,7 +30,7 @@ export default async function JobLayout({ children, params }: { children: React.
   const peopleIds = [job.hiringManagerId, job.recruiterId].filter((x): x is string => Boolean(x));
   const people = peopleIds.length ? await db().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, peopleIds)) : [];
   const personName = (pid: string | null) => (pid ? people.find((p) => p.id === pid)?.name : undefined);
-  const pay = manage ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
+  const pay = can(user, "jobs.view_compensation") ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
   const base = `/jobs/${job.id}`;
 
   const details: [string, React.ReactNode][] = [

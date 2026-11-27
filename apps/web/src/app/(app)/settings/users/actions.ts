@@ -1,13 +1,13 @@
 "use server";
 
-import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { invites, passwordResets, sessions, users } from "@pennyats/db";
 import type { FormState } from "@/components/form";
 import { hashToken, newToken, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEMO_BLOCKED, isDemoMode } from "@/lib/demo";
-import { canManageUsers, isRole, removesLastAdmin } from "@/lib/permissions";
+import { isRole, removesLastAdmin, rolesWith } from "@/lib/permissions";
 import { sendSmtp, smtpConfigured } from "@/lib/smtp";
 import { field, isEmail, isUuid, normalizeEmail } from "@/lib/validation";
 
@@ -16,7 +16,7 @@ const RESET_HOURS = 24;
 
 /** Creates an invite, emailing it when SMTP is available and returning a manual fallback. */
 export async function createInviteAction(_: FormState, form: FormData): Promise<FormState> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("users.invite");
   // Demo visitors share accounts, so nobody may lock the others out or add real people.
   if (isDemoMode()) return { error: DEMO_BLOCKED };
   const email = normalizeEmail(field(form, "email", 254) ?? "");
@@ -54,7 +54,7 @@ export async function createInviteAction(_: FormState, form: FormData): Promise<
 }
 
 export async function revokeInviteAction(inviteId: string): Promise<void> {
-  await requireUser(canManageUsers);
+  await requireUser("users.invite");
   await db()
     .delete(invites)
     .where(and(eq(invites.id, inviteId), isNull(invites.acceptedAt)));
@@ -63,7 +63,7 @@ export async function revokeInviteAction(inviteId: string): Promise<void> {
 
 /** Generate a one-time reset link for an active user; any older link is revoked. */
 export async function createPasswordResetAction(userId: string, _: FormState, _form: FormData): Promise<FormState> {
-  await requireUser(canManageUsers);
+  await requireUser("users.manage");
   // Demo visitors share accounts, so nobody may lock the others out or add real people.
   if (isDemoMode()) return { error: DEMO_BLOCKED };
   if (!isUuid(userId)) return { error: "User not found." };
@@ -102,7 +102,7 @@ export async function createPasswordResetAction(userId: string, _: FormState, _f
 
 /** Change a role or deactivate/reactivate an account without deleting its attribution. */
 export async function updateUserAction(userId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser(canManageUsers);
+  await requireUser("users.manage");
   // Demo visitors share accounts, so nobody may lock the others out or add real people.
   if (isDemoMode()) return { error: DEMO_BLOCKED };
   if (!isUuid(userId)) return { error: "User not found." };
@@ -127,7 +127,7 @@ export async function updateUserAction(userId: string, _: FormState, form: FormD
     const nextRole = requestedRole ?? target.role;
     const nextActive = intent === "deactivate" ? false : intent === "reactivate" ? true : target.active;
     const [{ n }] = await tx.select({ n: count() }).from(users)
-      .where(and(eq(users.role, "admin"), eq(users.active, true)));
+      .where(and(inArray(users.role, rolesWith("users.manage")), eq(users.active, true)));
     if (removesLastAdmin({
       currentRole: target.role,
       currentActive: target.active,
@@ -135,7 +135,7 @@ export async function updateUserAction(userId: string, _: FormState, form: FormD
       nextActive,
       activeAdminCount: n,
     })) {
-      return { error: "The last active admin cannot be demoted or deactivated." } as const;
+      return { error: "The last active admin (someone who can manage users) cannot be demoted or deactivated." } as const;
     }
 
     if (nextRole === target.role && nextActive === target.active) {

@@ -11,7 +11,6 @@ import { aiErrorMessage, allowAiCall, getAiFor } from "@/lib/ai";
 import { jobDescriptionPrompt } from "@/lib/ai-rules";
 import { moveStage } from "@/lib/pipeline";
 import { MAX_ATTRIBUTES, parseAttributes } from "@/lib/scorecards";
-import { canManageHiring } from "@/lib/permissions";
 import { field, isUuid } from "@/lib/validation";
 import { addPeopleToTeam, appendStage, checkPeople, createJob } from "@/lib/jobs";
 import { parseJobDetails } from "@/lib/job-fields";
@@ -47,7 +46,7 @@ function parseJob(form: FormData) {
 }
 
 export async function createJobAction(_: FormState, form: FormData): Promise<FormState> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("jobs.create");
   const parsed = parseJob(form);
   if ("error" in parsed) return { error: parsed.error };
   const peopleError = await checkPeople(parsed.value);
@@ -58,7 +57,7 @@ export async function createJobAction(_: FormState, form: FormData): Promise<For
 }
 
 export async function updateJobAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   if (!isUuid(jobId)) return { error: "Job not found." };
   const parsed = parseJob(form);
   if ("error" in parsed) return { error: parsed.error };
@@ -82,7 +81,7 @@ function stagePath(jobId: string) {
 }
 
 export async function addStageAction(jobId: string, form: FormData): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   const name = field(form, "name", 100);
   if (!name) return;
   await appendStage(jobId, name);
@@ -90,7 +89,7 @@ export async function addStageAction(jobId: string, form: FormData): Promise<voi
 }
 
 export async function renameStageAction(jobId: string, stageId: string, form: FormData): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   const name = field(form, "name", 100);
   if (!name) return;
   await db()
@@ -102,7 +101,7 @@ export async function renameStageAction(jobId: string, stageId: string, form: Fo
 
 /** Swap a stage with its neighbour above (-1) or below (+1). */
 export async function moveStageAction(jobId: string, stageId: string, direction: -1 | 1): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   await db().transaction(async (tx) => {
     const list = await tx
       .select()
@@ -123,7 +122,7 @@ export async function moveStageAction(jobId: string, stageId: string, direction:
 
 /** Only empty stages can be deleted, so no application loses its place. */
 export async function deleteStageAction(jobId: string, stageId: string): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   const [{ n }] = await db()
     .select({ n: count() })
     .from(applications)
@@ -138,7 +137,7 @@ export async function deleteStageAction(jobId: string, stageId: string): Promise
 /* ---------- Hiring team ---------- */
 
 export async function addTeamMemberAction(jobId: string, form: FormData): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   const userId = field(form, "userId", 64);
   if (!userId || !isUuid(userId)) return;
   const [exists] = await db().select({ id: users.id }).from(users).where(eq(users.id, userId));
@@ -148,7 +147,7 @@ export async function addTeamMemberAction(jobId: string, form: FormData): Promis
 }
 
 export async function removeTeamMemberAction(jobId: string, userId: string): Promise<void> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   await db()
     .delete(jobTeam)
     .where(and(eq(jobTeam.jobId, jobId), eq(jobTeam.userId, userId)));
@@ -159,7 +158,7 @@ export async function removeTeamMemberAction(jobId: string, userId: string): Pro
 
 /** Called by the kanban board when a card is dropped or moved with the arrow buttons. */
 export async function moveCardAction(applicationId: string, stageId: string): Promise<{ ok: boolean }> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("applications.move");
   const moved = await moveStage(user, applicationId, stageId);
   if (!moved) return { ok: false };
   revalidatePath(`/jobs/${moved.jobId}`);
@@ -170,7 +169,7 @@ export async function moveCardAction(applicationId: string, stageId: string): Pr
 /* ---------- Scorecard attributes ---------- */
 
 export async function updateAttributesAction(jobId: string, _: FormState, form: FormData): Promise<FormState> {
-  await requireUser(canManageHiring);
+  await requireUser("jobs.edit");
   const raw = form.get("attributes");
   const attributes = parseAttributes(typeof raw === "string" ? raw : "");
   // Existing scorecards keep their ratings under the old names, so renaming here is safe.
@@ -187,7 +186,7 @@ export async function draftDescriptionAction(input: {
   location: string;
   notes: string;
 }): Promise<{ text: string } | { error: string }> {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("jobs.edit");
   const ai = await getAiFor("jobDescriptions");
   if (!ai) return { error: "AI job descriptions are turned off." };
   const title = input.title.trim().slice(0, 200);

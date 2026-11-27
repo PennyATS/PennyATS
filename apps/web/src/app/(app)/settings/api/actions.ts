@@ -7,8 +7,8 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEMO_BLOCKED, isDemoMode } from "@/lib/demo";
 import { generateApiKey, keyLabel } from "@/lib/api/keys";
-import { normalizeScopes, scopesForRole } from "@/lib/api/scopes";
-import { isRole, canManageUsers } from "@/lib/permissions";
+import { normalizeScopes, scopesFor } from "@/lib/api/scopes";
+import { isRole } from "@/lib/permissions";
 import { logAudit } from "@/lib/privacy";
 import { field, isHttpUrl, isUuid } from "@/lib/validation";
 import { newWebhookSecret, redeliver, sealWebhookSecret } from "@/lib/webhooks";
@@ -19,7 +19,7 @@ const EXPIRY_DAYS = new Set(["30", "90", "365"]);
 
 /** Create a key. The full key is returned once, here, and never stored. */
 export async function createApiKeyAction(_: SecretState, form: FormData): Promise<SecretState> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   const name = field(form, "name", 100);
   if (!name) return { error: "Give the key a name, like the tool that will use it." };
   const userId = field(form, "userId", 64) ?? admin.id;
@@ -31,7 +31,7 @@ export async function createApiKeyAction(_: SecretState, form: FormData): Promis
   if (!owner || !isRole(owner.role)) return { error: "Pick an active user." };
 
   const requested = normalizeScopes(form.getAll("scopes"));
-  const allowed = new Set(scopesForRole(owner.role));
+  const allowed = new Set(scopesFor({ role: owner.role }));
   const scopes = requested.filter((s) => allowed.has(s));
   if (scopes.length === 0) return { error: "Pick at least one scope this user's role allows." };
 
@@ -59,7 +59,7 @@ export async function createApiKeyAction(_: SecretState, form: FormData): Promis
 }
 
 export async function revokeApiKeyAction(keyId: string): Promise<void> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   if (!isUuid(keyId)) return;
   const [row] = await db()
     .update(apiKeys)
@@ -72,7 +72,7 @@ export async function revokeApiKeyAction(keyId: string): Promise<void> {
 
 /** Add a webhook endpoint. Its signing secret is shown once. */
 export async function createWebhookAction(_: SecretState, form: FormData): Promise<SecretState> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   // The demo makes no outbound requests.
   if (isDemoMode()) return { error: DEMO_BLOCKED };
   const url = field(form, "url", 2000);
@@ -95,7 +95,7 @@ export async function createWebhookAction(_: SecretState, form: FormData): Promi
 }
 
 export async function setWebhookActiveAction(webhookId: string, active: boolean): Promise<void> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   if (!isUuid(webhookId)) return;
   await db().update(webhooks).set({ active }).where(eq(webhooks.id, webhookId));
   await logAudit("webhook_changed", admin.id, { webhook_id: webhookId, active });
@@ -103,7 +103,7 @@ export async function setWebhookActiveAction(webhookId: string, active: boolean)
 }
 
 export async function deleteWebhookAction(webhookId: string): Promise<void> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   if (!isUuid(webhookId)) return;
   const [row] = await db().delete(webhooks).where(eq(webhooks.id, webhookId)).returning({ url: webhooks.url });
   if (row) await logAudit("webhook_deleted", admin.id, { webhook_id: webhookId, url: row.url });
@@ -111,7 +111,7 @@ export async function deleteWebhookAction(webhookId: string): Promise<void> {
 }
 
 export async function redeliverAction(deliveryId: string): Promise<void> {
-  await requireUser(canManageUsers);
+  await requireUser("settings.manage");
   if (!isUuid(deliveryId)) return;
   await redeliver(deliveryId);
   revalidatePath("/settings/api");

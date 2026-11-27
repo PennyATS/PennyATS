@@ -3,12 +3,11 @@
 import { revalidatePath } from "next/cache";
 import type { FormState } from "@/components/form";
 import { requireUser } from "@/lib/auth";
-import { canManageUsers } from "@/lib/permissions";
 import { deleteCandidates, expiredCandidateIds, getPrivacySettings, savePrivacySettings } from "@/lib/privacy";
 import { parsePrivacyForm } from "@/lib/privacy-rules";
 
 export async function savePrivacyAction(_: FormState, form: FormData): Promise<FormState> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   const parsed = parsePrivacyForm(form);
   if (!parsed.ok) return { error: parsed.error };
   await savePrivacySettings(parsed.value, admin.id);
@@ -18,7 +17,7 @@ export async function savePrivacyAction(_: FormState, form: FormData): Promise<F
 
 /** Delete everyone currently past the retention period. Admin only, needs the confirm box. */
 export async function purgeNowAction(_: FormState, form: FormData): Promise<FormState> {
-  const admin = await requireUser(canManageUsers);
+  const admin = await requireUser("settings.manage");
   if (form.get("confirm") !== "on") return { error: "Tick the box to confirm permanent deletion." };
   const { retentionMonths } = await getPrivacySettings();
   if (!retentionMonths) return { error: "Set a retention period first." };

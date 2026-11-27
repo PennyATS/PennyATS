@@ -1,22 +1,51 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canManageHiring, canManageUsers, isRole, removesLastAdmin, seesAllJobs } from "./permissions";
+import { can, defaultsToRecruiterOnNewJob, isRole, removesLastAdmin, rolesWith, statusPermission } from "./permissions";
 
 test("only admins manage users", () => {
-  assert.equal(canManageUsers("admin"), true);
-  assert.equal(canManageUsers("recruiter"), false);
-  assert.equal(canManageUsers("interviewer"), false);
+  assert.equal(can({ role: "admin" }, "users.manage"), true);
+  assert.equal(can({ role: "recruiter" }, "users.manage"), false);
+  assert.equal(can({ role: "interviewer" }, "users.manage"), false);
+  assert.deepEqual(rolesWith("users.manage"), ["admin"]);
 });
 
 test("admins and recruiters manage hiring; interviewers don't", () => {
-  assert.equal(canManageHiring("admin"), true);
-  assert.equal(canManageHiring("recruiter"), true);
-  assert.equal(canManageHiring("interviewer"), false);
+  assert.equal(can({ role: "admin" }, "applications.move"), true);
+  assert.equal(can({ role: "recruiter" }, "applications.move"), true);
+  assert.equal(can({ role: "interviewer" }, "applications.move"), false);
+  assert.deepEqual(rolesWith("applications.move"), ["admin", "recruiter"]);
 });
 
 test("interviewers are limited to their hiring teams", () => {
-  assert.equal(seesAllJobs("recruiter"), true);
-  assert.equal(seesAllJobs("interviewer"), false);
+  assert.equal(can({ role: "recruiter" }, "jobs.view_all"), true);
+  assert.equal(can({ role: "interviewer" }, "jobs.view_all"), false);
+});
+
+test("a resolved permission set wins over the role's defaults", () => {
+  assert.equal(can({ role: "interviewer", permissions: ["reports.view"] }, "reports.view"), true);
+  assert.equal(can({ role: "admin", permissions: [] }, "users.manage"), false);
+});
+
+test("job-scoped permissions pass through a team role on that job only", () => {
+  const actor = { role: "interviewer" as const, jobPermissions: { "job-1": ["applications.move", "users.manage"] as const } };
+  assert.equal(can(actor, "applications.move", { jobId: "job-1" }), true);
+  assert.equal(can(actor, "applications.move", { jobId: "job-2" }), false);
+  assert.equal(can(actor, "applications.move"), false);
+  // Instance-wide permissions are never granted through a job.
+  assert.equal(can(actor, "users.manage", { jobId: "job-1" }), false);
+});
+
+test("hiring and rejecting need their own permissions", () => {
+  assert.equal(statusPermission("hired"), "applications.hire");
+  assert.equal(statusPermission("rejected"), "applications.reject");
+  assert.equal(statusPermission("withdrawn"), "applications.move");
+  assert.equal(statusPermission("active"), "applications.move");
+});
+
+test("recruiters default to recruiter on jobs they create; admins don't", () => {
+  assert.equal(defaultsToRecruiterOnNewJob({ role: "recruiter" }), true);
+  assert.equal(defaultsToRecruiterOnNewJob({ role: "admin" }), false);
+  assert.equal(defaultsToRecruiterOnNewJob({ role: "interviewer" }), false);
 });
 
 test("isRole rejects anything that isn't a known role", () => {

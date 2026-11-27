@@ -64,7 +64,7 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Keep dependencies minimal. Prefer small, typed helpers over new packages.
 - Never commit secrets or real candidate data. Use the synthetic seed data for demos.
 - Auth: every protected page, server action, and route handler calls `requireUser()` (or `getCurrentUser()` in route handlers) itself. The `(app)` layout check alone is not enough, because server actions can be called directly.
-- Roles live in `apps/web/src/lib/permissions.ts`. Interviewers only see jobs they are on the hiring team for; use `visibleJobIds`, `canSeeJob`, and `canSeeCandidate` from `lib/hiring.ts` for any new query that lists jobs, candidates, or applications.
+- Access is checked by named permission with `can(user, permission)` from `apps/web/src/lib/permissions.ts` (#94), never by role name; `requireUser("jobs.edit")` takes a permission. Roles are bundles of permissions defined there, and `permissions-matrix.test.ts` snapshots every role against every permission, so a change to a role's access must update that snapshot. Interviewers only see jobs they are on the hiring team for; use `visibleJobIds`, `canSeeJob`, and `canSeeCandidate` from `lib/hiring.ts` for any new query that lists jobs, candidates, or applications.
 - Sessions and invite tokens are stored as SHA-256 hashes. Passwords use Node's built-in scrypt (`packages/db/src/password.ts`).
 - Uploaded files go through `apps/web/src/lib/storage.ts` (local disk under `STORAGE_DIR`). Resumes are always served as downloads, never inline.
 - Candidate emails are stored lowercased and are unique; applying or adding with an existing email reuses that candidate.

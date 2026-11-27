@@ -1,13 +1,13 @@
 import { exportWorkspace } from "@pennyats/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageUsers } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { logAudit } from "@/lib/privacy";
 
 /** Everything in the PennyATS open data format (docs/schema), for backups and moving data. Admin only. */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || !canManageUsers(user.role)) return new Response("Not found", { status: 404 });
+  if (!user || !can(user, "settings.manage")) return new Response("Not found", { status: 404 });
 
   const doc = await exportWorkspace(db());
   await logAudit("workspace_exported", user.id, { via: "download", candidates: doc.candidates.length, schema_version: doc.schema_version });

@@ -123,7 +123,7 @@ export function apiHandler<R extends ApiRoute>(route: R, fn: Handler<R>) {
       }
 
       if (route.scope && route.permission) {
-        const access = checkAccess({ scopes: key.scopes, role: user.role }, { scope: route.scope, permission: route.permission });
+        const access = checkAccess({ scopes: key.scopes, user }, { scope: route.scope, permission: route.permission });
         if (!access.ok) return errorResponse(access.code, access.message);
       }
 

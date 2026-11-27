@@ -3,12 +3,11 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
 import { getCompanyName } from "@/lib/candidate-email";
-import { canManageUsers } from "@/lib/permissions";
 import { smtpConfigured } from "@/lib/smtp";
 import { saveCompanyNameAction, testSmtpAction } from "./actions";
 
 export default async function EmailSettingsPage() {
-  await requireUser(canManageUsers);
+  await requireUser("settings.manage");
   const configured = smtpConfigured();
   const companyName = await getCompanyName();
   return <div className="max-w-2xl">

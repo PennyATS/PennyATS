@@ -3,13 +3,12 @@ import { asc } from "drizzle-orm";
 import { emailTemplateFolders } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageHiring } from "@/lib/permissions";
 import { TemplateForm } from "../template-form";
 
 export const metadata = { title: "New email template" };
 
 export default async function NewTemplatePage({ searchParams }: { searchParams: Promise<{ folder?: string }> }) {
-  await requireUser(canManageHiring);
+  await requireUser("templates.manage");
   const { folder } = await searchParams;
   const folders = await db().select({ id: emailTemplateFolders.id, name: emailTemplateFolders.name })
     .from(emailTemplateFolders).orderBy(asc(emailTemplateFolders.name));

@@ -3,7 +3,7 @@ import { applications, jobs } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleJobIds } from "@/lib/hiring";
-import { canManageHiring } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { JobsTable } from "./jobs-table";
 
 export default async function JobsPage() {
@@ -34,5 +34,5 @@ export default async function JobsPage() {
           .groupBy(jobs.id)
           .orderBy(desc(jobs.createdAt));
 
-  return <JobsTable rows={rows} canCreate={canManageHiring(user.role)} />;
+  return <JobsTable rows={rows} canCreate={can(user, "jobs.create")} />;
 }

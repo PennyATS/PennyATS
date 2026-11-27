@@ -6,7 +6,6 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getApplicationFor } from "@/lib/hiring";
 import { googleCalendarConfigured } from "@/lib/google-calendar";
-import { canManageHiring } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 import { ScheduleEditor } from "./schedule-editor";
 
@@ -16,7 +15,7 @@ export default async function ScheduleInterviewPage({
   params: Promise<{ id: string; interviewId: string }>;
 }) {
   const { id, interviewId } = await params;
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.schedule");
   if (!isUuid(id) || !isUuid(interviewId)) notFound();
   const [interview] = await db().select().from(interviews).where(eq(interviews.id, interviewId));
   if (!interview) notFound();

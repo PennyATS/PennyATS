@@ -9,7 +9,8 @@ import { agentName } from "./handler";
 import { bearerToken, generateApiKey, hashApiKey, keyUsable, parseApiKey } from "./keys";
 import { openApiText } from "./openapi";
 import { ROUTE_LIST, routes } from "./routes";
-import { checkAccess, normalizeScopes, roleHasPermission, SCOPE_PERMISSIONS, SCOPES, scopesForRole } from "./scopes";
+import { can } from "../permissions";
+import { checkAccess, normalizeScopes, SCOPE_PERMISSIONS, SCOPES, scopesFor } from "./scopes";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = join(here, "../../../../..");
@@ -63,13 +64,13 @@ test("operation ids are unique and every write is audited", () => {
 /* ---------- Scopes and permissions ---------- */
 
 test("a request needs both the scope and the user's permission", () => {
-  assert.deepEqual(checkAccess({ scopes: ["jobs:read"], role: "interviewer" }, { scope: "jobs:read", permission: "jobs.view" }), { ok: true });
+  assert.deepEqual(checkAccess({ scopes: ["jobs:read"], user: { role: "interviewer" } }, { scope: "jobs:read", permission: "jobs.view" }), { ok: true });
   assert.equal(
-    (checkAccess({ scopes: [], role: "admin" }, { scope: "jobs:read", permission: "jobs.view" }) as { code: string }).code,
+    (checkAccess({ scopes: [], user: { role: "admin" } }, { scope: "jobs:read", permission: "jobs.view" }) as { code: string }).code,
     "missing_scope",
   );
   assert.equal(
-    (checkAccess({ scopes: ["applications:write"], role: "interviewer" }, { scope: "applications:write", permission: "applications.move" }) as {
+    (checkAccess({ scopes: ["applications:write"], user: { role: "interviewer" } }, { scope: "applications:write", permission: "applications.move" }) as {
       code: string;
     }).code,
     "forbidden",
@@ -78,25 +79,25 @@ test("a request needs both the scope and the user's permission", () => {
 
 test("roles map onto permissions the same way the app's role checks do", () => {
   for (const scope of SCOPES) {
-    for (const p of SCOPE_PERMISSIONS[scope]) assert.ok(roleHasPermission("admin", p), `admin should have ${p}`);
+    for (const p of SCOPE_PERMISSIONS[scope]) assert.ok(can({ role: "admin" }, p), `admin should have ${p}`);
   }
-  assert.equal(roleHasPermission("recruiter", "privacy.delete"), false);
-  assert.equal(roleHasPermission("recruiter", "applications.move"), true);
-  assert.equal(roleHasPermission("interviewer", "applications.move"), false);
-  assert.equal(roleHasPermission("interviewer", "notes.write"), true);
-  assert.equal(roleHasPermission("interviewer", "scorecards.submit"), true);
-  assert.equal(roleHasPermission("interviewer", "reports.view"), false);
-  assert.equal(roleHasPermission("interviewer", "email.send"), false);
+  assert.equal(can({ role: "recruiter" }, "privacy.delete"), false);
+  assert.equal(can({ role: "recruiter" }, "applications.move"), true);
+  assert.equal(can({ role: "interviewer" }, "applications.move"), false);
+  assert.equal(can({ role: "interviewer" }, "notes.write"), true);
+  assert.equal(can({ role: "interviewer" }, "scorecards.submit"), true);
+  assert.equal(can({ role: "interviewer" }, "reports.view"), false);
+  assert.equal(can({ role: "interviewer" }, "email.send"), false);
 });
 
 test("an interviewer key can only hold scopes the role can use", () => {
-  const scopes = scopesForRole("interviewer");
+  const scopes = scopesFor({ role: "interviewer" });
   assert.ok(scopes.includes("notes:write"));
   assert.ok(scopes.includes("scorecards:write"));
   assert.ok(!scopes.includes("applications:write"));
   assert.ok(!scopes.includes("candidates:delete"));
-  assert.ok(!scopesForRole("recruiter").includes("candidates:delete"));
-  assert.deepEqual(scopesForRole("admin"), [...SCOPES]);
+  assert.ok(!scopesFor({ role: "recruiter" }).includes("candidates:delete"));
+  assert.deepEqual(scopesFor({ role: "admin" }), [...SCOPES]);
 });
 
 test("scopes are de-duplicated, validated, and kept in canonical order", () => {

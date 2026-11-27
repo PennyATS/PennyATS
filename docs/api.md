@@ -56,7 +56,7 @@ curl -H "Authorization: Bearer $PENNYATS_API_KEY" https://ats.example.com/api/v1
 | `templates:read` | List email templates and draft emails | `templates.view` |
 | `emails:send` | Send template emails to candidates | `email.send` |
 
-The permission names come from the named-permission model planned in [#94](https://github.com/PennyATS/PennyATS/issues/94). Today they map onto the three roles the same way the app's role checks do:
+The permission names come from the app's permission model ([#94](https://github.com/PennyATS/PennyATS/issues/94), `apps/web/src/lib/permissions.ts`). The API runs the same `can(user, permission)` check as the app, so a key can never do more than its user can in the UI. For the API's permissions, the default roles get:
 
 | Role | Permissions |
 | --- | --- |
@@ -64,7 +64,7 @@ The permission names come from the named-permission model planned in [#94](https
 | Recruiter | All except `privacy.delete` |
 | Interviewer | `jobs.view`, `candidates.view`, `applications.view`, `scorecards.view`, `scorecards.submit`, `notes.view`, `notes.write`, `interviews.view` |
 
-When #94 ships, the check becomes "the person has the permission (including job-level grants) and the key has the scope", with no change to keys.
+A request is allowed when the key has the scope and its user has the permission. Which jobs the user can see is applied on top of that.
 
 ## Requests and responses
 

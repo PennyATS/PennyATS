@@ -3,7 +3,6 @@ import { apiKeys, auditLog, users } from "@pennyats/db";
 import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageUsers } from "@/lib/permissions";
 import { expiredCandidateIds, getPrivacySettings } from "@/lib/privacy";
 import { MAX_RETENTION_MONTHS } from "@/lib/privacy-rules";
 import { purgeNowAction, savePrivacyAction } from "./actions";
@@ -33,7 +32,7 @@ function actorText(entry: { action: string; actor: string | null; actorType: str
 }
 
 export default async function PrivacySettingsPage() {
-  await requireUser(canManageUsers);
+  await requireUser("settings.manage");
   const settings = await getPrivacySettings();
   const [expired, log] = await Promise.all([
     settings.retentionMonths ? expiredCandidateIds(settings.retentionMonths) : Promise.resolve([]),

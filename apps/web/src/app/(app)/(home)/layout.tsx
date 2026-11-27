@@ -1,12 +1,12 @@
 import { requireUser } from "@/lib/auth";
-import { canManageHiring } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { ViewsRail } from "./views-rail";
 
 export default async function HomeLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const views = [
     { href: "/", label: "Home" },
-    ...(canManageHiring(user.role) ? [{ href: "/dashboards/executive", label: "Executive dashboard" }] : []),
+    ...(can(user, "dashboards.executive") ? [{ href: "/dashboards/executive", label: "Executive dashboard" }] : []),
     { href: "/dashboards/jobs", label: "Jobs dashboard" },
   ];
   return (

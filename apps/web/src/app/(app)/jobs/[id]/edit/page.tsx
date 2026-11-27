@@ -4,7 +4,6 @@ import { applications, jobTeam, users } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
-import { canManageHiring } from "@/lib/permissions";
 import {
   addStageAction,
   addTeamMemberAction,
@@ -21,7 +20,7 @@ import { JobForm } from "../../job-form";
 
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("jobs.edit");
   const { job, stages } = await loadJob(user, id);
 
   const [stageCounts, team, everyone] = await Promise.all([

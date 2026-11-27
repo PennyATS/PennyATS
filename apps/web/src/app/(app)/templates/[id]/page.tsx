@@ -6,7 +6,6 @@ import { requireUser } from "@/lib/auth";
 import { getCompanyName } from "@/lib/candidate-email";
 import { db } from "@/lib/db";
 import { EXAMPLE_VALUES, renderEmailHtml, renderEmailTemplate, templateHtml } from "@/lib/email-templates";
-import { canManageHiring } from "@/lib/permissions";
 import { isUuid } from "@/lib/validation";
 import { deleteTemplateAction, duplicateTemplateAction } from "../actions";
 import { TemplateForm } from "../template-form";
@@ -17,7 +16,7 @@ export default async function TemplatePage({ params, searchParams }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
-  await requireUser(canManageHiring);
+  await requireUser("templates.manage");
   const { id } = await params;
   const { created } = await searchParams;
   if (!isUuid(id)) notFound();

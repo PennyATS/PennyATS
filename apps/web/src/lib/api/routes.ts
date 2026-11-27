@@ -5,7 +5,8 @@
  * round, so an endpoint can't exist without being documented.
  */
 import type { z } from "zod";
-import type { Permission, Scope } from "./scopes";
+import type { Permission } from "../permissions";
+import type { Scope } from "./scopes";
 import * as s from "./schemas";
 
 export type Method = "GET" | "POST" | "PATCH" | "DELETE";

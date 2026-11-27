@@ -5,11 +5,11 @@
  *   1. the key has the route's scope, and
  *   2. the user the key acts as has the route's permission.
  *
- * Permission names follow the named-permission model planned in #94. Until that ships,
- * `roleHasPermission` maps today's three roles onto them, matching the UI's role checks
- * (canManageHiring, canManageUsers). When #94 lands, swap it for `can(user, permission)`.
+ * Permissions come from the named-permission model (#94) in `lib/permissions.ts`, and the
+ * check is the same `can(user, permission)` the UI uses, so the API and MCP server can never
+ * allow more than the app does.
  */
-import type { Role } from "../permissions";
+import { can, type Actor, type Permission } from "../permissions";
 
 export const SCOPES = [
   "jobs:read",
@@ -70,57 +70,15 @@ export function normalizeScopes(values: readonly unknown[]): Scope[] {
   return SCOPES.filter((s) => set.has(s));
 }
 
-/** Permission names used by API routes. A subset of the #94 list, plus view and submit permissions. */
-export const PERMISSIONS = [
-  "jobs.view",
-  "jobs.create",
-  "jobs.edit",
-  "candidates.view",
-  "candidates.create",
-  "candidates.edit",
-  "privacy.delete",
-  "applications.view",
-  "applications.move",
-  "scorecards.view",
-  "scorecards.submit",
-  "notes.view",
-  "notes.write",
-  "interviews.view",
-  "interviews.schedule",
-  "reports.view",
-  "templates.view",
-  "email.send",
-] as const;
-export type Permission = (typeof PERMISSIONS)[number];
-
-/** What everyone signed in can do. Visibility (which jobs) is applied separately. */
-const EVERYONE: readonly Permission[] = [
-  "jobs.view",
-  "candidates.view",
-  "applications.view",
-  "scorecards.view",
-  "scorecards.submit",
-  "notes.view",
-  "notes.write",
-  "interviews.view",
-];
-
-/** Same split as the UI: admins everything, recruiters hiring work, interviewers read and give feedback. */
-export function roleHasPermission(role: Role, permission: Permission): boolean {
-  if (role === "admin") return true;
-  if (role === "recruiter") return permission !== "privacy.delete";
-  return EVERYONE.includes(permission);
-}
-
 /** Scopes a key can usefully hold for a role. Anything else would always be denied. */
-export function scopesForRole(role: Role): Scope[] {
+export function scopesFor(user: Actor): Scope[] {
   return SCOPES.filter((scope) => {
     const needed = SCOPE_PERMISSIONS[scope];
-    return needed.some((p) => roleHasPermission(role, p));
+    return needed.some((p) => can(user, p));
   });
 }
 
-/** The permissions behind each scope, for the docs and for #94. */
+/** The permissions behind each scope, for the docs and the key form. */
 export const SCOPE_PERMISSIONS: Record<Scope, readonly Permission[]> = {
   "jobs:read": ["jobs.view"],
   "jobs:write": ["jobs.create", "jobs.edit"],
@@ -147,12 +105,12 @@ export const SCOPE_PERMISSIONS: Record<Scope, readonly Permission[]> = {
 export type AccessDecision = { ok: true } | { ok: false; code: "missing_scope" | "forbidden"; message: string };
 
 /** The check every API route runs before its handler. */
-export function checkAccess(input: { scopes: readonly string[]; role: Role }, need: { scope: Scope; permission: Permission }): AccessDecision {
+export function checkAccess(input: { scopes: readonly string[]; user: Actor }, need: { scope: Scope; permission: Permission }): AccessDecision {
   if (!input.scopes.includes(need.scope)) {
     return { ok: false, code: "missing_scope", message: `This API key needs the ${need.scope} scope.` };
   }
-  if (!roleHasPermission(input.role, need.permission)) {
-    return { ok: false, code: "forbidden", message: `The key's user (${input.role}) does not have the ${need.permission} permission.` };
+  if (!can(input.user, need.permission)) {
+    return { ok: false, code: "forbidden", message: `The key's user (${input.user.role}) does not have the ${need.permission} permission.` };
   }
   return { ok: true };
 }

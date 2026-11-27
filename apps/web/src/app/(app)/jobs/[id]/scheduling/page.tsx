@@ -5,13 +5,12 @@ import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
-import { canManageHiring } from "@/lib/permissions";
 import { smtpConfigured } from "@/lib/smtp";
 import { saveStageSchedulingAction } from "./actions";
 
 export default async function JobSchedulingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("interviews.plan");
   const { job, stages } = await loadJob(user, id);
   const [settings, templates] = await Promise.all([
     stages.length ? db().select().from(stageSchedulingSettings)

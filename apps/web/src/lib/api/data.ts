@@ -20,7 +20,7 @@ import type { SessionUser } from "../auth";
 import { db } from "../db";
 import { canSeeCandidate, canSeeJob, visibleJobIds } from "../hiring";
 import { interviewStatus } from "../interviews";
-import { canManageHiring } from "../permissions";
+import { can } from "../permissions";
 import { canSeeOthersScorecards } from "../scorecards";
 import { ApiError, notFound } from "./handler";
 
@@ -278,7 +278,7 @@ export async function listScorecards(user: SessionUser, applicationId: string) {
     .where(eq(scorecards.applicationId, applicationId))
     .orderBy(asc(scorecards.createdAt));
   const mine = rows.filter((r) => r.card.authorId === user.id);
-  const showAll = canSeeOthersScorecards({ managesHiring: canManageHiring(user.role), hasSubmitted: mine.length > 0 });
+  const showAll = canSeeOthersScorecards({ managesHiring: can(user, "scorecards.view_all"), hasSubmitted: mine.length > 0 });
   const visible = showAll ? rows : mine;
   return { data: visible.map((r) => serializeScorecard(r.card, r.author)), hidden_count: rows.length - visible.length };
 }

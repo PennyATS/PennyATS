@@ -3,11 +3,10 @@ import { asc } from "drizzle-orm";
 import { jobs, stages } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageHiring } from "@/lib/permissions";
 import { ImportCsvForm } from "./import-csv-form";
 
 export default async function ImportCandidatesPage() {
-  await requireUser(canManageHiring);
+  await requireUser("candidates.create");
   const [jobList, stageList] = await Promise.all([
     db().select({ id: jobs.id, title: jobs.title }).from(jobs).orderBy(asc(jobs.title)),
     db().select({ id: stages.id, jobId: stages.jobId, name: stages.name, position: stages.position }).from(stages),

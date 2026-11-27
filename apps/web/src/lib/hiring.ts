@@ -13,7 +13,7 @@ import {
 } from "@pennyats/db";
 import { db } from "./db";
 import type { SessionUser } from "./auth";
-import { seesAllJobs } from "./permissions";
+import { can } from "./permissions";
 import { isUuid, type CandidateInput } from "./validation";
 import { jobWatchers, notify } from "./notifications";
 import { queueWebhookEvent } from "./webhooks";
@@ -23,7 +23,7 @@ type Executor = Db | Tx;
 
 /** Job ids the user may see, or null for "all jobs". */
 export async function visibleJobIds(user: SessionUser): Promise<string[] | null> {
-  if (seesAllJobs(user.role)) return null;
+  if (can(user, "jobs.view_all")) return null;
   const rows = await db()
     .select({ jobId: jobTeam.jobId })
     .from(jobTeam)

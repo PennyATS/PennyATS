@@ -1,5 +1,4 @@
 import { requireUser } from "@/lib/auth";
-import { canManageHiring } from "@/lib/permissions";
 import { EXEC_PERIODS, execPeriodStart, executiveData, type ExecPeriod } from "@/lib/dashboard-data";
 import { monthKey, monthLabel, monthRange, foldOther } from "@/lib/charts";
 import { ChartToggle, ColumnChart } from "@/components/charts";
@@ -26,7 +25,7 @@ export default async function ExecutiveDashboard({
 }: {
   searchParams: Promise<{ period?: string; department?: string }>;
 }) {
-  const user = await requireUser(canManageHiring);
+  const user = await requireUser("dashboards.executive");
   const sp = await searchParams;
   const period: ExecPeriod = sp.period && sp.period in EXEC_PERIODS ? (sp.period as ExecPeriod) : "year";
   const department = sp.department?.trim().slice(0, 200) || null;

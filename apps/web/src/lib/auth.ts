@@ -5,12 +5,13 @@ import { cache } from "react";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { sessions, users } from "@pennyats/db";
 import { db } from "./db";
-import type { Role } from "./permissions";
+import { can, permissionsForRole, type Permission, type Role } from "./permissions";
 
 const COOKIE = "pennyats_session";
 const SESSION_DAYS = 30;
 
-export type SessionUser = { id: string; email: string; name: string; role: Role };
+/** `permissions` is resolved when the session is loaded, so checks with `can()` don't re-query. */
+export type SessionUser = { id: string; email: string; name: string; role: Role; permissions: readonly Permission[] };
 
 export function newToken(): string {
   return randomBytes(32).toString("base64url");
@@ -56,16 +57,16 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date()), eq(users.active, true)));
-  return row ?? null;
+  return row ? { ...row, permissions: permissionsForRole(row.role) } : null;
 });
 
 /**
  * Use at the top of every protected page and server action.
- * Signed out: redirect to /login. Wrong role: 404, so pages don't reveal they exist.
+ * Signed out: redirect to /login. Missing the permission: 404, so pages don't reveal they exist.
  */
-export async function requireUser(check?: (role: Role) => boolean): Promise<SessionUser> {
+export async function requireUser(permission?: Permission): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (check && !check(user.role)) notFound();
+  if (permission && !can(user, permission)) notFound();
   return user;
 }
