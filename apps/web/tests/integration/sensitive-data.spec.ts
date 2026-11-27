@@ -52,7 +52,7 @@ test("recruiter: sees pay and phone screens, but no CSV export", async ({ browse
   await page.goto(`/candidates/${candidateId}`);
   await expect(page.locator('textarea[name="body"]').filter({ hasText: screenText })).toHaveCount(1);
   // Recruiters' reports cover their own jobs and have no CSV export (#95 matrix).
-  expect((await page.request.get("/api/reports/funnel?period=all")).status()).toBe(404);
+  expect((await page.request.get("/api/reports/jobs?period=all")).status()).toBe(404);
 });
 
 test("coordinator: no pay, phone screens read only", async ({ browser }) => {
@@ -96,7 +96,7 @@ test("executive: aggregates and exports, no candidate records", async ({ browser
   expect((await page.request.get("/candidates")).status()).toBe(404);
   expect((await page.request.get(`/candidates/${candidateId}`)).status()).toBe(404);
   expect((await page.request.get(`/jobs/${jobId}`)).status()).toBe(404);
-  expect((await page.request.get("/api/reports/funnel?period=all")).status()).toBe(200);
+  expect((await page.request.get("/api/reports/jobs?period=all")).status()).toBe(200);
   await page.goto("/dashboards/executive");
   await expect(page.getByText("Active candidates")).toBeVisible();
   await expect(page.getByRole("search")).toHaveCount(0);
