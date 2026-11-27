@@ -26,6 +26,8 @@ services:
     environment:
       DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://pennyats:${POSTGRES_PASSWORD:-pennyats}@db:5432/pennyats}
       STORAGE_DIR: /app/apps/web/.data/uploads
+      # Scripts run in this container (such as pnpm webhooks:deliver) open stored secrets too.
+      AUTH_SECRET: ${AUTH_SECRET:-}
     volumes:
       - pennyats_uploads:/app/apps/web/.data/uploads
     depends_on:
@@ -41,6 +43,9 @@ services:
     environment:
       DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://pennyats:${POSTGRES_PASSWORD:-pennyats}@db:5432/pennyats}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      # Required. Encrypts stored calendar tokens and webhook secrets; the app refuses to start
+      # without a random value of 32+ characters. Generate one with: openssl rand -base64 32
+      AUTH_SECRET: ${AUTH_SECRET:-}
       AI_PROVIDER: ${AI_PROVIDER:-}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}

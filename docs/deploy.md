@@ -1,6 +1,6 @@
 # Deploy PennyATS with Docker Compose
 
-From a clean checkout, copy `.env.example` to `.env` and run:
+From a clean checkout, copy `.env.example` to `.env`, set `AUTH_SECRET` to a random value (`openssl rand -base64 32` prints one), and run:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build -d
@@ -20,13 +20,14 @@ Set these values in the repo-root `.env` file before a public deployment:
 | `DATABASE_URL` | Database connection for scripts running on the host, such as `pnpm db:migrate`. |
 | `POSTGRES_PASSWORD` | Database user password. The default `pennyats` is for local evaluation only. |
 | `COMPOSE_DATABASE_URL` | Optional app and migration connection to the `db` service. Set this if the password needs URL encoding. |
+| `AUTH_SECRET` | Required. A random value of at least 32 characters, for example from `openssl rand -base64 32`. Encrypts stored calendar tokens, webhook signing secrets, and scheduling mail settings. The app refuses to start when it is missing, short, or an example value. |
 | `APP_URL` | Public HTTPS origin, such as `https://ats.example.com`. Used for links and secure login cookies. |
 | `APP_PORT` | Host port for the app, default `3000`. Bound to `127.0.0.1`. |
 | `POSTGRES_PORT` | Host port for Postgres, default `5432`. Bound to `127.0.0.1`. |
 | `STORAGE_DIR` | Host-run app upload path. In Compose this is fixed at `/app/apps/web/.data/uploads` and backed by the uploads volume. |
 | `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL`, `AI_REDACT_PII` | Optional AI settings; leave the key blank to keep AI off. |
 
-`DATABASE_URL` in `.env` is for running database scripts on the host. Compose constructs the container connection from `COMPOSE_DATABASE_URL` (or the default using `POSTGRES_PASSWORD`), where the database hostname is `db`. If the password contains `@`, `:`, `/`, `#`, `%`, or other URL-reserved characters, set `COMPOSE_DATABASE_URL` explicitly and percent-encode only its password portion. Changing the password in `.env` does not change an already initialized Postgres volume; change the database role password inside Postgres first, then update `.env`. `AI_PROVIDER` accepts `anthropic` or `openai`; set `AI_API_KEY` to that provider's key and optionally choose `AI_MODEL`. `AI_BASE_URL` points OpenAI requests to a compatible server. `AI_REDACT_PII` defaults to `true` and replaces emails, phones, and links before model calls; it does not detect names.
+`DATABASE_URL` in `.env` is for running database scripts on the host. Compose constructs the container connection from `COMPOSE_DATABASE_URL` (or the default using `POSTGRES_PASSWORD`), where the database hostname is `db`. If the password contains `@`, `:`, `/`, `#`, `%`, or other URL-reserved characters, set `COMPOSE_DATABASE_URL` explicitly and percent-encode only its password portion. Changing the password in `.env` does not change an already initialized Postgres volume; change the database role password inside Postgres first, then update `.env`. Keep `AUTH_SECRET` stable and back it up with the database: changing or losing it breaks saved calendar connections (people reconnect them) and webhook signing secrets (delete and re-add each webhook). `AI_PROVIDER` accepts `anthropic` or `openai`; set `AI_API_KEY` to that provider's key and optionally choose `AI_MODEL`. `AI_BASE_URL` points OpenAI requests to a compatible server. `AI_REDACT_PII` defaults to `true` and replaces emails, phones, and links before model calls; it does not detect names.
 
 The Docker build excludes `.env` and local uploads. Runtime configuration is passed to containers through Compose. Keep `.env` private and use a secret manager if your deployment platform provides one.
 

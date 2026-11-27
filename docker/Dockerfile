@@ -27,8 +27,9 @@ WORKDIR /app
 
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+COPY --chmod=755 docker/app-start.sh /usr/local/bin/pennyats-start
 RUN mkdir -p /app/apps/web/.data/uploads && chown -R node:node /app/apps/web/.data
 
 USER node
 EXPOSE 3000
-CMD ["node", "apps/web/server.js"]
+CMD ["pennyats-start"]

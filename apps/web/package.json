@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "test:integration": "playwright test",
+    "test:compose": "playwright test -c playwright.compose.config.ts",
     "privacy:purge": "tsx scripts/privacy-purge.mts",
     "webhooks:deliver": "tsx scripts/webhooks-deliver.mts",
     "api:spec": "tsx scripts/api-spec.mts",

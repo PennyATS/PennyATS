@@ -45,8 +45,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and start database, migrations, and app
-        run: docker compose -f docker/docker-compose.yml up --build -d
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Build the images
+        run: docker compose -f docker/docker-compose.yml build
+
+      - name: App refuses to start without a real AUTH_SECRET
+        run: |
+          docker compose -f docker/docker-compose.yml up -d db
+          out=$(docker compose -f docker/docker-compose.yml run --rm -T --no-deps app 2>&1) && exit 1
+          echo "$out" | grep -q "AUTH_SECRET is not set"
+          out=$(AUTH_SECRET=changeme-changeme-changeme-changeme docker compose -f docker/docker-compose.yml run --rm -T --no-deps app 2>&1) && exit 1
+          echo "$out" | grep -q "example value"
+
+      - name: Start database, migrations, and app with a generated secret
+        run: |
+          export AUTH_SECRET=$(openssl rand -base64 32)
+          echo "AUTH_SECRET=$AUTH_SECRET" >> "$GITHUB_ENV"
+          docker compose -f docker/docker-compose.yml up -d
 
       - name: Check first-run setup from a clean database
         run: |
@@ -60,6 +81,14 @@ jobs:
 
       - name: Check uploads volume is writable
         run: docker compose -f docker/docker-compose.yml exec -T app node -e "const fs = require('node:fs'); const file = process.env.STORAGE_DIR + '/ci-write-check'; fs.writeFileSync(file, 'ok'); fs.unlinkSync(file)"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter @pennyats/web exec playwright install --with-deps chromium
+
+      - name: Set up the first admin and add a webhook in the browser
+        run: COMPOSE_BASE_URL=http://localhost:3000 pnpm --filter @pennyats/web test:compose
 
       - name: Show container status on failure
         if: failure()
@@ -82,7 +111,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build and start the demo
-        run: $COMPOSE up --build -d
+        run: |
+          export AUTH_SECRET=$(openssl rand -base64 32)
+          echo "AUTH_SECRET=$AUTH_SECRET" >> "$GITHUB_ENV"
+          $COMPOSE up --build -d
 
       - name: Wait for the first reset and check the banner and demo accounts
         run: |
