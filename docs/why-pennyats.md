@@ -1,4 +1,9 @@
-# Why switch to PennyATS?
+# Why PennyATS, and how to start
+
+Pick your starting point:
+
+- **Tracking hiring in a spreadsheet, inbox, or Notion?** Read [Starting from scratch](getting-started-hiring.md).
+- **Using Ashby, Greenhouse, or another ATS?** Read [Moving from another ATS](#moving-from-another-ats), and use the cost comparison below.
 
 PennyATS is an early-preview, open-source applicant tracking system you run with your own Postgres database. It has no per-seat software fee. You control the database and can [export a versioned copy of your workspace](schema/README.md). In return, your team operates the server and decides how to handle backups, updates, access, and support. If you want a managed service with a broad, mature recruiting suite, a hosted ATS may be the better purchase.
 
