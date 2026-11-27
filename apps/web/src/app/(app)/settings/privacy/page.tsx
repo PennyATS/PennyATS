@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { apiKeys, auditLog, users } from "@pennyats/db";
 import { ActionForm, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { expiredCandidateIds, getPrivacySettings } from "@/lib/privacy";
 import { MAX_RETENTION_MONTHS } from "@/lib/privacy-rules";
@@ -32,7 +33,9 @@ function actorText(entry: { action: string; actor: string | null; actorType: str
 }
 
 export default async function PrivacySettingsPage() {
-  await requireUser("settings.manage");
+  // Head of Talent reads the audit log here; only people who manage settings change them.
+  const user = await requireUser("audit.view");
+  const manage = can(user, "settings.manage");
   const settings = await getPrivacySettings();
   const [expired, log] = await Promise.all([
     settings.retentionMonths ? expiredCandidateIds(settings.retentionMonths) : Promise.resolve([]),
@@ -60,6 +63,7 @@ export default async function PrivacySettingsPage() {
         legal advice; check what applies to you.
       </p>
 
+      {manage && <>
       <h2 className="mt-8 text-lg font-semibold">Careers page notice</h2>
       <ActionForm resetKey={JSON.stringify(settings)} action={savePrivacyAction} className="card mt-3 max-w-2xl space-y-4">
         <div>
@@ -144,6 +148,7 @@ export default async function PrivacySettingsPage() {
       <a className="btn btn-secondary mt-3 inline-block" href="/api/export/workspace" download>
         Download all hiring data
       </a>
+      </>}
 
       <h2 className="mt-10 text-lg font-semibold">Audit log</h2>
       <p className="muted mt-1 text-sm">Proof that requests were handled. Deleted people&apos;s details are never kept here.</p>

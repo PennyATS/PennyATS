@@ -1,6 +1,6 @@
 /** Shared setup for the API, webhook, and MCP integration tests: keys made straight in the test database. */
 import { eq, inArray } from "drizzle-orm";
-import { apiKeys, createDb, jobTeam, users } from "@pennyats/db";
+import { apiKeys, createDb, jobTeam, users, roles } from "@pennyats/db";
 import { expect, type APIRequestContext } from "@playwright/test";
 import { generateApiKey } from "../../src/lib/api/keys";
 import { routes, type ApiRoute, type RouteName } from "../../src/lib/api/routes";
@@ -10,7 +10,10 @@ import type { Role } from "../../src/lib/permissions";
 export const db = createDb(process.env.TEST_DATABASE_URL);
 
 export async function seededUsers() {
-  const rows = await db.select().from(users);
+  const rows = await db
+    .select({ id: users.id, email: users.email, name: users.name, active: users.active, role: roles.key })
+    .from(users)
+    .innerJoin(roles, eq(roles.id, users.roleId));
   const by = (email: string) => {
     const user = rows.find((u) => u.email === email);
     if (!user) throw new Error(`Seed user ${email} is missing. Run pnpm test:integration from the repo root.`);

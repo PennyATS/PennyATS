@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { asc, count, eq, inArray } from "drizzle-orm";
-import { applications, jobTeam, users } from "@pennyats/db";
+import { roleLabel } from "@/lib/permissions";
+import { applications, jobTeam, users, roles } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
@@ -37,12 +38,12 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
           .groupBy(applications.stageId)
       : [],
     db()
-      .select({ id: users.id, name: users.name, role: users.role })
+      .select({ id: users.id, name: users.name, role: roles.key })
       .from(jobTeam)
       .innerJoin(users, eq(users.id, jobTeam.userId))
       .where(eq(jobTeam.jobId, job.id))
       .orderBy(asc(users.name)),
-    db().select({ id: users.id, name: users.name, role: users.role, active: users.active }).from(users).orderBy(asc(users.name)),
+    db().select({ id: users.id, name: users.name, role: roles.key, active: users.active }).from(users).innerJoin(roles, eq(roles.id, users.roleId)).innerJoin(roles, eq(roles.id, users.roleId)).orderBy(asc(users.name)),
   ]);
   const inStage = new Map(stageCounts.map((r) => [r.stageId, r.n]));
   const teamIds = new Set(team.map((t) => t.id));
@@ -184,7 +185,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             {team.map((member) => (
               <li key={member.id} className="flex items-center justify-between gap-3">
                 <span>
-                  {member.name} <span className="muted capitalize">· {member.role}</span>
+                  {member.name} <span className="muted">· {roleLabel(member.role)}</span>
                 </span>
                 <form action={removeTeamMemberAction.bind(null, job.id, member.id)}>
                   <button type="submit" className="btn btn-secondary" aria-label={`Remove ${member.name} from the hiring team`}>

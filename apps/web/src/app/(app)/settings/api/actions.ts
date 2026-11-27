@@ -2,7 +2,7 @@
 
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { apiKeys, users, webhooks } from "@pennyats/db";
+import { apiKeys, users, webhooks, roles } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEMO_BLOCKED, isDemoMode } from "@/lib/demo";
@@ -25,8 +25,8 @@ export async function createApiKeyAction(_: SecretState, form: FormData): Promis
   const userId = field(form, "userId", 64) ?? admin.id;
   if (!isUuid(userId)) return { error: "Pick a user." };
   const [owner] = await db()
-    .select({ id: users.id, role: users.role })
-    .from(users)
+    .select({ id: users.id, role: roles.key })
+    .from(users).innerJoin(roles, eq(roles.id, users.roleId))
     .where(and(eq(users.id, userId), eq(users.active, true)));
   if (!owner || !isRole(owner.role)) return { error: "Pick an active user." };
 

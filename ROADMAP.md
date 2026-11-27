@@ -27,6 +27,7 @@ PennyATS aims to be a near one-to-one open source alternative to Ashby and Green
 Already planned: permission model and role presets ([#94](https://github.com/PennyATS/PennyATS/issues/94), [#95](https://github.com/PennyATS/PennyATS/issues/95)), job-level access and confidential jobs ([#96](https://github.com/PennyATS/PennyATS/issues/96)), sensitive data rules ([#97](https://github.com/PennyATS/PennyATS/issues/97)), audit log for access changes ([#102](https://github.com/PennyATS/PennyATS/issues/102)), sessions, password policy, and two-factor ([#103](https://github.com/PennyATS/PennyATS/issues/103)), and single sign-on ([#104](https://github.com/PennyATS/PennyATS/issues/104)). The role-based access epic is [#93](https://github.com/PennyATS/PennyATS/issues/93).
 
 - #94 permission model: **shipped**. Every check is `can(user, permission)` from `apps/web/src/lib/permissions.ts`, shared by the UI, the API, and the MCP server, with a role x permission snapshot test.
+- #95 role presets: **shipped**. Admin, Head of Talent, Talent Acquisition Manager, Recruiter, Recruiting Coordinator, Hiring Manager, Interviewer, and Executive, stored in a `roles` table, described on the Users page, with one demo user each.
 
 Added:
 

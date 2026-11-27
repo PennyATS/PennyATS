@@ -1,5 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
-import { MIN_PASSWORD_LENGTH, invites } from "@pennyats/db";
+import { MIN_PASSWORD_LENGTH, invites, roles } from "@pennyats/db";
+import { isRole, roleName } from "@/lib/permissions";
 import { ActionForm, Field, SubmitButton } from "@/components/form";
 import { hashToken } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -10,8 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const [invite] = await db()
-    .select({ email: invites.email, role: invites.role })
+    .select({ email: invites.email, role: roles.key })
     .from(invites)
+    .innerJoin(roles, eq(roles.id, invites.roleId))
     .where(
       and(
         eq(invites.tokenHash, hashToken(token)),
@@ -33,7 +35,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     <>
       <h1 className="text-xl font-semibold">Join your team</h1>
       <p className="muted mb-4 mt-1 text-sm">
-        Creating the {invite.role} account for {invite.email}.
+        Creating the {isRole(invite.role) ? roleName(invite.role) : invite.role} account for {invite.email}.
       </p>
       <ActionForm action={acceptInviteAction.bind(null, token)}>
         <Field label="Your name" name="name" autoComplete="name" required />

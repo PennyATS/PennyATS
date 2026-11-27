@@ -25,7 +25,8 @@ export default async function JobPage({
   const { id } = await params;
   const requested = (await searchParams).view;
   const view = requested === "board" || requested === "list" || requested === "archived" ? requested : "overview";
-  const user = await requireUser();
+  // The pipeline lists candidates, so it needs more than seeing the job (Executive sees summaries only).
+  const user = await requireUser("applications.view");
   const manage = can(user, "applications.move");
   const { job, stages } = await loadJob(user, id);
   const stageName = new Map(stages.map((s) => [s.id, s.name]));
@@ -106,7 +107,7 @@ export default async function JobPage({
           const activeIds = active.map((r) => r.id);
           const [[team], reportInput, loop] = await Promise.all([
             db().select({ n: count() }).from(jobTeam).where(eq(jobTeam.jobId, job.id)),
-            loadReportInput(job.id, "all"),
+            loadReportInput(job.id, "all", null),
             activeIds.length
               ? db().select().from(interviews).where(inArray(interviews.applicationId, activeIds))
               : Promise.resolve([]),

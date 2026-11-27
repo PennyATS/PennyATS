@@ -1,5 +1,6 @@
 import { ActionForm, Field, SubmitButton, type FormAction } from "@/components/form";
 import { isAiFeatureOn } from "@/lib/ai";
+import { roleLabel } from "@/lib/permissions";
 import { CURRENCIES, EMPLOYMENT_TYPES, PAY_PERIODS, PRIORITIES, WORKPLACE_TYPES, type JobDetails } from "@/lib/job-fields";
 import { draftDescriptionAction } from "./actions";
 import { AiDraftButton } from "./ai-draft-button";
@@ -132,7 +133,7 @@ export async function JobForm({
               <select id={name} name={name} className="input" defaultValue={value ?? ""}>
                 <option value="">Not set</option>
                 {people.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
+                  <option key={p.id} value={p.id}>{p.name} ({roleLabel(p.role)})</option>
                 ))}
               </select>
             </div>

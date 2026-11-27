@@ -37,6 +37,8 @@ const env = {
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 for (const args of [
+  // Upgrade path for the role presets migration (#95), in its own throwaway database.
+  ["--filter", "@pennyats/db", "exec", "tsx", "src/check-role-migration.ts"],
   ["db:migrate"],
   ["db:seed"],
   ["--filter", "@pennyats/web", "test:integration"],

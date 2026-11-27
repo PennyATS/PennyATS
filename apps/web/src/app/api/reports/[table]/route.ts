@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { toCsv } from "@/lib/csv";
 import { can } from "@/lib/permissions";
 import { loadReportInput } from "@/lib/report-data";
+import { reportJobIds } from "@/lib/hiring";
 import { REPORT_TABLES, readPeriod, reportTables, type ReportTableId } from "@/lib/reports";
 import { isUuid } from "@/lib/validation";
 
@@ -18,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ tabl
   const jobId = job && isUuid(job) ? job : null;
   const period = readPeriod(url.searchParams.get("period") ?? undefined);
 
-  const data = reportTables(await loadReportInput(jobId, period))[table as ReportTableId];
+  const data = reportTables(await loadReportInput(jobId, period, await reportJobIds(user)))[table as ReportTableId];
   if (!data) return new Response("Not available for this selection", { status: 404 });
 
   return new Response(toCsv(data.head, data.rows), {

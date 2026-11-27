@@ -18,6 +18,7 @@ import {
   jobTeam,
   jobs,
   notes,
+  roleIdsByKey,
   scorecards,
   stages,
   users,
@@ -135,9 +136,16 @@ export async function importWorkspace(db: Db, input: unknown): Promise<ImportSum
     const userId = new Map(userRows.map((u) => [u.email.toLowerCase(), u.id]));
     const missing = doc.people.filter((p) => !userId.has(p.email.toLowerCase()));
     if (missing.length) {
+      // Prefer the 1.1 role preset when this instance knows it; otherwise the 1.0 role.
+      const roleIds = await roleIdsByKey(tx);
+      const roleIdOf = (p: (typeof missing)[number]) => {
+        const id = (p.role_key && roleIds.get(p.role_key)) || roleIds.get(p.role);
+        if (!id) throw new Error(`Role "${p.role}" not found. Run pnpm db:migrate first.`);
+        return id;
+      };
       const created = await tx
         .insert(users)
-        .values(missing.map((p) => ({ email: p.email.toLowerCase(), name: p.name, role: p.role, active: false, passwordHash: null })))
+        .values(missing.map((p) => ({ email: p.email.toLowerCase(), name: p.name, roleId: roleIdOf(p), active: false, passwordHash: null })))
         .returning({ id: users.id, email: users.email });
       created.forEach((u) => userId.set(u.email.toLowerCase(), u.id));
       summary.created.people = created.length;

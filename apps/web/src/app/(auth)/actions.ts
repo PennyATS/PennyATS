@@ -7,6 +7,7 @@ import {
   instance,
   invites,
   users,
+  roleIdFor,
   verifyPassword,
 } from "@pennyats/db";
 import type { FormState } from "@/components/form";
@@ -45,7 +46,7 @@ export async function setupAction(_: FormState, form: FormData): Promise<FormSta
     if (claimed.length === 0) return null;
     const [user] = await tx
       .insert(users)
-      .values({ name, email, passwordHash, role: "admin" })
+      .values({ name, email, passwordHash, roleId: await roleIdFor(tx, "admin") })
       .returning({ id: users.id });
     return user.id;
   });
@@ -108,7 +109,7 @@ export async function acceptInviteAction(
 
       const [user] = await tx
         .insert(users)
-        .values({ name, email: invite.email, passwordHash, role: invite.role })
+        .values({ name, email: invite.email, passwordHash, roleId: invite.roleId })
         .onConflictDoNothing()
         .returning({ id: users.id });
       // Roll back so the invite stays unused if the account already exists.

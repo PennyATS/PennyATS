@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { loadReportInput } from "@/lib/report-data";
+import { reportJobIds } from "@/lib/hiring";
 import {
   PERIODS,
   daysToHire,
@@ -29,12 +30,12 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ job?: string; period?: string }>;
 }) {
-  await requireUser("reports.view");
+  const user = await requireUser("reports.view");
   const sp = await searchParams;
   const period = readPeriod(sp.period);
   const jobId = sp.job && isUuid(sp.job) ? sp.job : null;
 
-  const input = await loadReportInput(jobId, period);
+  const input = await loadReportInput(jobId, period, await reportJobIds(user));
   const tables = reportTables(input);
   const selectedJob = jobId ? input.jobs.find((j) => j.id === jobId) : undefined;
   const hireDays = daysToHire(input.apps, input.events);

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { asc, count, eq, inArray } from "drizzle-orm";
-import { applications, jobTeam, users } from "@pennyats/db";
+import { applications, jobTeam, users, roles } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadJob } from "@/lib/loaders";
-import { can } from "@/lib/permissions";
+import { can, roleLabel } from "@/lib/permissions";
 import { EMPLOYMENT_TYPES, PRIORITIES, WORKPLACE_TYPES, formatCompensation } from "@/lib/job-fields";
 import { DetailsButton, JobDrawer, JobRail } from "./job-chrome";
 
@@ -19,7 +19,7 @@ export default async function JobLayout({ children, params }: { children: React.
   const [statusCounts, team] = await Promise.all([
     db().select({ status: applications.status, n: count() }).from(applications).where(eq(applications.jobId, job.id)).groupBy(applications.status),
     db()
-      .select({ id: users.id, name: users.name, role: users.role })
+      .select({ id: users.id, name: users.name, role: roles.key })
       .from(jobTeam)
       .innerJoin(users, eq(users.id, jobTeam.userId))
       .where(eq(jobTeam.jobId, job.id))
@@ -28,7 +28,7 @@ export default async function JobLayout({ children, params }: { children: React.
   const n = (s: string) => statusCounts.find((c) => c.status === s)?.n ?? 0;
   const all = statusCounts.reduce((a, c) => a + c.n, 0);
   const peopleIds = [job.hiringManagerId, job.recruiterId].filter((x): x is string => Boolean(x));
-  const people = peopleIds.length ? await db().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, peopleIds)) : [];
+  const people = peopleIds.length ? await db().select({ id: users.id, name: users.name }).from(users).innerJoin(roles, eq(roles.id, users.roleId)).where(inArray(users.id, peopleIds)) : [];
   const personName = (pid: string | null) => (pid ? people.find((p) => p.id === pid)?.name : undefined);
   const pay = can(user, "jobs.view_compensation") ? formatCompensation({ ...job, compPeriod: job.compPeriod as "year" | "hour" | null }) : null;
   const base = `/jobs/${job.id}`;
@@ -129,7 +129,7 @@ export default async function JobLayout({ children, params }: { children: React.
           <ul className="mt-2 flex flex-wrap gap-2 text-sm">
             {team.map((m) => (
               <li key={m.id} className="rounded-md border px-2.5 py-1" style={{ borderColor: "var(--border)" }}>
-                {m.name} <span className="muted text-xs capitalize">{m.role}</span>
+                {m.name} <span className="muted text-xs">{roleLabel(m.role)}</span>
               </li>
             ))}
           </ul>

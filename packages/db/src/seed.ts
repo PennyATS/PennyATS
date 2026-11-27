@@ -15,6 +15,7 @@ import {
   emailTemplates,
   hashPassword,
   DEFAULT_STAGES,
+  roleIdFor,
 } from "./index";
 
 loadRootEnv();
@@ -36,7 +37,7 @@ const ADMIN_PASSWORD = "pennyats-demo";
 const passwordHash = await hashPassword(ADMIN_PASSWORD);
 await db
   .insert(users)
-  .values({ email: ADMIN_EMAIL, name: "Demo Admin", role: "admin", passwordHash })
+  .values({ email: ADMIN_EMAIL, name: "Demo Admin", roleId: await roleIdFor(db, "admin"), passwordHash })
   // Databases seeded before login existed have a demo admin with no password.
   .onConflictDoUpdate({ target: users.email, set: { passwordHash }, setWhere: isNull(users.passwordHash) });
 

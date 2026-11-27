@@ -18,7 +18,13 @@
         "admin",
         "recruiter",
         "interviewer"
-      ]
+      ],
+      "description": "Closest 1.0 role with no more access than `role_key`, for readers that only know the original three."
+    },
+    "role_key": {
+      "description": "The person's role preset (1.1.0), for example `head_of_talent`, `coordinator`, `hiring_manager`, or `executive`. Open: readers must accept unknown values and fall back to `role`.",
+      "type": "string",
+      "maxLength": 64
     }
   },
   "required": [
@@ -27,5 +33,5 @@
     "role"
   ],
   "additionalProperties": false,
-  "x-pennyats-schema-version": "1.0.0"
+  "x-pennyats-schema-version": "1.1.0"
 }

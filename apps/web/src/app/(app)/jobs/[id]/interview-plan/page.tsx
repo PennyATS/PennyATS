@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { asc, eq, inArray } from "drizzle-orm";
-import { interviewTemplateInterviewers, interviewTemplates, users } from "@pennyats/db";
+import { roleLabel } from "@/lib/permissions";
+import { interviewTemplateInterviewers, interviewTemplates, users, roles } from "@pennyats/db";
 import { ActionForm, Field, SubmitButton } from "@/components/form";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -34,8 +35,8 @@ export default async function InterviewPlanPage({
           .where(inArray(interviewTemplateInterviewers.templateId, templates.map((t) => t.id)))
       : [],
     db()
-      .select({ id: users.id, name: users.name, role: users.role })
-      .from(users)
+      .select({ id: users.id, name: users.name, role: roles.key })
+      .from(users).innerJoin(roles, eq(roles.id, users.roleId))
       .where(eq(users.active, true))
       .orderBy(asc(users.name)),
   ]);
@@ -154,7 +155,7 @@ export default async function InterviewPlanPage({
                   {people.map((p) => (
                     <label key={p.id} className="flex items-center gap-2">
                       <input type="checkbox" name="interviewerIds" value={p.id} defaultChecked={editingIds.has(p.id)} />
-                      {p.name} <span className="muted capitalize">· {p.role}</span>
+                      {p.name} <span className="muted">· {roleLabel(p.role)}</span>
                     </label>
                   ))}
                 </div>

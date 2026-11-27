@@ -13,7 +13,7 @@ test("admins and recruiters manage hiring; interviewers don't", () => {
   assert.equal(can({ role: "admin" }, "applications.move"), true);
   assert.equal(can({ role: "recruiter" }, "applications.move"), true);
   assert.equal(can({ role: "interviewer" }, "applications.move"), false);
-  assert.deepEqual(rolesWith("applications.move"), ["admin", "recruiter"]);
+  assert.deepEqual(rolesWith("applications.move"), ["admin", "head_of_talent", "ta_manager", "recruiter", "coordinator", "hiring_manager"]);
 });
 
 test("interviewers are limited to their hiring teams", () => {
