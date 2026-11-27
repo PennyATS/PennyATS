@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { OTHER_COLOR, SERIES_COLORS, arcPath, donutArcs, niceTicks } from "@/lib/charts";
 
 /* Small SVG charts with hover tooltips. No chart library. Text uses text colors, never series colors. */
@@ -8,15 +9,17 @@ import { OTHER_COLOR, SERIES_COLORS, arcPath, donutArcs, niceTicks } from "@/lib
 const SINGLE = "var(--accent)";
 const fmt = (n: number) => (Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1));
 
-function Tooltip({ x, y, children }: { x: number | string; y: number; children: React.ReactNode }) {
-  return (
+function Tooltip({ x, y, children }: { x: number; y: number; children: React.ReactNode }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
       role="presentation"
-      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md border px-2.5 py-1.5 text-xs shadow-lg"
-      style={{ left: x, top: y - 8, background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)", whiteSpace: "nowrap" }}
+      className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-md border px-2.5 py-1.5 text-xs shadow-lg"
+      style={{ left: Math.max(110, Math.min(x, window.innerWidth - 110)), top: Math.max(64, y - 8), maxWidth: "min(18rem, calc(100vw - 1rem))", background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -83,9 +86,12 @@ export function StackedBarChart({ rows, series }: { rows: { label: string; value
             <li
               key={row.label}
               className="grid grid-cols-[minmax(6rem,11rem)_1fr_3rem] items-center gap-3"
+              tabIndex={0}
+              aria-label={`${row.label}: ${series.map((name, i) => `${name} ${row.values[i]}`).join(", ")}`}
+              onFocus={(e) => { const box = e.currentTarget.getBoundingClientRect(); setHover({ row: r, x: box.left + box.width / 2, y: box.top }); }}
+              onBlur={() => setHover(null)}
               onMouseMove={(e) => {
-                const box = (e.currentTarget.offsetParent as HTMLElement | null)?.getBoundingClientRect();
-                if (box) setHover({ row: r, x: e.clientX - box.left, y: e.clientY - box.top });
+                setHover({ row: r, x: e.clientX, y: e.clientY });
               }}
               onMouseLeave={() => setHover(null)}
             >
@@ -131,7 +137,7 @@ export function DonutChart({ rows, centerLabel }: { rows: { label: string; value
   const pct = (v: number) => `${Math.round((v / total) * 100)}%`;
   const shown = hover ?? null;
   return (
-    <div className="flex flex-wrap items-center gap-6">
+    <div className="mx-auto grid max-w-lg items-center gap-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
       <svg viewBox="0 0 160 160" className="size-44 shrink-0" role="img" aria-label={rows.map((r) => `${r.label} ${r.value}`).join(", ")}>
         {arcs.map((a, i) =>
           a.share > 0 ? (
@@ -155,7 +161,7 @@ export function DonutChart({ rows, centerLabel }: { rows: { label: string; value
           {shown === null ? centerLabel : pct(rows[shown].value)}
         </text>
       </svg>
-      <ul className="min-w-0 flex-1 space-y-1 text-sm" aria-label="Legend">
+      <ul className="min-w-0 space-y-1 text-sm" aria-label="Legend">
         {rows.map((r, i) => (
           <li
             key={r.label}
@@ -165,7 +171,7 @@ export function DonutChart({ rows, centerLabel }: { rows: { label: string; value
             onMouseLeave={() => setHover(null)}
           >
             <span aria-hidden="true" className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: color(i) }} />
-            <span className="min-w-0 flex-1 truncate">{r.label}</span>
+            <span className="min-w-0 flex-1 break-words">{r.label}</span>
             <span className="tabular-nums">{r.value}</span>
             <span className="muted w-10 text-right tabular-nums">{pct(r.value)}</span>
           </li>
@@ -192,6 +198,7 @@ export function LineChart({
   color?: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null);
   const id = useId();
   if (labels.length === 0) return <p className="muted text-sm">No data for this period.</p>;
   const W = width;
@@ -210,13 +217,26 @@ export function LineChart({
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full"
         role="img"
-        aria-labelledby={`${id}-desc`}
-        onMouseLeave={() => setHover(null)}
+        aria-labelledby={hover === null ? `${id}-desc` : undefined}
+        aria-label={hover === null ? undefined : `${labels[hover]}: ${series.map((s) => `${s.name} ${s.values[hover]}`).join(", ")}`}
+        tabIndex={0}
+        onFocus={(e) => { const box = e.currentTarget.getBoundingClientRect(); setHover(0); setTooltip({ x: box.left + box.width * (x(0) / W), y: box.top + 24 }); }}
+        onBlur={() => { setHover(null); setTooltip(null); }}
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          e.preventDefault();
+          const next = Math.max(0, Math.min(labels.length - 1, (hover ?? 0) + (e.key === "ArrowRight" ? 1 : -1)));
+          const box = e.currentTarget.getBoundingClientRect();
+          setHover(next);
+          setTooltip({ x: box.left + box.width * (x(next) / W), y: box.top + 24 });
+        }}
+        onMouseLeave={() => { setHover(null); setTooltip(null); }}
         onMouseMove={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - box.left) / box.width) * W;
           const step = labels.length > 1 ? (W - pad.l - pad.r) / (labels.length - 1) : 1;
           setHover(Math.max(0, Math.min(labels.length - 1, Math.round((px - pad.l) / step))));
+          setTooltip({ x: e.clientX, y: e.clientY });
         }}
       >
         <desc id={`${id}-desc`}>
@@ -248,8 +268,8 @@ export function LineChart({
           </g>
         ))}
       </svg>
-      {hover !== null && (
-        <Tooltip x={`${(x(hover) / W) * 100}%`} y={40}>
+      {hover !== null && tooltip && (
+        <Tooltip x={tooltip.x} y={tooltip.y}>
           <div className="font-medium">{labels[hover]}</div>
           {series.map((s, i) => (
             <div key={s.name} className="flex items-center gap-1.5">
@@ -309,6 +329,7 @@ export function ChartToggle({ id, graph, table }: { id: string; graph: React.Rea
 /** Vertical stacked columns over ordered labels (e.g. hires per month by department). */
 export function ColumnChart({ labels, series }: { labels: string[]; series: { name: string; values: number[] }[] }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null);
   if (labels.length === 0 || series.length === 0) return <p className="muted text-sm">No data for this period.</p>;
   const W = 640;
   const H = 240;
@@ -323,7 +344,7 @@ export function ColumnChart({ labels, series }: { labels: string[]; series: { na
   return (
     <div className="relative space-y-3">
       {series.length > 1 && <Legend items={series.map((s, i) => ({ label: s.name, color: color(i) }))} />}
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={labels.map((l, i) => `${l}: ${totals[i]}`).join(", ")} onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={labels.map((l, i) => `${l}: ${totals[i]}`).join(", ")} onMouseLeave={() => { setHover(null); setTooltip(null); }}>
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="var(--border)" />
@@ -334,7 +355,7 @@ export function ColumnChart({ labels, series }: { labels: string[]; series: { na
           const cx = pad.l + band * i + band / 2;
           let acc = 0;
           return (
-            <g key={label} onMouseEnter={() => setHover(i)}>
+            <g key={label} onMouseMove={(e) => { setHover(i); setTooltip({ x: e.clientX, y: e.clientY }); }}>
               <rect x={cx - band / 2} y={pad.t} width={band} height={H - pad.t - pad.b} fill={hover === i ? "var(--bg)" : "transparent"} />
               {series.map((s, si) => {
                 const v = s.values[i];
@@ -352,8 +373,8 @@ export function ColumnChart({ labels, series }: { labels: string[]; series: { na
           );
         })}
       </svg>
-      {hover !== null && totals[hover] > 0 && (
-        <Tooltip x={`${((pad.l + band * hover + band / 2) / W) * 100}%`} y={48}>
+      {hover !== null && tooltip && totals[hover] > 0 && (
+        <Tooltip x={tooltip.x} y={tooltip.y}>
           <div className="font-medium">{labels[hover]} · {totals[hover]}</div>
           {series.map((s, i) =>
             s.values[hover] > 0 ? (
