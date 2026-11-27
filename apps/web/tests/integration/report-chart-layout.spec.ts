@@ -10,6 +10,7 @@ test("report chart hover does not resize sections and donut legends stay close",
   await page.getByLabel("Email").fill("admin@example.com");
   await page.getByLabel("Password").fill("pennyats-demo");
   await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   await page.goto("/reports");
   await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
 
