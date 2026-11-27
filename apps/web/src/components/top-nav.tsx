@@ -298,6 +298,7 @@ export function TopNav({ user, notifications }: { user: Pick<SessionUser, "name"
         { href: "/settings/calendar", label: "Google Calendar", icon: "settings" },
         ...(canAdmin
           ? [
+              { href: "/settings/setup", label: "Setup checklist", icon: "settings" as const },
               { href: "/settings/users", label: "Users", icon: "candidates" as const },
               { href: "/settings/privacy", label: "Privacy", icon: "settings" as const },
               { href: "/settings/ai", label: "AI", icon: "settings" as const },

@@ -86,6 +86,7 @@ Copy `.env.example` to `.env` (repo root) before running anything that touches t
 - Audit log rows have `actor_type` (user, api_key, agent, system) and `api_key_id`. API writes are logged by `apiHandler`; requests with `X-PennyATS-Agent` are agent activity.
 - Exports from a `"use server"` file are callable by anyone as endpoints. Put helpers in `lib/`, not in actions files.
 - Public demo (`docs/demo.md`): `isDemoMode()` in `lib/demo.ts` switches off email, AI, calendar sync, and webhooks, tightens limits, and blocks account changes. A new feature that sends anything outward or lets one visitor lock out others must check it. `pnpm demo:reset` and `pnpm db:seed` refuse real databases (`packages/db/src/demo-guard.ts`); keep those guards.
+- Setup checklist (`/settings/setup`, #132): steps and plain-language wording live in `lib/setup-checklist.ts`; completion is derived from the workspace in `lib/setup-checklist-data.ts`, and only skips and "hidden from Home" are stored (settings key `setup_checklist`). Test buttons return wording from `testMessage`, never raw errors.
 - Forms: React 19 resets a form after its action runs, snapping inputs back to stale defaults. For `ActionForm`, pass `resetKey` (the saved value) rather than keying the whole form, which would also wipe the "Saved." message. Plain forms: key the inputs.
 
 ## Done means
