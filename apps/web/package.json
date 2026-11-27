@@ -20,6 +20,7 @@
     "@pennyats/ai": "workspace:*",
     "@pennyats/db": "workspace:*",
     "@pennyats/redact": "workspace:*",
+    "@pennyats/schema": "workspace:*",
     "@tiptap/pm": "^3.35.0",
     "@tiptap/react": "^3.35.0",
     "@tiptap/starter-kit": "^3.35.0",

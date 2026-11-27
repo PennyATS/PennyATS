@@ -12,7 +12,7 @@ const config: NextConfig = {
   // Building it creates symlinks, which fail on Windows without Developer Mode.
   output: process.env.PENNYATS_STANDALONE === "1" ? "standalone" : undefined,
   outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
-  transpilePackages: ["@pennyats/db", "@pennyats/ai", "@pennyats/redact"],
+  transpilePackages: ["@pennyats/db", "@pennyats/ai", "@pennyats/redact", "@pennyats/schema"],
   experimental: {
     // Resume uploads go through server actions; the default limit is 1 MB.
     serverActions: { bodySizeLimit: "6mb" },

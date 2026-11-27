@@ -51,7 +51,9 @@ export type AuditAction =
   | "webhook_created"
   | "webhook_changed"
   | "webhook_deleted"
-  | "api_write";
+  | "api_write"
+  | "workspace_exported"
+  | "workspace_imported";
 
 /**
  * Permanently delete candidates and everything attached to them: applications, stage
