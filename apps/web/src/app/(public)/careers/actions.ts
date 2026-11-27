@@ -8,12 +8,13 @@ import { addApplication } from "@/lib/hiring";
 import { deliverDueWebhooks } from "@/lib/webhooks";
 import { getPrivacySettings } from "@/lib/privacy";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { DEMO_LIMITS, isDemoMode } from "@/lib/demo";
 import { clientIp } from "@/lib/request";
 import { extensionOf, storage } from "@/lib/storage";
 import { checkResume, parseCandidate } from "@/lib/validation";
 import { sendStageEntryEmail } from "@/lib/candidate-email";
 
-const applyLimiter = createRateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
+const applyLimiter = createRateLimiter({ limit: isDemoMode() ? DEMO_LIMITS.applyPerHour : 5, windowMs: 60 * 60 * 1000 });
 
 const THANKS = "Thanks for applying. We'll be in touch.";
 

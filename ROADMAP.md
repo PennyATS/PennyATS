@@ -53,7 +53,7 @@ Builds on the privacy tools that already ship: notice and consent, export, perma
 
 The target user is often a founder or founding recruiter adopting their first ATS, without a terminal or a database background.
 
-- [#10](https://github.com/PennyATS/PennyATS/issues/10) Public demo with fictional data that resets automatically
+- [#10](https://github.com/PennyATS/PennyATS/issues/10) Public demo with fictional data that resets automatically. Demo mode and the scheduled reset are built and tested in CI ([docs/demo.md](docs/demo.md)); the demo is not hosted yet because that needs a hosting account.
 - [#131](https://github.com/PennyATS/PennyATS/issues/131) One-click deploy buttons for hosts that bundle a database, with generated secrets, persistent uploads, and a plain-language guide
 - [#132](https://github.com/PennyATS/PennyATS/issues/132) First-run setup wizard for email, calendar, and AI, with Test buttons and skippable steps
 

@@ -71,6 +71,52 @@ jobs:
         if: always()
         run: docker compose -f docker/docker-compose.yml down -v
 
+  demo:
+    name: Public demo smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      COMPOSE: docker compose -f docker/docker-compose.yml -f docker/docker-compose.demo.yml
+      DEMO_RESET_HOURS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start the demo
+        run: $COMPOSE up --build -d
+
+      - name: Wait for the first reset and check the banner and demo accounts
+        run: |
+          for attempt in {1..90}; do
+            if curl -fsS http://localhost:3000/login -o /tmp/login.html 2>/dev/null               && grep -q "Public demo with fictional data" /tmp/login.html               && grep -q "Demo accounts" /tmp/login.html; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Reset again
+        run: $COMPOSE run --rm --no-deps demo-reset pnpm demo:reset
+
+      - name: demo:reset refuses a database it did not create
+        run: |
+          $COMPOSE exec -T db psql -U pennyats -d pennyats -c "delete from settings where key = 'demo_instance'"
+          if $COMPOSE run --rm --no-deps demo-reset pnpm demo:reset; then exit 1; fi
+
+      - name: db:seed refuses a database set up through /setup
+        run: |
+          $COMPOSE exec -T db psql -U pennyats -d pennyats -c "update users set email = 'owner@acme.test' where email = 'admin@example.com'"
+          if $COMPOSE run --rm --no-deps demo-reset pnpm db:seed; then exit 1; fi
+
+      - name: Show container status on failure
+        if: failure()
+        run: |
+          $COMPOSE ps
+          $COMPOSE logs --no-color
+
+      - name: Stop containers
+        if: always()
+        run: $COMPOSE down -v
+
   integration:
     name: Browser and database integration
     runs-on: ubuntu-latest

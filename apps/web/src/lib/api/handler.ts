@@ -8,6 +8,7 @@ import type { z } from "zod";
 import type { SessionUser } from "../auth";
 import { db } from "../db";
 import { createRateLimiter } from "../rate-limit";
+import { DEMO_LIMITS, isDemoMode } from "../demo";
 import { bearerToken, keyLabel, lookupApiKey, type ApiKeyRecord } from "./keys";
 import type { ApiRoute } from "./routes";
 import { checkAccess } from "./scopes";
@@ -57,7 +58,9 @@ export function errorResponse(code: ErrorCode, message: string, details?: unknow
   );
 }
 
-const perMinute = Math.max(1, Number(process.env.API_RATE_LIMIT_PER_MINUTE) || 300);
+const perMinute = isDemoMode()
+  ? DEMO_LIMITS.apiPerMinute
+  : Math.max(1, Number(process.env.API_RATE_LIMIT_PER_MINUTE) || 300);
 const allowKey = createRateLimiter({ limit: perMinute, windowMs: 60_000 });
 // Failed key lookups by IP, so guessing can't be used to hammer the database.
 const allowBadAuth = createRateLimiter({ limit: 30, windowMs: 60_000 });

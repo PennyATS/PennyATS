@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { apiKeys, users, webhooks } from "@pennyats/db";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DEMO_BLOCKED, isDemoMode } from "@/lib/demo";
 import { generateApiKey, keyLabel } from "@/lib/api/keys";
 import { normalizeScopes, scopesForRole } from "@/lib/api/scopes";
 import { isRole, canManageUsers } from "@/lib/permissions";
@@ -72,6 +73,8 @@ export async function revokeApiKeyAction(keyId: string): Promise<void> {
 /** Add a webhook endpoint. Its signing secret is shown once. */
 export async function createWebhookAction(_: SecretState, form: FormData): Promise<SecretState> {
   const admin = await requireUser(canManageUsers);
+  // The demo makes no outbound requests.
+  if (isDemoMode()) return { error: DEMO_BLOCKED };
   const url = field(form, "url", 2000);
   if (!url || !isHttpUrl(url)) return { error: "Enter an http or https URL." };
   if (process.env.NODE_ENV === "production" && !url.startsWith("https://") && !/^http:\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(url)) {

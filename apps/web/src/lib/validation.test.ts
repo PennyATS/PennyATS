@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkResume, isEmail, isUuid, normalizeEmail, parseCandidate, slugify } from "./validation";
+import { checkResume, isEmail, resumeMaxBytes, resumeSizeLabel, isUuid, normalizeEmail, parseCandidate, slugify } from "./validation";
 
 function form(fields: Record<string, string>) {
   const f = new FormData();
@@ -50,6 +50,13 @@ test("checkResume enforces type and size", () => {
   assert.match(checkResume("resume.exe", 1000) ?? "", /must be one of/);
   assert.match(checkResume("resume.pdf", 6 * 1024 * 1024) ?? "", /5 MB/);
   assert.match(checkResume("resume.pdf", 0) ?? "", /empty/);
+});
+
+test("the public demo caps uploads at 512 KB", () => {
+  assert.equal(resumeMaxBytes({ DEMO_MODE: "true" }), 512 * 1024);
+  assert.equal(resumeMaxBytes({}), 5 * 1024 * 1024);
+  assert.equal(resumeSizeLabel(512 * 1024), "512 KB");
+  assert.match(checkResume("resume.pdf", 600 * 1024, resumeMaxBytes({ DEMO_MODE: "true" })) ?? "", /512 KB/);
 });
 
 test("isUuid guards route params", () => {

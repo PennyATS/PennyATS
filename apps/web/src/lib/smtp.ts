@@ -1,9 +1,12 @@
 import nodemailer from "nodemailer";
+import { isDemoMode } from "./demo";
 import { isEmail } from "./validation";
 
 export type OutboundMessage = { to: string; subject: string; text: string; html?: string; messageId?: string };
 
 export function smtpConfigured(): boolean {
+  // The public demo never sends email; attempts are recorded as skipped.
+  if (isDemoMode()) return false;
   const port = Number(process.env.SMTP_PORT ?? 587);
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM && isEmail(process.env.SMTP_FROM) &&
     Number.isInteger(port) && port > 0 && port <= 65535 &&
