@@ -64,13 +64,17 @@ export default async function CareerJobPage({ params }: { params: Promise<{ slug
       )}
       {job.description && <div className="mt-6 whitespace-pre-wrap text-sm leading-6">{job.description}</div>}
 
-      <h2 className="mb-3 mt-10 text-lg font-semibold">Apply</h2>
-      <ApplyForm
-        action={applyAction.bind(null, job.id)}
-        notice={{ text: privacy.noticeText, url: privacy.noticeUrl, requireConsent: privacy.requireConsent }}
-        maxResume={resumeSizeLabel()}
-        jobId={job.id}
-      />
+      <section className="mt-10" aria-labelledby="apply-heading">
+        <h2 id="apply-heading" className="mb-3 text-lg font-semibold">
+          Apply
+        </h2>
+        <ApplyForm
+          action={applyAction.bind(null, job.id)}
+          notice={{ text: privacy.noticeText, url: privacy.noticeUrl, requireConsent: privacy.requireConsent }}
+          maxResume={resumeSizeLabel()}
+          jobId={job.id}
+        />
+      </section>
     </>
   );
 }

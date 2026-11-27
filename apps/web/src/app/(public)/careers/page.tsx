@@ -23,13 +23,16 @@ export default async function CareersPage() {
       ) : (
         <ul className="mt-6 space-y-3">
           {open.map((job) => (
-            <li key={job.slug} className="card">
-              <Link href={`/careers/${job.slug}`} className="font-medium hover:underline">
-                {job.title}
+            <li key={job.slug}>
+              <Link
+                href={`/careers/${job.slug}`}
+                className="card block min-h-14 space-y-1 hover:border-[color:var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--accent)]"
+              >
+                <span className="font-medium">{job.title}</span>
+                <span className="muted block text-sm">
+                  {[job.department, job.location].filter(Boolean).join(" · ")}
+                </span>
               </Link>
-              <div className="muted text-sm">
-                {[job.department, job.location].filter(Boolean).join(" · ")}
-              </div>
             </li>
           ))}
         </ul>

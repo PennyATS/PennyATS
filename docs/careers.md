@@ -74,6 +74,10 @@ You can iframe `/careers` or a job page from the company site. Prefer reverse pr
 
 Each public job page records anonymous counts: **views** (page load), **starts** (first focus on the apply form), and **submits** (successful application). No candidate details are stored. Admins and recruiters see the funnel on **Reports** (table `apply`, also available through the API and MCP).
 
+## Mobile and accessibility
+
+The public careers layout is mobile-first: full-width job cards, 16px inputs (so iOS does not zoom on focus), at least 44px-tall controls, a skip link into the main content, labeled fields with a required-field hint, fieldsets for details and resume, and a focused error alert when validation fails. Playwright covers phone and desktop apply flows in `apps/web/tests/integration/zz-careers-apply.spec.ts`. For a WCAG 2.2 AA pass on a deployment, run [axe DevTools](https://www.deque.com/axe/devtools/) or [WAVE](https://wave.webaim.org/) against `/careers` and a job apply page after you set company branding and a privacy notice.
+
 ## Checklist
 
 1. Set `APP_URL` to the public `https://` origin candidates will use.
@@ -81,3 +85,4 @@ Each public job page records anonymous counts: **views** (page load), **starts**
 3. Validate JobPosting JSON-LD with the Rich Results Test.
 4. Confirm the apply form posts successfully (resume size limits still apply; see the form help text).
 5. After a few test applies, confirm **Reports → Careers apply funnel** shows views, starts, and submits.
+6. Spot-check the apply form on a phone and with a keyboard (Tab order, skip link, error focus).
