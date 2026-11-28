@@ -27,7 +27,8 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   workers: 1,
-  reporter: process.env.CI ? "github" : "list",
+  // CI also writes JUnit so the security suite's results can be published (#121).
+  reporter: process.env.CI ? [["github"], ["junit", { outputFile: "test-results/junit.xml" }]] : "list",
   use: {
     ...devices["Desktop Chrome"],
     baseURL,

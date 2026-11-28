@@ -257,6 +257,20 @@ jobs:
       - name: Run browser and database flow
         run: pnpm test:integration
 
+      - name: Publish security test results
+        if: always()
+        run: node scripts/security-summary.mjs
+
+      - name: Upload security test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-test-results
+          path: |
+            security-test-results.md
+            apps/web/test-results/junit.xml
+          if-no-files-found: ignore
+
       - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

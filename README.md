@@ -163,6 +163,8 @@ docker           Production Dockerfile and Docker Compose
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions. To report a security problem privately, see [SECURITY.md](SECURITY.md).
 
+The [threat model](docs/threat-model.md) lists what PennyATS protects and how, with each threat traced to code and a test. The security test suite runs in CI on every change; the latest results are in the **Security test results** summary of the most recent [CI run on main](https://github.com/PennyATS/PennyATS/actions/workflows/ci.yml?query=branch%3Amain). Database row-level security is described in [docs/rls.md](docs/rls.md).
+
 ## Roadmap
 
 PennyATS is an early preview. The core applicant-tracking flow is built: accounts and roles, jobs, a careers page, applications, candidate review, pipeline stages, interview loops, scorecards, scheduling, email templates, privacy tools, reports and dashboards, and opt-in AI. The [GitHub project board](https://github.com/orgs/PennyATS/projects/1) is the source of truth for live status; the groups below explain the direction without promising a release date.

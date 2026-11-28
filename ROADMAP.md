@@ -36,7 +36,7 @@ Added:
 - [#119](https://github.com/PennyATS/PennyATS/issues/119) Postgres row-level security as defense in depth. **Shipped**: see [docs/rls.md](docs/rls.md); the integration suite runs the whole app as the restricted role.
 - [#118](https://github.com/PennyATS/PennyATS/issues/118) Encryption at rest and field-level encryption for sensitive data
 - [#120](https://github.com/PennyATS/PennyATS/issues/120) Signed releases, SBOM, provenance, and supply-chain scanning in CI. **Shipped**: see [SECURITY.md](SECURITY.md#verifying-a-release).
-- [#121](https://github.com/PennyATS/PennyATS/issues/121) Published threat model and security test results
+- [#121](https://github.com/PennyATS/PennyATS/issues/121) Published threat model and security test results. **Shipped**: see [docs/threat-model.md](docs/threat-model.md); results are published by CI. Encryption at rest ([#118](https://github.com/PennyATS/PennyATS/issues/118)) is listed there as planned.
 
 ## 3. Compliance
 
