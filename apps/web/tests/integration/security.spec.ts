@@ -143,8 +143,8 @@ test("T9 the public apply form ignores bots that fill the hidden field", async (
   const [job] = await db.select({ slug: jobs.slug }).from(jobs).where(and(eq(jobs.status, "open"), eq(jobs.confidential, false))).limit(1);
   const email = `bot-${randomUUID().slice(0, 8)}@example.com`;
   await page.goto(`/careers/${job.slug}`);
-  await page.getByLabel("Full name").fill("Spam Bot");
-  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.locator('input[name="fullName"]').fill("Spam Bot");
+  await page.locator('input[name="email"]').fill(email);
   await page.evaluate(() => {
     const input = document.querySelector<HTMLInputElement>('input[name="website"]');
     if (input) input.value = "http://spam.example";
